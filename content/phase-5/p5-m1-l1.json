@@ -1,0 +1,130 @@
+{
+  "id": "p5-m1-l1",
+  "phase": 5,
+  "modul": "5.1 Continuous Integration und Deployment",
+  "titel": "Was Continuous Integration wirklich bedeutet",
+  "lernziele": [
+    "CI als Arbeitsweise erklären, nicht nur als Werkzeug",
+    "Die Praktiken nennen, die CI ausmachen",
+    "Erklären, warum zwei grüne Pull Requests zusammen einen roten Build ergeben können"
+  ],
+  "dauerMinuten": 5,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Ein Team arbeitet je drei Wochen auf eigenen Feature-Branches. Das Zusammenführen dauert danach jedes Mal mehrere Tage. Welche Beschreibung trifft **Continuous Integration**?",
+      "optionen": [
+        "Alle integrieren kleine Änderungen mindestens täglich in den Hauptzweig, und jede Integration wird automatisch gebaut und getestet",
+        "Ein Jenkins-Server baut jede Nacht alle Feature-Branches",
+        "Am Ende jedes Sprints werden alle Branches zusammengeführt und getestet"
+      ],
+      "korrekt": 0,
+      "erklaerung": "CI ist zuerst eine **Arbeitsweise**: oft und in kleinen Schritten integrieren, damit Konflikte klein bleiben und sofort auffallen. Der CI-Server ist nur das Werkzeug, das jede Integration prüft. Wer einen Server hat, aber wochenlang getrennt arbeitet, macht kein CI.",
+      "begruendungen": [
+        "Richtig.",
+        "Damit baut man Branches, integriert aber nicht.",
+        "Das ist genau das Muster, das zu tagelangen Zusammenführungen führt."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Die Idee",
+      "text": "Je länger Code getrennt entwickelt wird, desto teurer wird das Zusammenführen: Konflikte häufen sich, und Fehler zeigen sich erst spät, wenn niemand mehr weiss, welche Änderung sie verursacht hat. **Continuous Integration** dreht das um:\n\n- kleine Änderungen, mindestens täglich in den Hauptzweig (*mainline*, *trunk*)\n- jede Änderung löst automatisch Build und Tests aus\n- ein roter Build hat Vorrang vor neuer Arbeit\n- schnelle Rückmeldung, idealerweise in unter zehn Minuten"
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Welche Praktiken gehören zu Continuous Integration?",
+      "optionen": [
+        "Kleine Änderungen mindestens täglich in den Hauptzweig integrieren",
+        "Jeder Commit löst automatisch Build und Tests aus",
+        "Ein roter Build wird sofort behoben, bevor neue Arbeit dazukommt",
+        "Langlebige Feature-Branches, die kurz vor dem Release zusammengeführt werden"
+      ],
+      "korrekt": [0, 1, 2],
+      "erklaerung": "Die ersten drei Punkte sind der Kern. Langlebige Branches sind das Gegenteil von CI. Unfertige Funktionen integriert man trotzdem, versteckt sie aber hinter einem **Feature Flag**, bis sie fertig sind.",
+      "begruendungen": [
+        "Richtig.",
+        "Richtig.",
+        "Richtig. Ein dauerhaft roter Build macht CI wertlos.",
+        "Das ist der Gegenentwurf zu CI."
+      ]
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Ordne die Begriffe zu.",
+      "paare": [
+        { "links": "Mainline / Trunk", "rechts": "Gemeinsamer Hauptzweig, aus dem released wird" },
+        { "links": "Roter Build", "rechts": "Der Hauptzweig baut nicht oder Tests schlagen fehl" },
+        { "links": "Feedback-Zeit", "rechts": "Dauer vom Push bis zum Ergebnis der Prüfungen" },
+        { "links": "Merge-Hölle", "rechts": "Integrationsprobleme nach langer getrennter Entwicklung" }
+      ],
+      "erklaerung": "Die Feedback-Zeit entscheidet, ob CI im Alltag funktioniert. Dauert die Pipeline zwei Stunden, wartet niemand auf das Ergebnis. Dann häufen sich Änderungen, und ein Fehler lässt sich nicht mehr einem Commit zuordnen."
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Grün einzeln, rot zusammen",
+      "text": "Pull Request A benennt das Member `timeout` in `zeitlimit` um. Pull Request B, gleichzeitig entstanden, verwendet `timeout` an einer neuen Stelle. Beide PRs werden für sich gegen den alten Stand von `main` geprüft: beide grün. Nach dem Mergen beider ist `main` rot.\n\nAbhilfe: Die CI prüft das **Ergebnis des Zusammenführens** und nicht nur den Branch, und eine **Merge Queue** führt PRs nacheinander zusammen und prüft jede Kombination, bevor sie auf `main` landet."
+    },
+    {
+      "typ": "terminal-deuten",
+      "frage": "Beide Pull Requests waren grün. Direkt nach dem Mergen des zweiten schlägt der Build auf `main` fehl. Was ist passiert?",
+      "terminal": {
+        "befehl": "cmake --build build",
+        "ausgabe": [
+          "[41/120] Building CXX object src/CMakeFiles/netz.dir/verbindung.cpp.o",
+          "FAILED: src/CMakeFiles/netz.dir/verbindung.cpp.o",
+          "src/verbindung.cpp:57:22: error: 'struct Konfig' has no member named 'timeout'",
+          "   57 |     auto t = konfig.timeout;",
+          "      |                     ^~~~~~~"
+        ]
+      },
+      "optionen": [
+        "Ein PR hat `timeout` umbenannt, der andere verwendet es neu. Jeder war für sich korrekt, zusammen nicht",
+        "Der CI-Server hat einen Fehler",
+        "Ein Entwickler hat ungetesteten Code gepusht"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Ein **semantischer Konflikt**: Git sieht keinen Textkonflikt, weil die Änderungen in verschiedenen Dateien liegen. Erst der Compiler bemerkt ihn. Je kürzer Branches leben, desto seltener passiert das. Merge Queues verhindern es ganz.",
+      "begruendungen": [
+        "Richtig.",
+        "Der Server hat korrekt gemeldet, was kaputt ist.",
+        "Beide PRs wurden getestet, nur nicht in Kombination."
+      ]
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Der Build auf `main` ist rot. Wer behebt ihn, und wann?",
+      "optionen": [
+        "Wer ihn verursacht hat, sofort, notfalls durch Zurücknehmen der Änderung (`git revert`)",
+        "Das QA-Team am Ende der Woche",
+        "Niemand gezielt, der nächste grüne Build löst das Problem"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Solange `main` rot ist, kann niemand sicher integrieren, und neue Fehler verstecken sich hinter dem alten. Die Regel „rot hat Vorrang“ ist eine Team-Vereinbarung. Ein schneller `revert` ist keine Niederlage, sondern gute Praxis: erst wieder grün, dann in Ruhe reparieren.",
+      "begruendungen": [
+        "Richtig.",
+        "Eine Woche mit rotem Hauptzweig blockiert das ganze Team.",
+        "Ein Build wird nicht von selbst grün."
+      ]
+    }
+  ],
+  "praxis": "Wenn du in ein Team kommst, schau dir an: Wie lange leben Branches? Wie lange dauert die Pipeline? Wie oft ist `main` rot, und wie schnell wird es wieder grün? Diese drei Zahlen sagen mehr über die Qualität der Zusammenarbeit als jedes Werkzeug. Als Senior kannst du hier viel bewegen, z. B. mit kleineren PRs, schnelleren Pipelines und einer Merge Queue.",
+  "labor": {
+    "titel": "Einen semantischen Konflikt nachstellen",
+    "anleitung": "Lege in einem Test-Repository zwei Branches an: Einer benennt eine Funktion um, der andere ruft sie an einer neuen Stelle auf. Merge beide nacheinander in `main`.",
+    "befehle": [
+      "git switch -c umbenennen && git commit -am 'Benenne timeout in zeitlimit um'",
+      "git switch main && git switch -c neuer-aufruf && git commit -am 'Nutze timeout im Verbindungsaufbau'",
+      "git switch main && git merge umbenennen && git merge neuer-aufruf && cmake --build build"
+    ],
+    "beobachtung": "Git meldet keinen Konflikt, beide Merges gelingen. Erst der Build schlägt fehl."
+  },
+  "begriffe": [
+    { "begriff": "Continuous Integration", "englisch": "continuous integration, CI", "erklaerung": "Arbeitsweise, bei der alle häufig in den Hauptzweig integrieren und jede Integration automatisch geprüft wird." },
+    { "begriff": "Merge Queue", "englisch": "merge queue", "erklaerung": "Warteschlange, die Pull Requests nacheinander zusammenführt und jede Kombination vor dem Mergen prüft." },
+    { "begriff": "Feature Flag", "englisch": "feature flag, feature toggle", "erklaerung": "Schalter, mit dem unfertiger Code integriert, aber noch nicht aktiviert werden kann." }
+  ],
+  "weiterlesen": [
+    { "titel": "Martin Fowler: Continuous Integration", "url": "https://martinfowler.com/articles/continuousIntegration.html" }
+  ]
+}

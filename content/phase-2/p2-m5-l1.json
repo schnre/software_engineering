@@ -1,0 +1,189 @@
+{
+  "id": "p2-m5-l1",
+  "phase": 2,
+  "modul": "2.5 Templates, inline und constexpr im Binary",
+  "titel": "Template-Instanziierung",
+  "lernziele": [
+    "Erklären, warum Templates in Header gehören",
+    "Vorhersagen, welche Instanzen ein Template im Binary erzeugt",
+    "Templates mit Concepts einschränken"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "terminal-deuten",
+      "frage": "`maximum` ist in `maximum.h` deklariert und in `maximum.cpp` als Template definiert. `main.cpp` ruft `maximum(1, 2)` auf. Warum schlägt der Link fehl?",
+      "terminal": {
+        "befehl": "g++ main.cpp maximum.cpp -o app",
+        "ausgabe": [
+          "/usr/bin/ld: /tmp/ccA1b2c3.o: in function `main':",
+          "main.cpp:(.text+0x13): undefined reference to `int maximum<int>(int, int)'",
+          "collect2: error: ld returned 1 exit status"
+        ]
+      },
+      "optionen": [
+        "In `maximum.cpp` wurde `maximum<int>` nie gebraucht und deshalb auch nie erzeugt. `main.cpp` sieht die Definition nicht",
+        "Templates lassen sich grundsätzlich nicht linken",
+        "Es fehlt `inline` vor der Deklaration in `maximum.h`"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Ein Template ist ein Bauplan, kein Code. Code entsteht erst bei der **Instanziierung** mit konkreten Typen, und zwar in der Übersetzungseinheit, die das Template benutzt. `main.cpp` braucht `maximum<int>`, sieht aber nur die Deklaration. `maximum.cpp` sieht die Definition, braucht aber kein `maximum<int>`. So entsteht die Instanz nirgends.",
+      "begruendungen": [
+        "Richtig. Deshalb stehen Template-Definitionen in Headern.",
+        "Instanzen sind normale Funktionen und werden normal gelinkt.",
+        "`inline` allein löst das Problem nicht, die Definition muss sichtbar sein."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Instanziierung",
+      "text": "Benutzt eine Übersetzungseinheit `maximum<int>`, erzeugt der Compiler dort Code für genau diese Instanz. Benutzen zehn `.cpp`-Dateien `maximum<int>`, entsteht die Instanz zehnmal. Der Linker behält eine davon, denn Instanzen sind wie `inline`-Funktionen als *weak* markiert.\n\nFolgen:\n- Template-Definitionen müssen im Header stehen (oder man instanziiert ausdrücklich, siehe unten).\n- Jede neue Typkombination erzeugt neuen Code. Das ist schnell, kann das Binary aber aufblähen (*code bloat*).\n- Alles wird in jeder Übersetzungseinheit neu kompiliert, das kostet Kompilierzeit."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Wie viele verschiedene Instanzen von `maximum` entstehen?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "template <typename T>",
+          "T maximum(T a, T b) { return a > b ? a : b; }",
+          "",
+          "int main() {",
+          "    maximum(1, 2);",
+          "    maximum(3, 4);",
+          "    maximum(1.5, 2.5);",
+          "    maximum<long>(1, 2);",
+          "}"
+        ]
+      },
+      "optionen": ["1", "3", "4"],
+      "korrekt": 1,
+      "fest": true,
+      "erklaerung": "`maximum<int>` (zweimal benutzt, einmal erzeugt), `maximum<double>` und `maximum<long>`. Es zählen die Typen, nicht die Aufrufe. Mit `-O2` werden so kleine Funktionen allerdings meist inlined und tauchen im Binary gar nicht als eigene Funktion auf.",
+      "begruendungen": [
+        "Für jeden Typ entsteht eine eigene Instanz.",
+        "Richtig: int, double, long.",
+        "Die beiden `int`-Aufrufe teilen sich eine Instanz."
+      ]
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Mit einer **expliziten Instanziierung** in `maximum.cpp` lässt sich die Definition doch in der `.cpp`-Datei behalten. Ergänze.",
+      "code": {
+        "sprache": "cpp",
+        "datei": "maximum.cpp",
+        "zeilen": [
+          "template <typename T>",
+          "T maximum(T a, T b) { return a > b ? a : b; }",
+          "",
+          "{{?}} int maximum<int>(int, int);",
+          "{{?}} double maximum<double>(double, double);"
+        ]
+      },
+      "luecken": [{ "loesungen": ["template"] }, { "loesungen": ["template"] }],
+      "auswahl": ["template", "template", "extern", "typename"],
+      "erklaerung": "`template int maximum<int>(int, int);` zwingt den Compiler, diese Instanz hier zu erzeugen. Dann reicht in `main.cpp` die Deklaration. Der Preis: Nur diese Typen funktionieren. Umgekehrt verhindert `extern template int maximum<int>(int, int);` in anderen Dateien, dass die Instanz dort nochmals erzeugt wird. Das spart Kompilierzeit."
+    },
+    {
+      "typ": "terminal-deuten",
+      "frage": "Was bedeutet das `W` bei der Template-Instanz?",
+      "terminal": {
+        "befehl": "nm -C main.o | grep maximum",
+        "ausgabe": [
+          "0000000000000000 W int maximum<int>(int, int)",
+          "0000000000000000 W double maximum<double>(double, double)"
+        ]
+      },
+      "optionen": [
+        "Weak: Mehrere Object-Files dürfen das Symbol haben, der Linker behält eines",
+        "Warnung: Die Instanz ist fehlerhaft",
+        "Write: Das Symbol liegt in beschreibbarem Speicher"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Template-Instanzen und `inline`-Funktionen sind **schwache Symbole** in eigenen Sektionen (COMDAT). Dadurch verstossen mehrfache Instanzen nicht gegen die ODR. Voraussetzung ist, dass alle identisch sind. Unterscheiden sie sich, z. B. durch verschiedene `#define` vor dem Include, wählt der Linker still eine aus.",
+      "begruendungen": [
+        "Richtig.",
+        "`nm` zeigt keine Warnungen an.",
+        "Beschreibbare Daten wären `D` oder `B`."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Concepts: Templates einschränken",
+      "text": "Ohne Einschränkung akzeptiert ein Template jeden Typ, und Fehler zeigen sich tief im Inneren mit seitenlangen Meldungen. Seit C++20 beschreiben **Concepts**, was ein Typ können muss. Fehler erscheinen dann direkt beim Aufruf.",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "#include <concepts>",
+          "",
+          "template <std::integral T>",
+          "T halbiere(T x) { return x / 2; }"
+        ],
+        "anmerkungen": [
+          { "zeile": 3, "text": "Nur ganzzahlige Typen sind erlaubt: `int`, `long`, `char` … aber nicht `double`." }
+        ]
+      }
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Was passiert bei `halbiere(3.5)` mit dem Template von oben?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "template <std::integral T>",
+          "T halbiere(T x) { return x / 2; }",
+          "",
+          "auto r = halbiere(3.5);"
+        ]
+      },
+      "optionen": [
+        "Compilerfehler beim Aufruf: Die Bedingung `std::integral<double>` ist nicht erfüllt",
+        "`r` ist `1.75`",
+        "`r` ist `1`, weil zu `int` umgewandelt wird"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Der Compiler leitet `T = double` ab und prüft dann das Concept. Die Meldung lautet sinngemäss *constraints not satisfied … the expression `is_integral_v<T>` evaluated to false*. Das ist kurz und zeigt genau den Aufruf, der falsch ist.",
+      "begruendungen": [
+        "Richtig.",
+        "Ohne Concept wäre das so.",
+        "Eine Umwandlung findet nicht statt, `T` wird aus dem Argument abgeleitet."
+      ]
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Warum verlängern Templates in grossen Projekten die Kompilierzeit so stark?",
+      "optionen": [
+        "Jede Übersetzungseinheit parst die Header-Definitionen und instanziiert und optimiert die benutzten Templates erneut",
+        "Templates werden zur Laufzeit kompiliert",
+        "Der Linker muss Templates neu übersetzen"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Bei 2000 `.cpp`-Dateien, die alle `<vector>` und eigene Template-Header einbinden, wird dieselbe Arbeit tausendfach gemacht. Gegenmittel: Header schlank halten, `extern template` für häufige Instanzen, vorkompilierte Header und C++20-Module, die Schnittstellen nur einmal übersetzen.",
+      "begruendungen": [
+        "Richtig.",
+        "Templates sind ein reines Kompilierzeit-Konzept.",
+        "Der Linker wählt nur unter fertigen Instanzen aus."
+      ]
+    }
+  ],
+  "praxis": "Typische Alltagssituationen: ein `undefined reference` auf eine Template-Instanz (Definition steht in der `.cpp`), seitenlange Fehlermeldungen aus der Standardbibliothek (die erste Zeile mit *required from here* in deinem eigenen Code ist meist die relevante) und Builds, die mit jedem neuen Template-Header langsamer werden. Mit `-ftime-trace` (Clang) siehst du, welche Header und Instanziierungen die Zeit fressen.",
+  "labor": {
+    "titel": "Instanzen zählen",
+    "anleitung": "Baue das Beispiel mit `maximum` und sieh dir die Instanzen an. Vergleiche `-O0` und `-O2`.",
+    "befehle": [
+      "g++ -O0 -c maximum_main.cpp && nm -C maximum_main.o | grep maximum",
+      "g++ -O2 -c maximum_main.cpp && nm -C maximum_main.o | grep maximum",
+      "clang++ -ftime-trace -c gross.cpp  # erzeugt gross.json für chrome://tracing"
+    ],
+    "beobachtung": "Mit `-O0` siehst du drei `W`-Symbole, mit `-O2` oft keines mehr, weil alle Aufrufe inlined und die Ergebnisse sogar vorab berechnet wurden."
+  },
+  "begriffe": [
+    { "begriff": "Instanziierung", "englisch": "template instantiation", "erklaerung": "Der Compiler erzeugt aus einem Template Code für konkrete Typen." },
+    { "begriff": "Concept", "englisch": "concept", "erklaerung": "Seit C++20: benannte Bedingung an Template-Parameter, z. B. `std::integral`." },
+    { "begriff": "Schwaches Symbol", "englisch": "weak symbol", "erklaerung": "Symbol, das mehrfach vorkommen darf. Der Linker behält eines (`W` in `nm`)." }
+  ],
+  "weiterlesen": [
+    { "titel": "cppreference: Template instantiation", "url": "https://en.cppreference.com/w/cpp/language/function_template#Function_template_instantiation" },
+    { "titel": "cppreference: Constraints and concepts", "url": "https://en.cppreference.com/w/cpp/language/constraints" }
+  ]
+}

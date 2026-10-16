@@ -1,0 +1,145 @@
+{
+  "id": "p6-m3-l3",
+  "phase": 6,
+  "modul": "6.3 Abhängigkeiten managen",
+  "titel": "Externe Bibliotheken: Conan, vcpkg und Co.",
+  "lernziele": [
+    "Wege vergleichen, externe Bibliotheken einzubinden",
+    "Einen Paketmanager mit CMake verwenden",
+    "Eine neue Abhängigkeit kritisch bewerten"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Was ist der wichtigste Vorteil eines Paketmanagers wie vcpkg oder Conan gegenüber Quellcode, den man ins eigene Repository kopiert hat?",
+      "optionen": [
+        "Versionen sind ausdrücklich festgelegt, Updates und mitgebrachte Abhängigkeiten werden verwaltet, und Binärpakete lassen sich zwischenspeichern",
+        "Der Code wird automatisch schneller",
+        "Man muss die Lizenzen der Bibliotheken nicht mehr beachten"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Kopierter Code (*Vendoring*) veraltet still: Niemand weiss mehr, welche Version es ist und ob Sicherheitsfixes fehlen. Ein Paketmanager macht die Version sichtbar, löst die Abhängigkeiten der Abhängigkeiten auf und kann vorgebaute Pakete wiederverwenden.",
+      "begruendungen": [
+        "Richtig.",
+        "Der Code ist derselbe.",
+        "Lizenzen gelten immer, egal wie man die Bibliothek bekommt."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Vier Wege",
+      "tabelle": {
+        "kopf": ["Weg", "Funktionsweise", "geeignet für"],
+        "zeilen": [
+          ["**vcpkg**", "Manifest `vcpkg.json`, Einbindung über eine CMake-Toolchain-Datei, Versionen über eine *baseline*", "CMake-Projekte, Windows und plattformübergreifend"],
+          ["**Conan**", "`conanfile`, Profile für Compiler und Plattform, Binärpakete, Lockfiles", "viele Plattformen und Cross-Builds, eigene Paketserver"],
+          ["**FetchContent**", "In CMake eingebaut, lädt Quellcode beim Konfigurieren und baut ihn mit", "wenige, kleine Abhängigkeiten"],
+          ["**Vendoring**", "Quellcode liegt kopiert im eigenen Repository", "stark angepasste oder sehr kleine Bibliotheken"]
+        ]
+      },
+      "text": "Systempakete der Linux-Distribution (`apt install libfmt-dev`) sind eine fünfte Möglichkeit. Dann bestimmt aber die Distribution die Version."
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "vcpkg im Projekt",
+      "code": {
+        "sprache": "json",
+        "datei": "vcpkg.json",
+        "zeilen": [
+          "{",
+          "  \"name\": \"sensor-app\",",
+          "  \"version\": \"1.0.0\",",
+          "  \"dependencies\": [\"fmt\", \"spdlog\", \"gtest\"],",
+          "  \"builtin-baseline\": \"<Commit-Hash des vcpkg-Repositorys>\"",
+          "}"
+        ],
+        "anmerkungen": [
+          { "zeile": 4, "text": "Die direkten Abhängigkeiten. Was diese wiederum brauchen, löst vcpkg selbst auf." },
+          { "zeile": 5, "text": "Legt fest, welche Versionen gelten. Ohne baseline wäre der Build nicht reproduzierbar." }
+        ]
+      },
+      "text": "In CMake sucht man die Pakete wie gewohnt mit `find_package` und verlinkt die Targets, z. B. `fmt::fmt`."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Ordne zu.",
+      "paare": [
+        { "links": "vcpkg-Manifest", "rechts": "Abhängigkeiten pro Projekt, eingebunden über eine CMake-Toolchain-Datei" },
+        { "links": "Conan mit Lockfile", "rechts": "Exakte Versionen und vorgebaute Binärpakete pro Profil" },
+        { "links": "FetchContent", "rechts": "In CMake eingebaut, lädt und baut Quellen beim Konfigurieren" },
+        { "links": "Vendoring", "rechts": "Quellcode liegt kopiert im eigenen Repository" }
+      ],
+      "erklaerung": "Bei Cross-Kompilierung (Modul 1.5) braucht man Pakete für die Zielplattform. Conan-Profile und vcpkg-Triplets beschreiben genau das, ähnlich einer CMake-Toolchain-Datei."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Warum gehört eine `builtin-baseline` bzw. ein Lockfile ins Repository?",
+      "optionen": [
+        "Damit jeder Build dieselben Versionen verwendet, heute wie in einem Jahr, lokal wie in der CI",
+        "Damit der Paketmanager schneller herunterlädt",
+        "Weil der Paketmanager sonst nicht startet"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Ohne feste Versionen kann derselbe Commit morgen mit einer neueren Bibliotheksversion bauen und sich anders verhalten. Das ist das Prinzip der reproduzierbaren Builds aus Modul 1.6. Updates passieren dann bewusst, in einem eigenen Pull Request, der die Tests durchläuft.",
+      "begruendungen": [
+        "Richtig.",
+        "Die Geschwindigkeit bleibt gleich.",
+        "Die Paketmanager starten auch ohne, sind dann aber nicht reproduzierbar."
+      ]
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Ein Kollege schlägt eine neue Bibliothek vor. Welche Fragen solltest du stellen?",
+      "optionen": [
+        "Ist die Lizenz mit unserem Produkt vereinbar?",
+        "Wird das Projekt aktiv gepflegt, und werden Sicherheitslücken behoben?",
+        "Wie viele weitere Abhängigkeiten bringt sie mit, und wie gross ist sie?",
+        "Hat das GitHub-Repository mehr als 1000 Sterne?"
+      ],
+      "korrekt": [0, 1, 2],
+      "erklaerung": "Jede Abhängigkeit ist eine langfristige Verpflichtung: Updates, Sicherheitslücken, Lizenzpflichten, Kompilierzeit. Besonders die Lizenz ist kritisch: Eine GPL-Bibliothek kann verlangen, dass das ganze Produkt unter GPL gestellt wird. Beliebtheit ist dagegen nur ein schwaches Signal.",
+      "begruendungen": [
+        "Richtig. Das ist entscheidend für kommerzielle Produkte.",
+        "Richtig. Unbetreute Bibliotheken werden zum Sicherheitsrisiko.",
+        "Richtig. Eine kleine Bibliothek mit 40 Abhängigkeiten ist eine grosse Abhängigkeit.",
+        "Sterne sagen wenig über Qualität, Pflege oder Lizenz aus."
+      ]
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze: CMake soll vcpkg verwenden, und `fmt` muss gefunden werden, sonst bricht die Konfiguration ab.",
+      "code": {
+        "sprache": "bash",
+        "zeilen": [
+          "cmake -S . -B build -DCMAKE_{{?}}=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake",
+          "# in CMakeLists.txt:",
+          "# find_package(fmt CONFIG {{?}})"
+        ]
+      },
+      "luecken": [{ "loesungen": ["TOOLCHAIN_FILE"] }, { "loesungen": ["REQUIRED"] }],
+      "auswahl": ["TOOLCHAIN_FILE", "REQUIRED", "PREFIX_PATH", "OPTIONAL"],
+      "erklaerung": "vcpkg klinkt sich über eine Toolchain-Datei ein, denselben Mechanismus wie beim Cross-Kompilieren. Mit Manifest installiert es beim Konfigurieren automatisch die Pakete aus `vcpkg.json`. `REQUIRED` sorgt dafür, dass ein fehlendes Paket sofort auffällt statt erst beim Linken."
+    }
+  ],
+  "praxis": "Abhängigkeiten zu verwalten, ist eine Daueraufgabe: Versionen aktuell halten (z. B. mit Renovate oder Dependabot), auf Sicherheitsmeldungen reagieren, Lizenzen prüfen, eine SBOM erzeugen. Als Senior wirst du oft gefragt, ob eine neue Bibliothek „rein darf“. Die Fragen aus dieser Lektion sind eine gute Checkliste dafür, und die Antwort gehört in ein kurzes ADR.",
+  "labor": {
+    "titel": "Ein Projekt mit vcpkg",
+    "anleitung": "Lege ein CMake-Projekt mit `vcpkg.json` an, das `fmt` verwendet, und baue es.",
+    "befehle": [
+      "git clone https://github.com/microsoft/vcpkg && ./vcpkg/bootstrap-vcpkg.sh",
+      "export VCPKG_ROOT=$PWD/vcpkg && cd meinprojekt && $VCPKG_ROOT/vcpkg x-update-baseline --add-initial-baseline",
+      "cmake -S . -B build -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake && cmake --build build"
+    ],
+    "beobachtung": "Beim ersten Konfigurieren baut vcpkg `fmt` aus den Quellen. Beim zweiten Mal kommt es aus dem Binärcache und ist sofort da."
+  },
+  "begriffe": [
+    { "begriff": "Paketmanager", "englisch": "package manager", "erklaerung": "Werkzeug, das externe Bibliotheken in festen Versionen bereitstellt, z. B. vcpkg oder Conan." },
+    { "begriff": "Vendoring", "englisch": "vendoring", "erklaerung": "Den Quellcode einer Abhängigkeit ins eigene Repository kopieren." },
+    { "begriff": "Transitive Abhängigkeit", "englisch": "transitive dependency", "erklaerung": "Abhängigkeit einer Abhängigkeit, die man indirekt mitbekommt." }
+  ],
+  "weiterlesen": [
+    { "titel": "vcpkg: Manifest mode", "url": "https://learn.microsoft.com/en-us/vcpkg/concepts/manifest-mode" },
+    { "titel": "Conan 2 Documentation", "url": "https://docs.conan.io/2/" }
+  ]
+}

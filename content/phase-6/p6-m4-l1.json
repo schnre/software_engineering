@@ -1,0 +1,129 @@
+{
+  "id": "p6-m4-l1",
+  "phase": 6,
+  "modul": "6.4 Code-Reviews",
+  "titel": "Worauf man bei Struktur achtet",
+  "lernziele": [
+    "Ein Review nach Prioritäten gliedern",
+    "Architekturprobleme in einem Pull Request erkennen",
+    "Bei Schnittstellenänderungen die richtigen Fragen stellen"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Worauf sollte sich ein Code-Review vor allem konzentrieren?",
+      "optionen": [
+        "Ob das richtige Problem korrekt gelöst ist und ob Struktur, Schnittstellen und Tests stimmen",
+        "Ob Einrückung, Klammern und Leerzeilen dem Stil entsprechen",
+        "Ob der Autor genau so vorgegangen ist, wie man es selbst getan hätte"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Formatfragen erledigen Werkzeuge (Modul 3.5). Die wertvolle Arbeit eines Menschen im Review ist das, was Werkzeuge nicht können: Verstehen, ob die Lösung fachlich stimmt, an die richtige Stelle gehört und langfristig wartbar ist.",
+      "begruendungen": [
+        "Richtig.",
+        "Das sollte clang-format automatisch prüfen.",
+        "Es gibt oft mehrere gute Lösungen. „Anders als ich“ ist kein Fehler."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Eine Reihenfolge fürs Review",
+      "text": "1. **Problem**: Löst der Pull Request das richtige Problem? Ist klar, warum?\n2. **Platz**: Gehört der Code an diese Stelle, in dieses Modul, in diese Schicht?\n3. **Schnittstellen und Abhängigkeiten**: Neue Abhängigkeiten in die richtige Richtung? Öffentliche Header geändert? API/ABI betroffen?\n4. **Korrektheit**: Ownership, Lebenszeiten, Fehlerbehandlung, Thread-Sicherheit, Grenzfälle.\n5. **Tests**: Wird das neue Verhalten geprüft, auch Fehlerfälle?\n6. **Lesbarkeit**: Namen, Länge, Kommentare zum Warum.\n\nWer oben ein grundlegendes Problem findet, braucht unten nicht ins Detail zu gehen."
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "In einem Pull Request für den CAN-Treiber taucht diese Datei auf. Welche Zeile solltest du ansprechen?",
+      "code": {
+        "sprache": "cpp",
+        "datei": "drivers/can/can_treiber.cpp",
+        "zeilen": [
+          "#include \"can/can_treiber.h\"",
+          "#include \"can/register.h\"",
+          "#include \"ui/statusleiste.h\"",
+          "",
+          "void CanTreiber::beiFehler(Fehlercode c) {",
+          "    zaehler_.erhoehe(c);",
+          "    Statusleiste::zeige(\"CAN-Fehler\");",
+          "}"
+        ]
+      },
+      "fehlerZeile": 3,
+      "erklaerung": "Ein Treiber auf der untersten Schicht bindet einen Header der Oberfläche ein. Damit zeigt die Abhängigkeit von unten nach oben, und der Treiber ist ohne UI weder baubar noch testbar. Besser: Der Treiber meldet Fehler über einen Callback oder eine Schnittstelle (Dependency Inversion), und die Oberfläche entscheidet, was sie anzeigt."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Welche Art Befund ist das?",
+      "paare": [
+        { "links": "Eine neue Klasse heisst `DatenManagerHelper`", "rechts": "Unklare Verantwortung" },
+        { "links": "Eine Funktion gibt einen rohen Zeiger zurück, niemand weiss, wer ihn löscht", "rechts": "Unklare Ownership" },
+        { "links": "Ein Treiber bindet einen UI-Header ein", "rechts": "Falsche Abhängigkeitsrichtung" },
+        { "links": "Neue Logik ohne Test, auch der Fehlerfall ist ungeprüft", "rechts": "Fehlende Absicherung" }
+      ],
+      "erklaerung": "Benennt man die Art des Befunds, wird das Gespräch sachlicher: „Hier ist mir die Ownership unklar“ statt „Das ist falsch“. Und man erkennt Muster, wenn derselbe Befund immer wieder auftaucht. Das kann ein Anlass für eine Team-Regel oder ein Werkzeug sein."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Du bekommst einen Pull Request mit 1500 geänderten Zeilen in 40 Dateien zum Review. Wie gehst du am besten vor?",
+      "optionen": [
+        "Erst die Struktur ansehen und mit der Autorin besprechen, ob sich der PR in kleinere, einzeln prüfbare Schritte zerlegen lässt",
+        "Alles Zeile für Zeile durchgehen, egal wie lange es dauert",
+        "Mit „sieht gut aus“ freigeben, so viel kann man ohnehin nicht prüfen"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Ein so grosser PR lässt sich kaum gründlich prüfen, und genau das ist das Problem. Ein kurzes Gespräch über die Struktur und eine Zerlegung bringen oft mehr als drei Stunden Detailarbeit. Ein blindes „sieht gut aus“ ist das Schlechteste: Es gibt eine Sicherheit vor, die es nicht gibt.",
+      "begruendungen": [
+        "Richtig.",
+        "Möglich, aber die Qualität eines Reviews nimmt mit der Grösse stark ab.",
+        "Damit wird das Review-Gate wertlos."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Design früh besprechen",
+      "text": "Die teuersten Review-Kommentare sind die, die eine Woche Arbeit verwerfen: „Das gehört eigentlich in ein anderes Modul.“ Grössere Entscheidungen bespricht man deshalb **vor** der Umsetzung: in einem kurzen Design-Dokument, einem Entwurf-PR mit nur den Schnittstellen oder einem Gespräch am Whiteboard. Das finale Review prüft dann die Umsetzung, nicht mehr die Grundidee."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Ein Pull Request ändert eine Funktion in einem öffentlichen Header, den mehrere Module benutzen. Was solltest du fragen?",
+      "code": {
+        "sprache": "cpp",
+        "datei": "netz/include/netz/verbindung.h",
+        "zeilen": [
+          "-    void sende(const Paket& p);",
+          "+    bool sende(Paket p);"
+        ]
+      },
+      "optionen": [
+        "Ob die Änderung für alle Nutzer abgestimmt ist, warum `p` jetzt als Wert übergeben wird und ob alle Aufrufer den neuen Rückgabewert prüfen (`[[nodiscard]]`)",
+        "Nichts, es ist nur eine kleine Änderung",
+        "Ob die Einrückung stimmt"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Zwei Zeichen Diff, aber eine Änderung am Vertrag: Alle Aufrufer müssen neu kompiliert werden, bei einer Shared Library ist die ABI gebrochen. Ohne `[[nodiscard]]` ignorieren alle bestehenden Aufrufer den neuen Fehlerwert still. Die Übergabe als Wert kann sinnvoll sein, wenn `sende` das Paket intern speichert, sollte aber begründet sein.",
+      "begruendungen": [
+        "Richtig.",
+        "Kleine Diffs in öffentlichen Headern haben oft grosse Wirkung.",
+        "Das prüft clang-format."
+      ]
+    }
+  ],
+  "praxis": "Gute Reviewer sind im Team sehr gefragt. Sie finden nicht die meisten Tippfehler, sondern die Stellen, an denen ein System über die nächsten Jahre schlechter würde: falsche Abhängigkeiten, unklare Ownership, Schnittstellen ohne Vertrag. Achte beim Review besonders auf Änderungen in öffentlichen Headern, `CMakeLists.txt` (neue Abhängigkeiten!) und überall dort, wo Threads beteiligt sind.",
+  "labor": {
+    "titel": "Ein Review mit Checkliste",
+    "anleitung": "Nimm einen aktuellen Pull Request aus deinem Projekt oder einem Open-Source-Projekt und gehe ihn mit der Reihenfolge aus dieser Lektion durch. Notiere pro Stufe höchstens zwei Befunde.",
+    "befehle": [
+      "gh pr checkout 123",
+      "git diff main --stat",
+      "git diff main -- '*.h' '**/CMakeLists.txt'"
+    ],
+    "beobachtung": "Der letzte Befehl zeigt nur die Änderungen an Headern und Build-Dateien. Dort stecken die Architektur-relevanten Änderungen. Oft lohnt es sich, damit anzufangen."
+  },
+  "begriffe": [
+    { "begriff": "Code-Review", "englisch": "code review", "erklaerung": "Prüfung einer Änderung durch andere, bevor sie in den Hauptzweig kommt." },
+    { "begriff": "Design-Review", "englisch": "design review", "erklaerung": "Besprechung eines Lösungsansatzes vor der Umsetzung." }
+  ],
+  "weiterlesen": [
+    { "titel": "Google Engineering Practices: What to look for in a code review", "url": "https://google.github.io/eng-practices/review/reviewer/looking-for.html" }
+  ]
+}

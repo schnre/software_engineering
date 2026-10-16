@@ -1,0 +1,165 @@
+{
+  "id": "p1-m4-l2",
+  "phase": 1,
+  "modul": "1.4 Speicherlayout des Binaries",
+  "titel": "Linker-Skripte und Map-Files",
+  "lernziele": [
+    "Ein einfaches Linker-Skript für einen Mikrocontroller lesen",
+    "Erklären, warum `.data` im Flash gespeichert und im RAM verwendet wird",
+    "Mit einem Map-File herausfinden, was Speicher belegt"
+  ],
+  "dauerMinuten": 7,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Ein Mikrocontroller hat Flash ab `0x08000000` und RAM ab `0x20000000`. Nach dem Einschalten ist der RAM leer. Wo steht der Startwert `5` von `int zaehler = 5;`?",
+      "optionen": [
+        "Im Flash. Der Startup-Code kopiert ihn vor `main()` in den RAM",
+        "Im RAM. Der Wert bleibt dort auch ohne Strom erhalten",
+        "Nirgends. Der Compiler ersetzt `zaehler` überall durch `5`"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Für `.data` gibt es zwei Adressen: die **Ladeadresse** (LMA) im Flash, wo die Startwerte dauerhaft liegen, und die **Laufzeitadresse** (VMA) im RAM, wo das Programm die Variable liest und schreibt. Der Startup-Code kopiert vor `main()` von der einen zur anderen und füllt `.bss` mit Nullen.",
+      "begruendungen": [
+        "Richtig. Unter Linux erledigt das der Loader, auf Bare Metal der eigene Startup-Code.",
+        "RAM verliert seinen Inhalt ohne Strom.",
+        "Das darf der Compiler nur, wenn die Variable nie verändert wird. `zaehler` ist aber veränderbar."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Ein Linker-Skript",
+      "text": "Ein **Linker-Skript** (linker script) sagt dem Linker, welche Speicherbereiche es gibt und welche Sektionen wohin gehören. Unter Linux benutzt der Linker unbemerkt ein Standardskript. Auf Mikrocontrollern liefert der Hersteller eines mit, und du passt es an.",
+      "code": {
+        "sprache": "linker",
+        "datei": "stm32.ld",
+        "zeilen": [
+          "MEMORY",
+          "{",
+          "  FLASH (rx)  : ORIGIN = 0x08000000, LENGTH = 512K",
+          "  RAM   (rwx) : ORIGIN = 0x20000000, LENGTH = 128K",
+          "}",
+          "SECTIONS",
+          "{",
+          "  .text : { KEEP(*(.isr_vector)) *(.text*) *(.rodata*) } > FLASH",
+          "  .data : { *(.data*) } > RAM AT > FLASH",
+          "  .bss  : { *(.bss*) *(COMMON) } > RAM",
+          "}"
+        ],
+        "anmerkungen": [
+          { "zeile": 3, "text": "Ein Speicherbereich mit Startadresse und Grösse." },
+          { "zeile": 8, "text": "Interrupt-Vektortabelle, Code und Konstanten kommen in den Flash. `KEEP` schützt die Tabelle vor dem Aufräumen durch `--gc-sections`." },
+          { "zeile": 9, "text": "Ausgeführt wird im RAM, gespeichert (`AT`) im Flash." },
+          { "zeile": 10, "text": "`.bss` braucht nur RAM, es gibt keine Startwerte zu speichern." }
+        ]
+      }
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze die Zielbereiche im Linker-Skript.",
+      "code": {
+        "sprache": "linker",
+        "zeilen": [
+          ".text : { *(.text*) *(.rodata*) } > {{?}}",
+          ".data : { *(.data*) } > RAM AT > {{?}}",
+          ".bss  : { *(.bss*) } > {{?}}"
+        ]
+      },
+      "luecken": [{ "loesungen": ["FLASH"] }, { "loesungen": ["FLASH"] }, { "loesungen": ["RAM"] }],
+      "auswahl": ["FLASH", "FLASH", "RAM", "STACK"],
+      "erklaerung": "Code und Konstanten werden nur gelesen und bleiben im Flash. `.data` braucht beides: einen Platz im RAM zum Arbeiten und einen im Flash für die Startwerte. `.bss` nur RAM. Der Stack ist kein Speicherbereich im `MEMORY`-Block, sondern ein Stück RAM, das das Skript meist ans Ende legt."
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Das Map-File",
+      "text": "Mit `-Wl,-Map=app.map` schreibt der Linker ein **Map-File**. Es zeigt für jede Sektion, aus welchem Object-File sie kommt, wo sie liegt und wie gross sie ist. Ausserdem steht darin, welche Object-Files aus welchen Archiven geholt wurden und warum. Das Map-File ist das wichtigste Werkzeug, wenn der Flash knapp wird oder eine Funktion an einer bestimmten Adresse liegen muss."
+    },
+    {
+      "typ": "terminal-deuten",
+      "frage": "Der Flash wird knapp. Wer belegt hier am meisten Code?",
+      "terminal": {
+        "befehl": "grep -A4 '^\\.text' app.map",
+        "ausgabe": [
+          ".text           0x08000000     0x6f20",
+          " .text          0x08000194      0x2a4 build/main.o",
+          " .text          0x08000438     0x5b10 lib/libprintf.a(printf.o)",
+          " .text          0x08005f48      0x1d8 build/sensor.o"
+        ]
+      },
+      "optionen": [
+        "`printf.o` aus `libprintf.a` mit `0x5b10` (rund 23 KB)",
+        "`main.o`, weil es an der niedrigsten Adresse liegt",
+        "`sensor.o`, weil es zuletzt kommt"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Die dritte Spalte ist die Grösse. Eine volle `printf`-Implementierung mit Gleitkomma-Formatierung ist auf Mikrocontrollern oft der grösste Einzelposten. Die Adresse sagt nur, wo etwas liegt, nicht wie gross es ist.",
+      "begruendungen": [
+        "Richtig. `0x5b10` = 23 312 Byte, viel mehr als der Rest zusammen.",
+        "Die Position im Speicher sagt nichts über die Grösse.",
+        "Die Reihenfolge ergibt sich aus der Link-Reihenfolge, nicht aus der Grösse."
+      ]
+    },
+    {
+      "typ": "terminal-deuten",
+      "frage": "Was bedeutet diese Meldung?",
+      "terminal": {
+        "befehl": "arm-none-eabi-g++ ... -T stm32.ld -o firmware.elf",
+        "ausgabe": [
+          "/usr/lib/gcc/arm-none-eabi/13.2.1/../../../arm-none-eabi/bin/ld: firmware.elf section `.text' will not fit in region `FLASH'",
+          "/usr/lib/gcc/arm-none-eabi/13.2.1/../../../arm-none-eabi/bin/ld: region `FLASH' overflowed by 1424 bytes",
+          "collect2: error: ld returned 1 exit status"
+        ]
+      },
+      "optionen": [
+        "Code, Konstanten und Startwerte sind zusammen 1424 Byte zu gross für den Flash",
+        "Der Stack läuft zur Laufzeit um 1424 Byte über",
+        "Der RAM ist um 1424 Byte zu klein"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Der Linker kennt aus dem Linker-Skript die Grösse jedes Bereichs und bricht ab, wenn die Sektionen nicht hineinpassen. Diesen Fehler gibt es also beim Bauen, nicht erst auf dem Gerät. Stack-Überläufe dagegen sieht der Linker nicht.",
+      "begruendungen": [
+        "Richtig. Zum Flash zählen `.text`, `.rodata` und die Startwerte von `.data`.",
+        "Der Linker weiss nicht, wie tief der Stack zur Laufzeit wächst.",
+        "Die Meldung nennt ausdrücklich die Region `FLASH`."
+      ]
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Welche Massnahmen verkleinern den Flash-Bedarf?",
+      "optionen": [
+        "Mit `-Os` auf Grösse optimieren",
+        "Mit `-ffunction-sections -fdata-sections` kompilieren und mit `-Wl,--gc-sections` linken",
+        "Eine schlanke `printf`-Variante ohne Gleitkomma verwenden",
+        "Mit `-O0` kompilieren, damit der Code einfacher wird"
+      ],
+      "korrekt": [0, 1, 2],
+      "erklaerung": "`--gc-sections` entfernt ungenutzte Funktionen. Damit das fein genug klappt, muss jede Funktion in einer eigenen Sektion liegen, dafür sorgt `-ffunction-sections`. `-O0` erzeugt dagegen den grössten und langsamsten Code.",
+      "begruendungen": [
+        "Richtig. `-Os` optimiert gezielt auf kleinen Code.",
+        "Richtig. Unbenutzter Code fliegt raus.",
+        "Richtig. Viele Embedded-C-Bibliotheken bieten dafür eine schlanke Variante (z. B. `nano.specs`).",
+        "`-O0` schaltet Optimierungen ab, der Code wird grösser."
+      ]
+    }
+  ],
+  "praxis": "In Embedded-Projekten gehört ein Blick ins Map-File zu jedem Review, bei dem der Speicher knapp wird. Viele Teams lassen die CI aus dem Map-File eine Tabelle „Flash/RAM pro Modul“ erzeugen und schlagen Alarm, wenn ein Commit mehr als ein paar Kilobyte hinzufügt. Linker-Skripte änderst du, wenn z. B. ein Bootloader den Anfang des Flash belegt oder Daten in einen speziellen RAM-Bereich gehören.",
+  "labor": {
+    "titel": "Ein Map-File erzeugen",
+    "anleitung": "Auch auf dem PC kannst du dir ein Map-File ansehen. Baue ein kleines Programm mit `printf` und suche darin nach deinen eigenen Object-Files.",
+    "befehle": [
+      "g++ -O2 main.cpp sensor.cpp -Wl,-Map=app.map -o app",
+      "grep -n 'main.o\\|sensor.o' app.map | head",
+      "grep -A2 'Archive member included' app.map | head -20"
+    ],
+    "beobachtung": "Am Anfang des Map-Files steht, welche Archiv-Mitglieder (z. B. aus `libc.a`) eingebunden wurden und welches Symbol den Grund dafür lieferte."
+  },
+  "begriffe": [
+    { "begriff": "Linker-Skript", "englisch": "linker script", "erklaerung": "Datei, die Speicherbereiche (`MEMORY`) und die Platzierung der Sektionen (`SECTIONS`) festlegt." },
+    { "begriff": "Map-File", "englisch": "map file", "erklaerung": "Vom Linker erzeugte Übersicht: welche Sektion aus welchem Object-File wo liegt und wie gross sie ist." },
+    { "begriff": "LMA und VMA", "englisch": "load / virtual memory address", "erklaerung": "Ladeadresse (wo Daten gespeichert sind) und Laufzeitadresse (wo das Programm sie verwendet). Bei `.data` auf Mikrocontrollern verschieden." },
+    { "begriff": "Startup-Code", "englisch": "startup code", "erklaerung": "Code, der vor `main()` läuft: kopiert `.data` in den RAM, nullt `.bss` und ruft globale Konstruktoren auf." }
+  ],
+  "weiterlesen": [
+    { "titel": "GNU ld: Linker Scripts", "url": "https://sourceware.org/binutils/docs/ld/Scripts.html" }
+  ]
+}

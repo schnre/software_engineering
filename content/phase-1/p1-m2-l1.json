@@ -1,0 +1,156 @@
+{
+  "id": "p1-m2-l1",
+  "phase": 1,
+  "modul": "1.2 Der Linker",
+  "titel": "Symbolauflösung und die One Definition Rule",
+  "lernziele": [
+    "Erklären, warum erst der Linker undefinierte Symbole erkennt",
+    "Die One Definition Rule in eigenen Worten wiedergeben",
+    "`undefined reference` und `multiple definition` sicher unterscheiden"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "`foo()` ist in einem Header deklariert, aber nirgends definiert. `main.cpp` ruft `foo()` auf. Wer meldet den Fehler?",
+      "optionen": ["Präprozessor", "Compiler", "Linker"],
+      "korrekt": 2,
+      "fest": true,
+      "erklaerung": "Der Compiler sieht nur eine Übersetzungseinheit und vertraut der Deklaration. Erst der Linker sieht alle Object-Files und bemerkt, dass die Definition fehlt.",
+      "begruendungen": [
+        "Der Präprozessor fügt nur Text ein und kennt keine Funktionen.",
+        "Der Compiler übersetzt den Aufruf und vermerkt `foo` als undefiniertes Symbol. Das ist für ihn in Ordnung.",
+        "Richtig. Der Linker findet zum `U foo` kein passendes `T foo`."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Symbolauflösung",
+      "text": "Der Linker sammelt die Symboltabellen aller Object-Files. Für jedes undefinierte Symbol (`U`) sucht er **genau eine** Definition. Das heisst **Symbolauflösung** (symbol resolution).\n\nDie **One Definition Rule** (ODR) legt fest: Jede Funktion und jede Variable, die nicht `inline` ist, darf im ganzen Programm genau einmal definiert sein. Deklariert werden darf sie beliebig oft.\n\nKlassen, Templates und `inline`-Funktionen dürfen in mehreren Übersetzungseinheiten definiert werden, aber nur, wenn alle Definitionen Zeichen für Zeichen gleich sind.",
+      "tabelle": {
+        "kopf": ["Situation", "Linker meldet"],
+        "zeilen": [
+          ["keine Definition", "`undefined reference to ...`"],
+          ["genau eine Definition", "alles gut"],
+          ["zwei oder mehr Definitionen", "`multiple definition of ...`"]
+        ]
+      }
+    },
+    {
+      "typ": "terminal-deuten",
+      "frage": "Was ist die wahrscheinlichste Ursache?",
+      "terminal": {
+        "befehl": "g++ main.o -o app",
+        "ausgabe": [
+          "/usr/bin/ld: main.o: in function `main':",
+          "main.cpp:(.text+0x13): undefined reference to `berechne(int)'",
+          "collect2: error: ld returned 1 exit status"
+        ]
+      },
+      "optionen": [
+        "`berechne.o` fehlt im Link-Befehl, oder `berechne` ist dort mit anderer Signatur definiert",
+        "In `main.cpp` fehlt das `#include` für `berechne`",
+        "Syntaxfehler in `main.cpp`, Zeile 13",
+        "Der Linker findet die Funktion `main` nicht"
+      ],
+      "korrekt": 0,
+      "erklaerung": "`main.o` ruft `berechne(int)` auf, und keine der übergebenen Dateien definiert es. Hier wurde nur `main.o` gelinkt. Häufig ist auch die Signatur leicht anders, z. B. `berechne(long)` oder ein anderer Namespace.",
+      "begruendungen": [
+        "Richtig. Genau diese zwei Ursachen stecken fast immer dahinter.",
+        "Ein fehlendes `#include` wäre ein Compilerfehler (`was not declared in this scope`), kein Linkerfehler.",
+        "`.text+0x13` ist eine Position im Maschinencode, keine Zeilennummer.",
+        "`main` ist vorhanden, sie steht ja als Ort des Aufrufs in der Meldung (`in function main`)."
+      ]
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Dieser Header wird von `a.cpp` und von `b.cpp` eingebunden. Beim Linken kommt `multiple definition of gruss()`. Welche Zeile verursacht das?",
+      "code": {
+        "sprache": "cpp",
+        "datei": "gruss.h",
+        "zeilen": [
+          "#pragma once",
+          "#include <string>",
+          "",
+          "std::string gruss() {",
+          "    return \"Hallo\";",
+          "}"
+        ]
+      },
+      "fehlerZeile": 4,
+      "erklaerung": "In Zeile 4 beginnt eine Funktions**definition** im Header. Jede `.cpp`-Datei, die den Header einbindet, bekommt dadurch eine eigene Definition. Zwei Übersetzungseinheiten ergeben zwei Definitionen, und das verletzt die ODR. `#pragma once` hilft hier nicht: Es wirkt nur innerhalb *einer* Übersetzungseinheit."
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze das Schlüsselwort, das mehrere identische Definitionen in verschiedenen Übersetzungseinheiten erlaubt. Der Linker behält dann genau eine davon.",
+      "code": {
+        "sprache": "cpp",
+        "datei": "gruss.h",
+        "zeilen": [
+          "#pragma once",
+          "#include <string>",
+          "",
+          "{{?}} std::string gruss() {",
+          "    return \"Hallo\";",
+          "}"
+        ]
+      },
+      "luecken": [{ "loesungen": ["inline"] }],
+      "auswahl": ["inline", "static", "extern", "virtual"],
+      "erklaerung": "`inline` bedeutet in modernem C++ vor allem: Diese Definition darf in mehreren Übersetzungseinheiten stehen. Der Linker führt sie zusammen. `static` würde den Linkerfehler zwar auch beseitigen, aber jede Übersetzungseinheit bekäme eine eigene, private Kopie. Das ist eine andere Bedeutung und bei Variablen oft ein Fehler. Die Alternative ist, nur die Deklaration im Header zu lassen und die Definition in eine `.cpp`-Datei zu verschieben."
+    },
+    {
+      "typ": "terminal-deuten",
+      "frage": "Was sagt diese Meldung genau?",
+      "terminal": {
+        "befehl": "g++ a.o b.o -o app",
+        "ausgabe": [
+          "/usr/bin/ld: b.o: in function `gruss[abi:cxx11]()':",
+          "b.cpp:(.text+0x0): multiple definition of `gruss[abi:cxx11]()'; a.o:a.cpp:(.text+0x0): first defined here",
+          "collect2: error: ld returned 1 exit status"
+        ]
+      },
+      "optionen": [
+        "`a.o` und `b.o` enthalten beide eine Definition von `gruss()`",
+        "`b.o` ruft `gruss()` auf, ohne es zu definieren",
+        "`gruss()` ist in keiner Datei definiert"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Der Linker nennt beide Fundorte: die zweite Definition in `b.o` und die erste in `a.o` (*first defined here*). Kommen beide aus demselben Header, ist das ein starkes Indiz für eine Definition ohne `inline` im Header. Der Zusatz `[abi:cxx11]` markiert bei GCC Funktionen, die `std::string` zurückgeben, und spielt hier keine Rolle.",
+      "begruendungen": [
+        "Richtig. Die Meldung nennt beide Fundorte.",
+        "Ein reiner Aufruf ohne Definition wäre ein `U` in der Symboltabelle und kein Problem.",
+        "Das wäre `undefined reference`, das Gegenteil."
+      ]
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Ordne jede Meldung dem Werkzeug und der Ursache zu.",
+      "paare": [
+        { "links": "`undefined reference to ...`", "rechts": "Linker: keine Definition gefunden" },
+        { "links": "`multiple definition of ...`", "rechts": "Linker: mehr als eine Definition im Programm" },
+        { "links": "`redefinition of ...`", "rechts": "Compiler: zweimal definiert in derselben Übersetzungseinheit" },
+        { "links": "`'x' was not declared in this scope`", "rechts": "Compiler: Name ist an dieser Stelle unbekannt" }
+      ],
+      "erklaerung": "Die Faustregel: Betrifft der Fehler eine einzelne Übersetzungseinheit, meldet ihn der Compiler mit Datei und Zeile. Betrifft er das Zusammenspiel mehrerer Object-Files, meldet ihn der Linker, oft mit `ld` oder `collect2` in der Ausgabe."
+    }
+  ],
+  "praxis": "Die Meldung `multiple definition of ...` deutet fast immer auf eine Funktions- oder Variablendefinition in einem Header ohne `inline` hin. Bei `undefined reference` prüfst du drei Dinge: Wird die Datei oder Bibliothek mitgelinkt? Stimmt die Signatur exakt? Stimmt der Namespace? In Code-Reviews sind nicht-`inline`-Definitionen in Headern ein häufiger Befund.",
+  "labor": {
+    "titel": "Beide Linkerfehler provozieren",
+    "anleitung": "Baue `gruss.h` aus der Übung, binde es in `a.cpp` und `b.cpp` ein und linke beide. Behebe den Fehler dann einmal mit `inline` und einmal durch Verschieben der Definition in `gruss.cpp`.",
+    "befehle": [
+      "g++ -c a.cpp b.cpp && g++ a.o b.o -o app",
+      "nm -C a.o b.o | grep gruss"
+    ],
+    "beobachtung": "Ohne `inline` hat jedes Object-File `T gruss()`, und das ist zu viel. Mit `inline` siehst du `W gruss()`. `W` steht für *weak*: Der Linker darf mehrere davon zu einer zusammenführen."
+  },
+  "begriffe": [
+    { "begriff": "Symbolauflösung", "englisch": "symbol resolution", "erklaerung": "Der Linker ordnet jedem undefinierten Symbol genau eine Definition zu." },
+    { "begriff": "One Definition Rule", "englisch": "one definition rule, ODR", "erklaerung": "Jede nicht-`inline` Funktion und Variable ist im Programm genau einmal definiert. Klassen und `inline`-Funktionen dürfen mehrfach, aber identisch definiert sein." }
+  ],
+  "weiterlesen": [
+    { "titel": "cppreference: Definitions and ODR", "url": "https://en.cppreference.com/w/cpp/language/definition" },
+    { "titel": "cppreference: inline specifier", "url": "https://en.cppreference.com/w/cpp/language/inline" }
+  ]
+}

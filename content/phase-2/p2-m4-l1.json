@@ -1,0 +1,167 @@
+{
+  "id": "p2-m4-l1",
+  "phase": 2,
+  "modul": "2.4 Polymorphie unter der Haube",
+  "titel": "vptr und vtable",
+  "lernziele": [
+    "Erklären, wie ein virtueller Funktionsaufruf zur Laufzeit funktioniert",
+    "Die Kosten von `virtual` in Speicher und Zeit abschätzen",
+    "Den Linkerfehler `undefined reference to vtable` deuten"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "code-lesen",
+      "frage": "Was gibt das Programm aus?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "struct Tier { virtual void sprich() const { std::cout << \"...\"; } };",
+          "struct Hund : Tier { void sprich() const override { std::cout << \"Wuff\"; } };",
+          "",
+          "void rufe(const Tier& t) { t.sprich(); }",
+          "",
+          "int main() { Hund h; rufe(h); }"
+        ]
+      },
+      "optionen": ["`Wuff`", "`...`", "Compilerfehler"],
+      "korrekt": 0,
+      "fest": true,
+      "erklaerung": "`rufe` kennt beim Kompilieren nur `Tier`. Trotzdem wird zur Laufzeit `Hund::sprich` aufgerufen. Wie kann das gehen, wenn der Compiler den echten Typ gar nicht kennt? Ohne `virtual` wäre die Ausgabe `...`.",
+      "begruendungen": [
+        "Richtig. Das ist dynamische Polymorphie.",
+        "Das wäre die Ausgabe ohne `virtual`.",
+        "Der Code ist gültig."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Die Maschinerie",
+      "text": "Für jede Klasse mit virtuellen Funktionen erzeugt der Compiler eine **vtable**: eine Tabelle von Funktionszeigern, eine pro Klasse, abgelegt in `.rodata`. Jedes Objekt einer solchen Klasse bekommt einen versteckten Zeiger, den **vptr**, der auf die vtable seiner Klasse zeigt. Der Konstruktor setzt ihn.\n\nEin Aufruf `t.sprich()` wird zu: vptr aus dem Objekt lesen, Eintrag für `sprich` aus der vtable lesen, indirekt dorthin springen. Der Standard schreibt diese Umsetzung nicht vor, aber alle verbreiteten Compiler machen es so.",
+      "diagramm": {
+        "knoten": ["Objekt `h`: [vptr | Daten]", "vtable `Hund`: [&Hund::sprich, …]", "Code `Hund::sprich`"],
+        "beschriftung": "Ein virtueller Aufruf folgt zwei Zeigern."
+      }
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Was gibt dieser Code auf einem typischen 64-Bit-System aus?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "struct A { int x; };",
+          "struct B { int x; virtual void f(); };",
+          "",
+          "std::cout << sizeof(A) << ' ' << sizeof(B);"
+        ]
+      },
+      "optionen": ["`4 4`", "`4 8`", "`4 16`", "`8 16`"],
+      "korrekt": 2,
+      "fest": true,
+      "erklaerung": "`B` enthält zusätzlich den vptr (8 Byte). Damit der Zeiger richtig ausgerichtet ist, wird `B` auf ein Vielfaches von 8 aufgefüllt: 8 (vptr) + 4 (`x`) + 4 (Padding) = 16. Bei Millionen kleiner Objekte ist das spürbar.",
+      "begruendungen": [
+        "Der vptr braucht Platz.",
+        "8 reicht nicht für vptr und `int` zusammen.",
+        "Richtig.",
+        "`A` hat nur ein `int` und keinen vptr."
+      ]
+    },
+    {
+      "typ": "reihenfolge",
+      "frage": "In welcher Reihenfolge läuft der virtuelle Aufruf `t.sprich()` ab?",
+      "elemente": [
+        "Den vptr aus dem Objekt `t` lesen",
+        "In der vtable den Eintrag für `sprich` lesen",
+        "Mit `this = &t` indirekt an die gefundene Adresse springen"
+      ],
+      "erklaerung": "Zwei Speicherzugriffe und ein indirekter Sprung. Das ist meist schnell, verhindert aber, dass der Compiler die Funktion **inlined**, weil er nicht weiss, welche aufgerufen wird. Bei sehr kleinen Funktionen in engen Schleifen ist das der eigentliche Kostenfaktor."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Was gibt dieser Code aus?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "struct Basis {",
+          "    Basis() { init(); }",
+          "    virtual void init() { std::cout << 'B'; }",
+          "};",
+          "struct Abgeleitet : Basis {",
+          "    void init() override { std::cout << 'A'; }",
+          "};",
+          "",
+          "int main() { Abgeleitet a; }"
+        ]
+      },
+      "optionen": ["`B`", "`A`", "`BA`"],
+      "korrekt": 0,
+      "fest": true,
+      "erklaerung": "Während der Konstruktor von `Basis` läuft, ist das Objekt noch kein `Abgeleitet`. Dessen Member sind noch nicht initialisiert. Deshalb zeigt der vptr in dieser Phase auf die vtable von `Basis`, und virtuelle Aufrufe gehen an `Basis::init`. Dasselbe gilt im Destruktor. Virtuelle Aufrufe in Konstruktoren und Destruktoren sind daher fast immer ein Designfehler.",
+      "begruendungen": [
+        "Richtig.",
+        "Das würde einen Aufruf auf einen noch nicht konstruierten Teil bedeuten. C++ verhindert das.",
+        "Nur ein Aufruf findet statt, im Konstruktor von `Basis`."
+      ]
+    },
+    {
+      "typ": "terminal-deuten",
+      "frage": "Was ist die wahrscheinlichste Ursache?",
+      "terminal": {
+        "befehl": "g++ main.o sensor.o -o app",
+        "ausgabe": [
+          "/usr/bin/ld: main.o: in function `Sensor::Sensor()':",
+          "sensor.h:5: undefined reference to `vtable for Sensor'",
+          "collect2: error: ld returned 1 exit status"
+        ]
+      },
+      "optionen": [
+        "Eine virtuelle Funktion von `Sensor` ist deklariert, aber nirgends definiert, oft die erste nicht-inline virtuelle Funktion",
+        "`Sensor` hat keinen Konstruktor",
+        "Die vtable muss man in einer `.cpp`-Datei selbst anlegen"
+      ],
+      "korrekt": 0,
+      "erklaerung": "GCC und Clang legen die vtable in die Übersetzungseinheit, in der die **erste nicht-inline, nicht-pure virtuelle Funktion** der Klasse definiert wird (die *key function*). Fehlt diese Definition, z. B. weil `sensor.cpp` nicht mitgelinkt wird oder `virtual ~Sensor();` nur deklariert ist, gibt es nirgends eine vtable. Die Meldung zeigt dann auf den Konstruktor, weil der den vptr setzt.",
+      "begruendungen": [
+        "Richtig. Prüfe alle virtuellen Funktionen der Klasse auf eine Definition.",
+        "Die Meldung kommt ja gerade aus dem Konstruktor.",
+        "Die vtable erzeugt immer der Compiler."
+      ]
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Wann kann der Compiler einen virtuellen Aufruf durch einen direkten Aufruf ersetzen (Devirtualisierung)?",
+      "optionen": [
+        "Wenn der dynamische Typ feststeht, z. B. beim Aufruf auf ein lokales Objekt oder wenn die Klasse `final` ist",
+        "Immer, wenn mit `-O2` kompiliert wird",
+        "Nie, virtuelle Aufrufe bleiben immer indirekt"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Bei `Hund h; h.sprich();` ist der Typ eindeutig, und es gibt keinen Grund für die vtable. Mit `final` an Klasse oder Funktion verspricht man, dass es keine weitere Ableitung gibt. Dann darf der Compiler auch über Referenzen direkt aufrufen und inlinen. Mit Link Time Optimization (`-flto`) gelingt das noch öfter.",
+      "begruendungen": [
+        "Richtig.",
+        "Über Referenzen und Zeiger auf nicht-`final` Klassen kann der Compiler den Typ meist nicht beweisen.",
+        "Devirtualisierung ist eine Standard-Optimierung moderner Compiler."
+      ]
+    }
+  ],
+  "praxis": "`undefined reference to vtable for X` ist einer der verwirrendsten Linkerfehler, fast immer fehlt die Definition einer virtuellen Funktion (häufig des Destruktors) oder die `.cpp`-Datei wird nicht gelinkt. Bei Performance-Fragen zu `virtual` gilt: erst messen. Meist sind fehlendes Inlining und schlechte Cache-Lokalität verstreuter Heap-Objekte teurer als der indirekte Sprung.",
+  "labor": {
+    "titel": "Die vtable ansehen",
+    "anleitung": "Lass dir das Klassenlayout und die vtable von GCC bzw. Clang ausgeben.",
+    "befehle": [
+      "g++ -fdump-lang-class -c tier.cpp && grep -A8 'Vtable for Hund' tier.cpp.*.class",
+      "clang++ -Xclang -fdump-vtable-layouts -c tier.cpp | head -30",
+      "nm -C tier.o | grep -i vtable"
+    ],
+    "beobachtung": "Die vtable enthält neben den Funktionszeigern einen Offset und einen Zeiger auf die Typinformation (für `dynamic_cast` und `typeid`). `nm` zeigt `V vtable for Hund`."
+  },
+  "begriffe": [
+    { "begriff": "vtable", "englisch": "virtual method table", "erklaerung": "Tabelle mit Funktionszeigern, eine pro polymorpher Klasse." },
+    { "begriff": "vptr", "englisch": "virtual table pointer", "erklaerung": "Versteckter Zeiger in jedem polymorphen Objekt, der auf die vtable seiner Klasse zeigt." },
+    { "begriff": "Devirtualisierung", "englisch": "devirtualization", "erklaerung": "Optimierung, die einen virtuellen Aufruf durch einen direkten ersetzt, wenn der Typ feststeht." }
+  ],
+  "weiterlesen": [
+    { "titel": "cppreference: virtual function specifier", "url": "https://en.cppreference.com/w/cpp/language/virtual" },
+    { "titel": "Itanium C++ ABI: Virtual Table Layout", "url": "https://itanium-cxx-abi.github.io/cxx-abi/abi.html#vtable" }
+  ]
+}

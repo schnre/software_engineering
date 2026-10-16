@@ -1,0 +1,147 @@
+{
+  "id": "p2-m4-l2",
+  "phase": 2,
+  "modul": "2.4 Polymorphie unter der Haube",
+  "titel": "Virtuelle Destruktoren und Object Slicing",
+  "lernziele": [
+    "Erklären, wann eine Basisklasse einen virtuellen Destruktor braucht",
+    "Object Slicing erkennen",
+    "Polymorphe Objekte richtig in Containern speichern"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "code-lesen",
+      "frage": "Was passiert bei `delete p`?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "struct Basis { ~Basis() { std::cout << \"~Basis \"; } };",
+          "struct Datei : Basis {",
+          "    std::string pfad = \"log.txt\";",
+          "    ~Datei() { std::cout << \"~Datei \"; }",
+          "};",
+          "",
+          "Basis* p = new Datei();",
+          "delete p;"
+        ]
+      },
+      "optionen": [
+        "Ausgabe `~Datei ~Basis`",
+        "Undefined Behavior: In der Praxis läuft nur `~Basis`, `pfad` wird nie freigegeben",
+        "Compilerfehler"
+      ],
+      "korrekt": 1,
+      "fest": true,
+      "erklaerung": "`delete` über einen Basis-Zeiger ruft den Destruktor über den **statischen** Typ auf, wenn er nicht virtuell ist. `~Datei` läuft nicht, also auch nicht der Destruktor von `pfad`. Laut Standard ist das sogar Undefined Behavior, nicht nur ein Leck.",
+      "begruendungen": [
+        "Das wäre die Ausgabe mit `virtual ~Basis()`.",
+        "Richtig.",
+        "Der Code kompiliert. GCC warnt mit `-Wdelete-non-virtual-dtor`."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Die Regel",
+      "text": "Ein Destruktor einer Basisklasse sollte entweder **public und virtual** sein, wenn Objekte über einen Basis-Zeiger gelöscht werden dürfen, oder **protected und nicht virtual**, wenn das nie passieren soll (C++ Core Guidelines C.35).\n\nSobald eine Klasse eine virtuelle Funktion hat, kostet ein virtueller Destruktor nichts mehr extra, denn der vptr ist ohnehin da. Deshalb gehört er praktisch immer dazu."
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze die Basisklasse so, dass `delete` über einen `Basis*` korrekt funktioniert.",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "struct Basis {",
+          "    {{?}} ~Basis() = default;",
+          "    virtual void schreibe(std::string_view text) = 0;",
+          "};"
+        ]
+      },
+      "luecken": [{ "loesungen": ["virtual"] }],
+      "auswahl": ["virtual", "static", "inline", "explicit"],
+      "erklaerung": "`virtual ~Basis() = default;` reicht. Er macht nichts Besonderes, sorgt aber dafür, dass `delete` den Destruktor der tatsächlichen Klasse findet. Beachte: Damit unterdrückt man die impliziten Move-Operationen (Rule of Five). Bei polymorphen Basisklassen ist das meist egal, weil man sie ohnehin nicht als Wert kopiert, wie die nächste Übung zeigt."
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Object Slicing",
+      "text": "Übergibt oder speichert man ein abgeleitetes Objekt **als Wert** vom Basistyp, wird nur der Basis-Teil kopiert. Alles, was die abgeleitete Klasse hinzufügt, wird abgeschnitten (*sliced*). Die Kopie bekommt den vptr der Basis, ist also ein echtes Basis-Objekt. Polymorphie funktioniert nur über **Referenzen und Zeiger**."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Was gibt das Programm aus?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "struct Tier {",
+          "    virtual ~Tier() = default;",
+          "    virtual std::string laut() const { return \"...\"; }",
+          "};",
+          "struct Katze : Tier { std::string laut() const override { return \"Miau\"; } };",
+          "",
+          "void drucke(Tier t) { std::cout << t.laut(); }",
+          "",
+          "int main() { Katze k; drucke(k); }"
+        ]
+      },
+      "optionen": ["`...`", "`Miau`", "Compilerfehler"],
+      "korrekt": 0,
+      "fest": true,
+      "erklaerung": "`drucke` nimmt `Tier` **als Wert**. Beim Aufruf wird aus `k` ein neues `Tier` kopiert, und das ist eben ein `Tier`, keine `Katze`. Mit `void drucke(const Tier& t)` wäre die Ausgabe `Miau`.",
+      "begruendungen": [
+        "Richtig. Ein Fall von Slicing.",
+        "Das wäre mit einer Referenz als Parameter so.",
+        "Der Code ist gültig, das macht Slicing so tückisch."
+      ]
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Die Schleife gibt für alle Tiere `...` aus. Welche Zeile ist der Fehler?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "std::vector<Tier> tiere;",
+          "tiere.push_back(Katze{});",
+          "tiere.push_back(Hund{});",
+          "for (const auto& t : tiere) {",
+          "    std::cout << t.laut() << '\\n';",
+          "}"
+        ]
+      },
+      "fehlerZeile": 1,
+      "erklaerung": "Ein `std::vector<Tier>` speichert `Tier`-Objekte als Werte. Jedes `push_back` schneidet die Katze bzw. den Hund ab. Polymorphe Objekte speichert man über Zeiger: `std::vector<std::unique_ptr<Tier>> tiere;` und `tiere.push_back(std::make_unique<Katze>());`. Die Referenz in Zeile 4 ist korrekt, sie kommt nur zu spät."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Wie verhinderst du Slicing schon beim Design einer polymorphen Basisklasse?",
+      "optionen": [
+        "Kopierkonstruktor und Kopierzuweisung der Basis löschen oder `protected` machen",
+        "Alle Memberfunktionen `virtual` machen",
+        "Statt `class` immer `struct` verwenden"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Kann man die Basis nicht öffentlich kopieren, machen `void drucke(Tier t)` und `std::vector<Tier>` den Fehler schon beim Kompilieren sichtbar (C++ Core Guidelines C.67). Braucht man echte Kopien polymorpher Objekte, bietet man eine virtuelle `clone()`-Funktion an.",
+      "begruendungen": [
+        "Richtig. Der Compiler meldet dann den Fehler.",
+        "Slicing passiert beim Kopieren, nicht beim Aufruf.",
+        "`struct` und `class` unterscheiden sich nur in der Standard-Sichtbarkeit."
+      ]
+    }
+  ],
+  "praxis": "Im Review: Hat eine Klasse virtuelle Funktionen, aber keinen virtuellen Destruktor? Werden polymorphe Objekte als Wert übergeben oder in Containern gespeichert? GCC und Clang warnen mit `-Wnon-virtual-dtor` und `-Wdelete-non-virtual-dtor`. Solche Warnungen sollten in jeder CI als Fehler gelten (`-Werror`).",
+  "labor": {
+    "titel": "Slicing und fehlende Destruktoren aufspüren",
+    "anleitung": "Baue beide Beispiele mit allen Warnungen und mit AddressSanitizer.",
+    "befehle": [
+      "g++ -std=c++20 -Wall -Wextra -Wnon-virtual-dtor -fsanitize=address -g poly.cpp -o poly && ./poly"
+    ],
+    "beobachtung": "Der Compiler warnt vor dem nicht-virtuellen Destruktor. ASan meldet beim `delete p` einen `new-delete-type-mismatch` und am Ende ein Leck für den String `pfad`."
+  },
+  "begriffe": [
+    { "begriff": "Virtueller Destruktor", "englisch": "virtual destructor", "erklaerung": "Destruktor, der beim `delete` über einen Basis-Zeiger den Destruktor der tatsächlichen Klasse aufruft." },
+    { "begriff": "Object Slicing", "englisch": "object slicing", "erklaerung": "Beim Kopieren eines abgeleiteten Objekts in ein Basis-Objekt geht der abgeleitete Teil verloren." }
+  ],
+  "weiterlesen": [
+    { "titel": "C++ Core Guidelines: C.35 – A base class destructor should be either public and virtual, or protected and non-virtual", "url": "https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#Rc-dtor-virtual" },
+    { "titel": "C++ Core Guidelines: C.67 – A polymorphic class should suppress public copy/move", "url": "https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#Rc-copy-virtual" }
+  ]
+}

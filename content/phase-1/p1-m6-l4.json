@@ -1,0 +1,131 @@
+{
+  "id": "p1-m6-l4",
+  "phase": 1,
+  "modul": "1.6 Build-Systeme",
+  "titel": "Reproduzierbare Builds",
+  "lernziele": [
+    "Erklären, was ein reproduzierbarer Build ist und warum er wichtig ist",
+    "Typische Quellen für Unterschiede zwischen Builds erkennen",
+    "Massnahmen für reproduzierbare Builds benennen"
+  ],
+  "dauerMinuten": 5,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Zwei Entwickler bauen denselben Commit. Die Binaries unterscheiden sich Byte für Byte. Was kann die Ursache sein?",
+      "optionen": [
+        "Der Code verwendet `__DATE__` oder `__TIME__`",
+        "Absolute Pfade wie `/home/anna/projekt` stecken in Debug-Informationen oder `__FILE__`",
+        "Unterschiedliche Compiler-Versionen",
+        "Die beiden Rechner haben unterschiedlich viel RAM"
+      ],
+      "korrekt": [0, 1, 2],
+      "erklaerung": "Alles, was vom Zeitpunkt, vom Ort oder von der Umgebung des Builds abhängt, landet potenziell im Binary. Die RAM-Grösse beeinflusst höchstens die Build-Dauer, nicht das Ergebnis.",
+      "begruendungen": [
+        "Richtig. Zeitstempel ändern sich bei jedem Build.",
+        "Richtig. Jeder Rechner hat andere Pfade.",
+        "Richtig. Schon kleine Versionsunterschiede ändern die Code-Erzeugung.",
+        "Der verfügbare Speicher hat keinen Einfluss auf den erzeugten Code."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Gleiche Eingaben, gleiches Ergebnis",
+      "text": "Ein Build ist **reproduzierbar** (reproducible), wenn derselbe Quellcode mit derselben Toolchain immer ein bitidentisches Ergebnis liefert, egal wer, wann und wo baut.\n\nWarum das zählt:\n- **Vertrauen**: Jeder kann prüfen, dass ein ausgeliefertes Binary wirklich aus dem veröffentlichten Code stammt (Schutz der Lieferkette).\n- **Caching**: ccache und Bazels Remote-Cache funktionieren nur, wenn gleiche Eingaben gleiche Ausgaben liefern.\n- **Fehlersuche**: Ein Kundenproblem lässt sich mit exakt dem ausgelieferten Binary nachstellen."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Welche Massnahme behebt welches Problem?",
+      "paare": [
+        { "links": "`__DATE__` im Code", "rechts": "Makro entfernen oder `SOURCE_DATE_EPOCH` setzen" },
+        { "links": "Absolute Pfade im Binary", "rechts": "`-ffile-prefix-map=$PWD=.`" },
+        { "links": "Wechselnde Compiler-Versionen", "rechts": "Toolchain fest in einem Docker-Image vorgeben" },
+        { "links": "Abhängigkeit „neueste Version“", "rechts": "Versionen festschreiben (Lockfile, Tag oder Commit-Hash)" }
+      ],
+      "erklaerung": "`SOURCE_DATE_EPOCH` ist eine verbreitete Konvention: Setzt man die Variable, verwenden GCC und viele andere Werkzeuge diesen festen Zeitpunkt statt der aktuellen Uhrzeit. `-ffile-prefix-map` ersetzt Pfad-Präfixe in Debug-Infos und Makros wie `__FILE__`."
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Welche Zeile macht diesen Build nicht reproduzierbar?",
+      "code": {
+        "sprache": "cmake",
+        "zeilen": [
+          "include(FetchContent)",
+          "FetchContent_Declare(",
+          "  json",
+          "  GIT_REPOSITORY https://github.com/nlohmann/json.git",
+          "  GIT_TAG        develop",
+          ")",
+          "FetchContent_MakeAvailable(json)"
+        ]
+      },
+      "fehlerZeile": 5,
+      "erklaerung": "`develop` ist ein Branch und zeigt morgen auf einen anderen Commit als heute. Derselbe Commit deines Projekts kann so mit unterschiedlichen Versionen der Bibliothek gebaut werden. Ein Tag wie `v3.11.3` ist besser. Am sichersten ist ein vollständiger Commit-Hash, weil sich Tags theoretisch verschieben lassen."
+    },
+    {
+      "typ": "terminal-deuten",
+      "frage": "Du vergleichst die Binaries von Anna und Ben. Was erklärt den Unterschied?",
+      "terminal": {
+        "befehl": "strings app-anna | grep main.cpp; strings app-ben | grep main.cpp",
+        "ausgabe": [
+          "/home/anna/projekt/src/main.cpp",
+          "/home/ben/work/projekt/src/main.cpp"
+        ]
+      },
+      "optionen": [
+        "Absolute Quellpfade sind im Binary eingebettet, etwa durch `__FILE__` in `assert` oder durch Debug-Infos",
+        "Ben hat eine andere Version von `main.cpp`",
+        "`strings` liefert zufällige Ergebnisse"
+      ],
+      "korrekt": 0,
+      "erklaerung": "`assert` speichert `__FILE__` für die Fehlermeldung, und mit `-g` stehen die Pfade in den Debug-Infos. Mit `-ffile-prefix-map=/home/anna/projekt=.` (bzw. für Ben entsprechend) wird daraus bei beiden `./src/main.cpp`. CMake-Projekte setzen das meist zentral mit `${CMAKE_SOURCE_DIR}`.",
+      "begruendungen": [
+        "Richtig.",
+        "Der Inhalt kann identisch sein. Unterschiedlich ist nur der Pfad.",
+        "`strings` ist deterministisch und zeigt lesbare Zeichenketten in der Datei."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Hermetik und Caches",
+      "text": "Reproduzierbarkeit und schnelle Builds hängen zusammen. **ccache** speichert Compiler-Ergebnisse unter einem Hash der Eingaben: vorverarbeiteter Quelltext, Compiler und Optionen. Stimmt der Hash, wird das Ergebnis wiederverwendet, statt neu zu kompilieren. Absolute Pfade in den Eingaben zerstören dabei die Treffer zwischen verschiedenen Rechnern. Je hermetischer der Build, desto mehr Cache-Treffer, im Team und in der CI."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Warum fordern Branchen wie Medizintechnik, Automobil oder Luftfahrt oft reproduzierbare Builds?",
+      "optionen": [
+        "Man muss belegen können, dass das ausgelieferte Binary genau aus dem geprüften und getesteten Quellcode stammt",
+        "Weil reproduzierbare Binaries schneller laufen",
+        "Weil Zertifizierungsstellen nur ein bestimmtes Build-System akzeptieren"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Sicherheitsnormen verlangen **Rückverfolgbarkeit**: Von der Anforderung über Code, Review und Test bis zum ausgelieferten Artefakt. Kann man das Binary nicht reproduzieren, lässt sich diese Kette am Ende nicht schliessen.",
+      "begruendungen": [
+        "Richtig. Rückverfolgbarkeit ist der Kern.",
+        "Die Laufzeit ist identisch. Es geht um Nachweisbarkeit.",
+        "Die Normen schreiben kein Werkzeug vor, nur nachweisbare Eigenschaften."
+      ]
+    }
+  ],
+  "praxis": "In der CI siehst du die Wirkung sofort: Mit hermetischem Build in einem festen Docker-Image und ccache oder Remote-Cache schrumpfen Build-Zeiten oft auf einen Bruchteil. Im Code-Review achtest du auf Abhängigkeiten ohne feste Version (`GIT_TAG main`, `latest`-Images) und auf `__DATE__`/`__TIME__`. Eine Versionsnummer gehört aus Git (`git describe`) ins Binary, nicht aus der Uhrzeit.",
+  "labor": {
+    "titel": "Zwei Builds vergleichen",
+    "anleitung": "Baue dasselbe Programm zweimal in verschiedenen Verzeichnissen und vergleiche die Prüfsummen, erst ohne, dann mit `-ffile-prefix-map`.",
+    "befehle": [
+      "cp -r projekt /tmp/a && cp -r projekt /tmp/b",
+      "(cd /tmp/a && g++ -g main.cpp -o app) && (cd /tmp/b && g++ -g main.cpp -o app)",
+      "sha256sum /tmp/a/app /tmp/b/app",
+      "(cd /tmp/a && g++ -g -ffile-prefix-map=$PWD=. main.cpp -o app) && (cd /tmp/b && g++ -g -ffile-prefix-map=$PWD=. main.cpp -o app) && sha256sum /tmp/a/app /tmp/b/app"
+    ],
+    "beobachtung": "Ohne Prefix-Map unterscheiden sich die Prüfsummen, weil das Build-Verzeichnis in den Debug-Infos steht. Mit Prefix-Map sind sie identisch. Das Werkzeug `diffoscope` zeigt Unterschiede zwischen Binaries detailliert an."
+  },
+  "begriffe": [
+    { "begriff": "Reproduzierbarer Build", "englisch": "reproducible build", "erklaerung": "Gleicher Quellcode und gleiche Toolchain ergeben immer ein bitidentisches Ergebnis." },
+    { "begriff": "SOURCE_DATE_EPOCH", "englisch": "SOURCE_DATE_EPOCH", "erklaerung": "Umgebungsvariable mit einem festen Zeitstempel, den Werkzeuge statt der aktuellen Zeit verwenden." },
+    { "begriff": "ccache", "englisch": "compiler cache", "erklaerung": "Zwischenspeicher für Compiler-Ergebnisse, angesprochen über einen Hash der Eingaben." }
+  ],
+  "weiterlesen": [
+    { "titel": "reproducible-builds.org: Documentation", "url": "https://reproducible-builds.org/docs/" },
+    { "titel": "SOURCE_DATE_EPOCH Specification", "url": "https://reproducible-builds.org/specs/source-date-epoch/" }
+  ]
+}

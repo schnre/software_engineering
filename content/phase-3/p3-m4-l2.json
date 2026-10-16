@@ -1,0 +1,152 @@
+{
+  "id": "p3-m4-l2",
+  "phase": 3,
+  "modul": "3.4 Sanitizer und Valgrind",
+  "titel": "ThreadSanitizer und Valgrind",
+  "lernziele": [
+    "Data Races mit ThreadSanitizer finden",
+    "Valgrind-Meldungen zu Speicherfehlern lesen",
+    "Die Werkzeuge in der CI sinnvoll kombinieren"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "code-lesen",
+      "frage": "Was gibt dieses Programm aus?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "int zaehler = 0;",
+          "",
+          "void zaehle() { for (int i = 0; i < 100'000; ++i) ++zaehler; }",
+          "",
+          "int main() {",
+          "    std::thread a(zaehle), b(zaehle);",
+          "    a.join(); b.join();",
+          "    std::cout << zaehler;",
+          "}"
+        ]
+      },
+      "optionen": [
+        "Genau `200000`",
+        "Meist weniger als `200000`. Das Programm hat ein Data Race und damit Undefined Behavior",
+        "Compilerfehler"
+      ],
+      "korrekt": 1,
+      "fest": true,
+      "erklaerung": "`++zaehler` besteht aus Lesen, Erhöhen und Schreiben. Laufen beide Threads gleichzeitig, überschreibt einer die Erhöhung des anderen. Ein gleichzeitiger Zugriff ohne Synchronisation, bei dem mindestens einer schreibt, heisst **Data Race** und ist Undefined Behavior. Mit `-O2` macht der Compiler vielleicht sogar `zaehler += 100000` daraus, und das Ergebnis stimmt zufällig.",
+      "begruendungen": [
+        "Nur zufällig. Garantiert ist nichts.",
+        "Richtig.",
+        "Der Code kompiliert. Das Problem zeigt sich erst zur Laufzeit."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "ThreadSanitizer",
+      "text": "**ThreadSanitizer** (TSan, `-fsanitize=thread`) verfolgt zur Laufzeit, welche Speicherzugriffe durch Synchronisation geordnet sind (*happens-before*). Zwei Zugriffe ohne solche Ordnung, einer davon schreibend: Data Race. TSan meldet beide Stellen mit Stacktrace.\n\nKosten: etwa 5- bis 15-fache Laufzeit und deutlich mehr Speicher. TSan lässt sich **nicht** mit ASan kombinieren, also braucht es einen eigenen Build. TSan findet nur Races, die beim Test wirklich auftreten können. Tests mit echter Nebenläufigkeit sind deshalb wichtig."
+    },
+    {
+      "typ": "terminal-deuten",
+      "frage": "Was ist die richtige Lösung?",
+      "terminal": {
+        "befehl": "./zaehler",
+        "ausgabe": [
+          "WARNING: ThreadSanitizer: data race (pid=4242)",
+          "  Write of size 4 at 0x55e2c3a4b010 by thread T2:",
+          "    #0 zaehle() zaehler.cpp:3",
+          "  Previous write of size 4 at 0x55e2c3a4b010 by thread T1:",
+          "    #0 zaehle() zaehler.cpp:3",
+          "  Location is global 'zaehler' of size 4 at 0x55e2c3a4b010"
+        ]
+      },
+      "optionen": [
+        "`zaehler` als `std::atomic<int>` deklarieren oder die Zugriffe mit einem `std::mutex` schützen",
+        "`zaehler` als `volatile int` deklarieren",
+        "Den zweiten Thread mit `sleep_for` etwas später starten"
+      ],
+      "korrekt": 0,
+      "erklaerung": "`std::atomic<int>` macht `++zaehler` zu einer unteilbaren Operation. Ein Mutex schützt ganze Abschnitte. Beides schafft die Ordnung, die TSan vermisst. Noch besser ist oft, gar nicht zu teilen: Jeder Thread zählt lokal, am Ende wird addiert. Mehr dazu in Phase 4.",
+      "begruendungen": [
+        "Richtig.",
+        "Ein verbreiteter Irrtum: `volatile` verhindert nur bestimmte Optimierungen. Es macht nichts atomar und synchronisiert keine Threads.",
+        "Das verschiebt das Problem nur und macht es seltener, also noch schwerer zu finden."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Valgrind",
+      "text": "**Valgrind** führt ein unverändertes Programm in einer virtuellen CPU aus und beobachtet jeden Befehl. Neu kompilieren ist nicht nötig, praktisch für fremde Binaries. Das Werkzeug **memcheck** (Standard) findet ungültige Zugriffe, Lecks und die Verwendung nicht initialisierter Werte. Der Preis: Das Programm läuft 20- bis 50-mal langsamer.\n\nWeitere Werkzeuge: **callgrind** (Profiling: Wo wird Zeit verbraucht?), **massif** (Heap-Verbrauch über die Zeit), **helgrind** (Data Races)."
+    },
+    {
+      "typ": "terminal-deuten",
+      "frage": "Was bedeutet diese Meldung?",
+      "terminal": {
+        "befehl": "valgrind ./pruefung",
+        "ausgabe": [
+          "==9876== Conditional jump or move depends on uninitialised value(s)",
+          "==9876==    at 0x10917B: pruefe(int) (pruefe.cpp:6)",
+          "==9876==    by 0x1091B4: main (main.cpp:4)"
+        ]
+      },
+      "optionen": [
+        "In `pruefe.cpp` Zeile 6 hängt eine Entscheidung (z. B. ein `if`) von einem nicht initialisierten Wert ab",
+        "In Zeile 6 wird Speicher freigegeben, der nicht reserviert wurde",
+        "Das Programm hat ein Speicherleck in `main`"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Valgrind meldet nicht initialisierte Werte erst dann, wenn sie das Verhalten beeinflussen, also bei einem Sprung oder einer Ausgabe. Den Ursprung zeigt die Option `--track-origins=yes`: Dann nennt Valgrind die Stelle, an der der Wert entstanden ist, oft eine Variable ohne Initialisierung.",
+      "begruendungen": [
+        "Richtig.",
+        "Das wäre `Invalid free()`.",
+        "Lecks meldet Valgrind am Ende mit `definitely lost`."
+      ]
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Welche Eigenschaft gehört zu welchem Werkzeug?",
+      "paare": [
+        { "links": "AddressSanitizer", "rechts": "Speicherfehler, etwa doppelte Laufzeit, braucht Neukompilierung" },
+        { "links": "ThreadSanitizer", "rechts": "Data Races, etwa 5- bis 15-fache Laufzeit" },
+        { "links": "UBSan", "rechts": "Undefined Behavior wie Überläufe, geringer Aufwand" },
+        { "links": "Valgrind memcheck", "rechts": "Ohne Neukompilierung, aber 20- bis 50-mal langsamer" }
+      ],
+      "erklaerung": "Für eigenen Code sind die Sanitizer meist die erste Wahl, weil sie schneller sind und genauere Berichte liefern. Valgrind hilft bei fremden Binaries oder wenn eine Neukompilierung schwierig ist."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Wie richtest du die CI sinnvoll ein?",
+      "optionen": [
+        "Getrennte Jobs: ein normaler Build, ein Build mit ASan und UBSan, ein Build mit TSan",
+        "Ein einziger Build mit ASan und TSan zusammen",
+        "Sanitizer nur lokal, die CI baut nur Release"
+      ],
+      "korrekt": 0,
+      "erklaerung": "ASan und TSan schliessen sich aus, deshalb braucht es zwei instrumentierte Builds. Die Jobs laufen parallel, die Gesamtzeit steigt also kaum. Wichtig: Fehler der Sanitizer müssen den Job scheitern lassen (`halt_on_error=1`, `-fno-sanitize-recover=all`).",
+      "begruendungen": [
+        "Richtig.",
+        "Die Kombination wird von den Compilern abgelehnt.",
+        "Lokal vergisst man es. Die CI sorgt dafür, dass es immer passiert."
+      ]
+    }
+  ],
+  "praxis": "Bei nebenläufigem Code ist ein TSan-Job in der CI fast Pflicht. Data Races zeigen sich sonst erst unter Last beim Kunden. Und wenn du im Review `volatile` für die Kommunikation zwischen Threads siehst, ist das ein klarer Befund: Gemeint ist fast immer `std::atomic`. Ausnahme: Speicherzugriffe auf Hardware-Register, dort ist `volatile` richtig.",
+  "labor": {
+    "titel": "Ein Data Race finden und beheben",
+    "anleitung": "Baue das Zählerbeispiel mit TSan, lies den Bericht und behebe den Fehler mit `std::atomic<int>`.",
+    "befehle": [
+      "g++ -std=c++20 -g -O1 -fsanitize=thread zaehler.cpp -o zaehler && ./zaehler",
+      "valgrind --leak-check=full --track-origins=yes ./pruefung"
+    ],
+    "beobachtung": "Nach der Umstellung auf `std::atomic<int>` meldet TSan nichts mehr, und die Ausgabe ist immer 200000."
+  },
+  "begriffe": [
+    { "begriff": "Data Race", "englisch": "data race", "erklaerung": "Zwei Threads greifen ohne Synchronisation auf denselben Speicher zu, mindestens einer schreibt. Undefined Behavior." },
+    { "begriff": "ThreadSanitizer", "englisch": "ThreadSanitizer, TSan", "erklaerung": "Laufzeitprüfung, die Data Races mit beiden beteiligten Stellen meldet." },
+    { "begriff": "Valgrind", "englisch": "Valgrind", "erklaerung": "Werkzeugsammlung, die Programme ohne Neukompilierung auf Speicherfehler, Lecks und mehr untersucht." }
+  ],
+  "weiterlesen": [
+    { "titel": "Clang: ThreadSanitizer", "url": "https://clang.llvm.org/docs/ThreadSanitizer.html" },
+    { "titel": "Valgrind: Memcheck Manual", "url": "https://valgrind.org/docs/manual/mc-manual.html" }
+  ]
+}

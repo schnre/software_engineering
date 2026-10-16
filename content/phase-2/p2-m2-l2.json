@@ -1,0 +1,144 @@
+{
+  "id": "p2-m2-l2",
+  "phase": 2,
+  "modul": "2.2 Lebenszeit und Ownership",
+  "titel": "RAII: Ressourcen an Lebenszeit binden",
+  "lernziele": [
+    "Das RAII-Prinzip erklären",
+    "Eine einfache RAII-Klasse schreiben",
+    "Ressourcenlecks bei frühen Returns und Exceptions erkennen"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "code-lesen",
+      "frage": "`pruefeDaten()` wirft eine Exception. Was passiert mit der Datei?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "void schreibe(const char* pfad) {",
+          "    FILE* f = std::fopen(pfad, \"w\");",
+          "    if (!f) return;",
+          "    pruefeDaten();          // kann eine Exception werfen",
+          "    std::fputs(\"ok\", f);",
+          "    std::fclose(f);",
+          "}"
+        ]
+      },
+      "optionen": [
+        "Sie bleibt offen: `fclose` wird übersprungen, ein Ressourcenleck",
+        "`fclose` wird beim Verlassen der Funktion automatisch aufgerufen",
+        "Das Programm stürzt sofort ab"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Eine Exception verlässt die Funktion sofort. `fclose` in Zeile 6 wird nie erreicht. Dasselbe passiert bei jedem zusätzlichen `return`, das jemand später einbaut. Manuelles Aufräumen ist zerbrechlich.",
+      "begruendungen": [
+        "Richtig. Bei vielen solchen Fehlern gehen dem Prozess irgendwann die Datei-Handles aus.",
+        "Automatisch laufen nur Destruktoren. `FILE*` ist ein roher Zeiger ohne Destruktor.",
+        "Die Exception wird weitergereicht und kann weiter oben gefangen werden."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Resource Acquisition Is Initialization",
+      "text": "**RAII** ist das wichtigste Idiom in C++: Eine Ressource wird im **Konstruktor** eines Objekts erworben und im **Destruktor** freigegeben. Weil C++ Destruktoren lokaler Objekte beim Verlassen des Blocks garantiert aufruft, egal ob durch `return`, Ende des Blocks oder Exception, kann man das Aufräumen nicht vergessen.\n\nDie Standardbibliothek ist voller RAII-Klassen: `std::vector`, `std::string`, `std::unique_ptr` (Speicher), `std::ofstream` (Dateien), `std::lock_guard` (Mutexe), `std::jthread` (Threads)."
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze die RAII-Klasse für ein `FILE*`.",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "class Datei {",
+          "public:",
+          "    explicit Datei(const char* pfad) : f_(std::fopen(pfad, \"w\")) {",
+          "        if (!f_) throw std::runtime_error(\"Datei nicht geöffnet\");",
+          "    }",
+          "    {{?}}Datei() { std::fclose(f_); }",
+          "    Datei(const Datei&) = {{?}};",
+          "    Datei& operator=(const Datei&) = delete;",
+          "    std::FILE* get() const { return f_; }",
+          "private:",
+          "    std::FILE* f_;",
+          "};"
+        ]
+      },
+      "luecken": [{ "loesungen": ["~"] }, { "loesungen": ["delete"] }],
+      "auswahl": ["~", "delete", "default", "virtual", "!"],
+      "erklaerung": "`~Datei()` ist der Destruktor. `= delete` verbietet das Kopieren, sonst würden zwei Objekte dasselbe Handle schliessen. Wirft der Konstruktor, existiert kein Objekt, und es läuft auch kein Destruktor. Deshalb prüft man direkt im Konstruktor."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Warum muss man das Kopieren von `Datei` verbieten (oder selbst sinnvoll definieren)?",
+      "optionen": [
+        "Die automatisch erzeugte Kopie kopiert nur den Zeiger. Beide Objekte würden dieselbe Datei schliessen",
+        "Kopien von Dateien sind in C++ grundsätzlich verboten",
+        "Damit der Destruktor schneller läuft"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Die vom Compiler erzeugte Kopie macht eine **flache Kopie** (shallow copy) der Member. Für Ressourcen ist das falsch: Der zweite Destruktor schliesst ein bereits geschlossenes Handle, das ist Undefined Behavior. Erlauben kann man stattdessen das Verschieben (Move), dazu mehr in Modul 2.3.",
+      "begruendungen": [
+        "Richtig. Das ist ein doppeltes Freigeben.",
+        "Die Sprache verbietet das nicht. Die Klasse muss es selbst festlegen.",
+        "Das hat mit der Geschwindigkeit nichts zu tun."
+      ]
+    },
+    {
+      "typ": "reihenfolge",
+      "frage": "In welcher Reihenfolge laufen die Destruktoren am Ende von `f()`?",
+      "elemente": ["`~C()`", "`~B()`", "`~A()`"],
+      "hinweis": "In `f()` stehen nacheinander: `A a; B b; C c;`",
+      "erklaerung": "Lokale Objekte werden in **umgekehrter** Reihenfolge ihrer Konstruktion zerstört. So kann sich ein später erzeugtes Objekt darauf verlassen, dass frühere noch leben. Das gilt genauso für Member einer Klasse: Sie werden in umgekehrter Deklarationsreihenfolge zerstört."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Welche Standard-Klasse verwaltet welche Ressource?",
+      "paare": [
+        { "links": "Heap-Speicher für ein Objekt", "rechts": "`std::unique_ptr`" },
+        { "links": "Ein gesperrter Mutex", "rechts": "`std::lock_guard`" },
+        { "links": "Eine geöffnete Datei", "rechts": "`std::ofstream`" },
+        { "links": "Ein laufender Thread", "rechts": "`std::jthread`" }
+      ],
+      "erklaerung": "`std::jthread` (C++20) wartet im Destruktor automatisch auf das Ende des Threads. Ein `std::thread`, der beim Zerstören noch läuft, ruft dagegen `std::terminate` auf."
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Nach dem ersten Aufruf mit zu hohem Betrag hängt das Programm beim nächsten Aufruf für immer. Welche Zeile ist schuld?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "std::mutex m;",
+          "int konto = 0;",
+          "",
+          "bool abheben(int betrag) {",
+          "    m.lock();",
+          "    if (betrag > konto) return false;",
+          "    konto -= betrag;",
+          "    m.unlock();",
+          "    return true;",
+          "}"
+        ]
+      },
+      "fehlerZeile": 6,
+      "erklaerung": "Das frühe `return` verlässt die Funktion mit gesperrtem Mutex. Der nächste `lock()`-Aufruf wartet ewig (Deadlock). Mit `std::lock_guard lock(m);` statt `lock()`/`unlock()` wird der Mutex bei jedem Verlassen der Funktion freigegeben, egal wie."
+    }
+  ],
+  "praxis": "Sobald du im Code `new`/`delete`, `lock()`/`unlock()`, `fopen`/`fclose` oder `open`/`close` paarweise siehst, ist das im Review ein Hinweis: Hier fehlt eine RAII-Klasse. Für C-Bibliotheken baut man sich oft einen `std::unique_ptr` mit eigenem Deleter: `std::unique_ptr<FILE, decltype(&std::fclose)> f(std::fopen(p, \"w\"), &std::fclose);`.",
+  "labor": {
+    "titel": "Destruktoren beobachten",
+    "anleitung": "Schreibe eine Klasse, die im Konstruktor und Destruktor ihren Namen ausgibt. Lege drei Objekte an, wirf danach eine Exception und fange sie in `main`.",
+    "befehle": [
+      "g++ -std=c++20 raii.cpp -o raii && ./raii"
+    ],
+    "beobachtung": "Alle drei Destruktoren laufen in umgekehrter Reihenfolge, bevor der `catch`-Block erreicht wird. Ohne `try`/`catch` ruft das Programm `std::terminate` auf, und ob die Destruktoren dann noch laufen, ist implementierungsabhängig."
+  },
+  "begriffe": [
+    { "begriff": "RAII", "englisch": "resource acquisition is initialization", "erklaerung": "Ressource im Konstruktor erwerben, im Destruktor freigeben. Aufräumen ist so automatisch und exception-sicher." },
+    { "begriff": "Flache Kopie", "englisch": "shallow copy", "erklaerung": "Kopie, die nur Zeiger kopiert, nicht das, worauf sie zeigen. Bei Ressourcen meist falsch." },
+    { "begriff": "Deadlock", "englisch": "deadlock", "erklaerung": "Ein Thread wartet auf eine Sperre, die nie freigegeben wird." }
+  ],
+  "weiterlesen": [
+    { "titel": "cppreference: RAII", "url": "https://en.cppreference.com/w/cpp/language/raii" },
+    { "titel": "C++ Core Guidelines: R.1 – Manage resources automatically using RAII", "url": "https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#Rr-raii" }
+  ]
+}

@@ -1,0 +1,133 @@
+{
+  "id": "p2-m8-l2",
+  "phase": 2,
+  "modul": "2.8 Eine fremde Codebase lesen",
+  "titel": "Ein mentales Modell aufbauen",
+  "lernziele": [
+    "Die Ebenen eines mentalen Modells einer Codebase benennen",
+    "Aus Struktur und Build-Dateien Hypothesen über die Architektur ableiten",
+    "Gute Fragen an Kolleginnen und Kollegen stellen"
+  ],
+  "dauerMinuten": 5,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Was verschafft dir in den ersten Tagen in einem grossen Projekt am schnellsten einen Überblick?",
+      "optionen": [
+        "Das Projekt selbst bauen und die Tests laufen lassen",
+        "Ordnerstruktur und Build-Targets ansehen: Welche Module gibt es, wer hängt von wem ab?",
+        "README, Architektur-Dokumentation und ADRs lesen",
+        "Sofort mit einem grösseren Refactoring beginnen, um den Code kennenzulernen"
+      ],
+      "korrekt": [0, 1, 2],
+      "erklaerung": "Wer selbst baut, lernt Toolchain, Abhängigkeiten und die Stolpersteine kennen. Die Struktur zeigt die beabsichtigte Architektur, die Dokumentation die Gründe dahinter. Ein Refactoring ohne Verständnis ist riskant und wirkt im Team schnell respektlos gegenüber bestehenden Entscheidungen.",
+      "begruendungen": [
+        "Richtig. Danach weisst du, wie man das System überhaupt startet und prüft.",
+        "Richtig. Die Build-Targets sind die ehrlichste Architekturbeschreibung.",
+        "Richtig. Auch veraltete Dokumentation erklärt, was einmal gedacht war.",
+        "Erst verstehen, dann verändern. Und dann in kleinen Schritten."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Ebenen eines mentalen Modells",
+      "text": "Ein brauchbares Bild einer Codebase hat mehrere Ebenen:\n\n- **Zweck**: Was tut das System, für wen, mit welchen Randbedingungen (Echtzeit, Sicherheit, Plattformen)?\n- **Struktur**: Welche Module gibt es, wie hängen sie voneinander ab?\n- **Datenfluss**: Wo kommen Daten herein, wo werden sie verarbeitet, wo gehen sie hinaus?\n- **Laufzeit**: Welche Prozesse, Threads, Event-Loops und Timer gibt es?\n- **Konventionen**: Wie werden Fehler behandelt, wem gehören Objekte, wie wird benannt?\n\nSchreib es auf, auf einer Seite mit einer Skizze. Das Aufschreiben deckt Lücken auf."
+    },
+    {
+      "typ": "terminal-deuten",
+      "frage": "Welche Hypothese über die Architektur ist am plausibelsten?",
+      "terminal": {
+        "befehl": "tree -d -L 2 src",
+        "ausgabe": [
+          "src",
+          "├── app",
+          "├── core",
+          "│   ├── config",
+          "│   └── eventloop",
+          "├── drivers",
+          "│   ├── can",
+          "│   └── uart",
+          "├── protocol",
+          "└── ui"
+        ]
+      },
+      "optionen": [
+        "Schichten: `drivers` (Hardware) unter `protocol` unter `core`, oben `app` und `ui`. Code für ein neues Gerät gehört vermutlich nach `drivers`",
+        "`ui` enthält die Gerätetreiber",
+        "Die Ordner sagen nichts über die Architektur aus"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Ordnernamen sind ein starker Hinweis, aber nur eine **Hypothese**. Prüfe sie an den echten Abhängigkeiten: Bindet `drivers` etwas aus `ui` ein, ist die Schichtung verletzt. Das ist ein wichtiger Befund, den du ansprechen solltest.",
+      "begruendungen": [
+        "Richtig. Gut als Startpunkt, danach mit den Abhängigkeiten abgleichen.",
+        "Nichts deutet darauf hin.",
+        "Sie sind kein Beweis, aber ein guter Ausgangspunkt."
+      ]
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Wo findest du die Antwort?",
+      "paare": [
+        { "links": "Welche Module hängen voneinander ab?", "rechts": "`target_link_libraries` bzw. ein CMake-Abhängigkeitsgraph" },
+        { "links": "Warum wurde X so entschieden?", "rechts": "ADRs und Commit-Nachrichten" },
+        { "links": "Wie benutzt man diese Komponente?", "rechts": "Die Unit-Tests der Komponente" },
+        { "links": "Welche Threads laufen?", "rechts": "Suche nach `std::thread`/`jthread` und `info threads` im Debugger" }
+      ],
+      "erklaerung": "Tests sind ausführbare Dokumentation: Sie zeigen, wie eine Komponente gedacht ist, und sind im Gegensatz zu Kommentaren garantiert aktuell, solange sie grün sind."
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze den Befehl, mit dem CMake einen Abhängigkeitsgraphen aller Targets als Graphviz-Datei erzeugt.",
+      "code": {
+        "sprache": "bash",
+        "zeilen": [
+          "cmake -S . -B build --{{?}}=deps.dot",
+          "dot -Tsvg build/deps.dot -o deps.svg"
+        ]
+      },
+      "luecken": [{ "loesungen": ["graphviz"] }],
+      "auswahl": ["graphviz", "trace", "graph", "build"],
+      "erklaerung": "`--graphviz` schreibt eine `.dot`-Datei mit allen Targets und ihren Verbindungen. Graphviz (`dot`) macht ein Bild daraus. Bei grossen Projekten hilft es, auf ein Target zu filtern, z. B. mit `deps.dot.app` (CMake schreibt für jedes Target eine eigene Datei)."
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Die Geschichte des Codes",
+      "text": "`git log --oneline -- pfad/` zeigt, wie sich ein Modul entwickelt hat. `git blame -w` zeigt zu jeder Zeile den letzten Commit. Die Commit-Nachricht oder das verlinkte Ticket erklärt oft, warum ein merkwürdiges Stück Code existiert. Bevor du „unnötigen“ Code entfernst, schau nach, warum er hinzugefügt wurde. Häufig behebt er einen seltenen Fehler, an den sich niemand mehr erinnert (*Chesterton's fence*)."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Du steckst fest und willst eine erfahrene Kollegin fragen. Was ist die beste Art?",
+      "optionen": [
+        "Eine konkrete Frage mit dem, was du schon herausgefunden hast, und deiner Hypothese",
+        "Gleich zu Beginn fragen, wie das ganze System funktioniert",
+        "Gar nicht fragen, um nicht zu stören"
+      ],
+      "korrekt": 0,
+      "erklaerung": "„Ich glaube, der Export läuft über `EventLoop` → `MenueHandler`, aber ich finde nicht, wo der `CsvExporter` registriert wird. Ich habe nach `registriere` gesucht. Wo sollte ich schauen?“ So eine Frage ist in zwei Minuten beantwortet und zeigt, dass du selbst gearbeitet hast. Zu lange nicht zu fragen, kostet das Team oft mehr als die Unterbrechung.",
+      "begruendungen": [
+        "Richtig.",
+        "Zu breit. Darauf gibt es keine kurze, hilfreiche Antwort.",
+        "Stunden festzustecken ist teurer als zwei Minuten Unterbrechung."
+      ]
+    }
+  ],
+  "praxis": "Ein Senior wird oft daran gemessen, wie schnell er in fremdem Code produktiv wird und wie gut er anderen beim Einstieg hilft. Eine Seite „So ist das System aufgebaut“ mit Skizze, wichtigsten Modulen, Einstiegspunkten und Fallstricken ist eines der wertvollsten Dokumente in jedem Team und oft das erste, das neue Kolleginnen und Kollegen schreiben sollten.",
+  "labor": {
+    "titel": "Ein Projekt kartieren",
+    "anleitung": "Nimm ein Open-Source-Projekt oder ein Projekt aus deinem Alltag und erstelle in 30 Minuten eine Skizze: Module, Abhängigkeiten, Einstiegspunkte, Threads.",
+    "befehle": [
+      "cmake -S . -B build --graphviz=build/deps.dot && dot -Tsvg build/deps.dot -o deps.svg",
+      "rg -l 'std::thread|std::jthread' src/ | head",
+      "git log --format='%an' | sort | uniq -c | sort -rn | head"
+    ],
+    "beobachtung": "Der letzte Befehl zeigt, wer am meisten am Projekt gearbeitet hat. Das sind gute Ansprechpersonen für Architekturfragen."
+  },
+  "begriffe": [
+    { "begriff": "Mentales Modell", "englisch": "mental model", "erklaerung": "Eigenes, vereinfachtes Bild davon, wie ein System aufgebaut ist und funktioniert." },
+    { "begriff": "Chesterton's fence", "englisch": "Chesterton's fence", "erklaerung": "Prinzip: Erst herausfinden, warum etwas existiert, bevor man es entfernt." }
+  ],
+  "weiterlesen": [
+    { "titel": "CMake: --graphviz", "url": "https://cmake.org/cmake/help/latest/module/CMakeGraphVizOptions.html" },
+    { "titel": "Git: git-blame", "url": "https://git-scm.com/docs/git-blame" }
+  ]
+}

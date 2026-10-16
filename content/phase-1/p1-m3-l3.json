@@ -1,0 +1,133 @@
+{
+  "id": "p1-m3-l3",
+  "phase": 1,
+  "modul": "1.3 Bibliotheken",
+  "titel": "Shared Libraries zur Laufzeit finden",
+  "lernziele": [
+    "Erklären, wo der dynamische Loader nach Bibliotheken sucht",
+    "Fehlende Bibliotheken mit `ldd` finden",
+    "`rpath` mit `$ORIGIN` und das soname-Schema einsetzen"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "`g++ main.o -L./lib -lmathe -o app` gelingt. `./app` meldet aber `libmathe.so: cannot open shared object file`. Warum findet der Linker die Bibliothek, der Start aber nicht?",
+      "optionen": [
+        "`-L` gilt nur beim Linken; der Loader beim Start hat eigene Suchpfade",
+        "Der Linker hat die Bibliothek ins Programm kopiert, aber die Kopie ist beschädigt",
+        "`./app` muss aus dem Verzeichnis `lib` gestartet werden"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Linker und Loader sind verschiedene Programme zu verschiedenen Zeitpunkten. Der Linker trägt ins Programm nur ein, **welche** Bibliothek es braucht (`NEEDED libmathe.so`), nicht wo sie lag.",
+      "begruendungen": [
+        "Richtig. Build-Zeit und Laufzeit haben getrennte Suchpfade.",
+        "Bei Shared Libraries wird nichts kopiert. Genau deshalb muss die Datei beim Start auffindbar sein.",
+        "Der Loader sucht nicht relativ zum aktuellen Verzeichnis, es sei denn, man konfiguriert das ausdrücklich."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Wo der Loader sucht",
+      "text": "Unter Linux sucht der dynamische Loader `ld-linux.so` vereinfacht in dieser Reihenfolge:\n\n1. **RUNPATH** (oder das ältere RPATH), das beim Linken ins Programm geschrieben wurde\n2. die Umgebungsvariable `LD_LIBRARY_PATH`\n3. den Cache `/etc/ld.so.cache`, den `ldconfig` aus `/etc/ld.so.conf` erzeugt\n4. die Standardverzeichnisse wie `/lib` und `/usr/lib`\n\nGenauer: Das ältere RPATH wird noch vor `LD_LIBRARY_PATH` durchsucht, RUNPATH erst danach. Moderne Linker schreiben standardmässig RUNPATH."
+    },
+    {
+      "typ": "terminal-deuten",
+      "frage": "Welche Bibliothek fehlt?",
+      "terminal": {
+        "befehl": "ldd ./app",
+        "ausgabe": [
+          "\tlinux-vdso.so.1 (0x00007ffc8b5f2000)",
+          "\tlibmathe.so => not found",
+          "\tlibstdc++.so.6 => /lib/x86_64-linux-gnu/libstdc++.so.6 (0x00007f1c2a200000)",
+          "\tlibm.so.6 => /lib/x86_64-linux-gnu/libm.so.6 (0x00007f1c2a519000)",
+          "\tlibc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007f1c29e00000)"
+        ]
+      },
+      "optionen": ["`libmathe.so`", "`libstdc++.so.6`", "`linux-vdso.so.1`", "`libm.so.6`"],
+      "korrekt": 0,
+      "erklaerung": "`ldd` zeigt für jede benötigte Bibliothek, wo der Loader sie findet. `not found` ist der Übeltäter. `linux-vdso.so.1` ist keine Datei, sondern eine kleine Bibliothek, die der Kernel selbst einblendet. Deshalb steht dort kein Pfad.",
+      "begruendungen": [
+        "Richtig: `=> not found`.",
+        "Wurde unter `/lib/x86_64-linux-gnu` gefunden.",
+        "Wird vom Kernel bereitgestellt und braucht keinen Pfad.",
+        "Wurde gefunden."
+      ]
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Die Bibliothek liegt im Unterordner `lib` neben dem Programm. Ergänze den Link-Befehl so, dass das Programm sie findet, egal aus welchem Verzeichnis man es startet.",
+      "code": {
+        "sprache": "bash",
+        "zeilen": ["g++ main.o -L./lib -lmathe -Wl,-rpath,'{{?}}' -o app"]
+      },
+      "luecken": [{ "loesungen": ["$ORIGIN/lib"] }],
+      "auswahl": ["$ORIGIN/lib", "./lib", "/lib"],
+      "erklaerung": "`$ORIGIN` ersetzt der Loader durch das Verzeichnis, in dem das Programm liegt. So bleibt die Installation verschiebbar. `./lib` wäre relativ zum **aktuellen Arbeitsverzeichnis** beim Start und funktioniert nur zufällig. `/lib` ist ein Systemverzeichnis. Die einfachen Anführungszeichen verhindern, dass die Shell `$ORIGIN` als Variable auflöst."
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Versionen: das soname-Schema",
+      "text": "Shared Libraries tragen eine Version im Namen. Der **soname** ändert sich nur, wenn die Bibliothek **ABI-inkompatibel** wird, also wenn alte Programme mit der neuen Version nicht mehr laufen würden.",
+      "code": {
+        "sprache": "bash",
+        "zeilen": [
+          "libmathe.so       -> libmathe.so.1",
+          "libmathe.so.1     -> libmathe.so.1.4.2",
+          "libmathe.so.1.4.2"
+        ],
+        "anmerkungen": [
+          { "zeile": 1, "text": "Wird nur beim Bauen gebraucht (`-lmathe`). Gehört ins Entwicklerpaket (`-dev`)." },
+          { "zeile": 2, "text": "Der soname. Er wird ins Programm eingetragen und beim Start gesucht." },
+          { "zeile": 3, "text": "Die echte Datei. Ein Bugfix-Update tauscht nur sie aus." }
+        ]
+      }
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Welche Datei hat welche Aufgabe?",
+      "paare": [
+        { "links": "`libmathe.so`", "rechts": "Symlink für den Linker beim Bauen mit `-lmathe`" },
+        { "links": "`libmathe.so.1`", "rechts": "soname: wird beim Programmstart gesucht" },
+        { "links": "`libmathe.so.1.4.2`", "rechts": "Die Datei mit dem eigentlichen Code" }
+      ],
+      "erklaerung": "Kommt Version 1.5.0 mit neuen Funktionen, aber kompatibler ABI, zeigt `libmathe.so.1` einfach auf die neue Datei, und alle Programme profitieren. Bei einer inkompatiblen Version 2 entsteht `libmathe.so.2` daneben, und alte Programme nutzen weiter Version 1."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Viele Bibliotheken werden mit `-fvisibility=hidden` gebaut und exportieren nur ausgewählte Funktionen mit einem Makro wie `MATHE_API`. Was ist der Hauptgrund?",
+      "optionen": [
+        "Nur die bewusst exportierten Symbole gehören zur ABI. Interna bleiben änderbar, und das Laden geht schneller",
+        "Der Code wird dadurch vor Reverse Engineering geschützt",
+        "Ohne diese Option kompiliert C++-Code für Shared Libraries nicht"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Standardmässig exportiert GCC unter Linux **jedes** Symbol einer Shared Library. Dann hängen Nutzer womöglich von internen Funktionen ab, und jede interne Änderung kann die ABI brechen. Unter Windows ist es umgekehrt: Dort exportiert eine DLL nur, was mit `__declspec(dllexport)` markiert ist.",
+      "begruendungen": [
+        "Richtig. Eine kleine, bewusst gewählte Schnittstelle ist leichter stabil zu halten.",
+        "Versteckte Symbole lassen sich weiterhin disassemblieren. Ein Schutz ist das nicht.",
+        "Ohne die Option funktioniert alles. Es wird nur mehr exportiert als nötig."
+      ]
+    }
+  ],
+  "praxis": "Typische Situation: Auf deinem Rechner läuft das Programm, beim Kollegen oder im Docker-Container kommt `cannot open shared object file`. Dann zeigt `ldd`, was fehlt. `readelf -d app | grep -E 'RUNPATH|NEEDED'` zeigt, was eingetragen ist. `LD_LIBRARY_PATH` ist für Tests in Ordnung. Für ausgelieferte Software installiert man Bibliotheken in Systempfade (plus `ldconfig`) oder setzt `RUNPATH` mit `$ORIGIN`.",
+  "labor": {
+    "titel": "Dem Loader zusehen",
+    "anleitung": "Baue `libmathe.so` in einem Unterordner `lib` und linke einmal ohne und einmal mit `-rpath`.",
+    "befehle": [
+      "readelf -d app | grep -E 'NEEDED|RUNPATH'",
+      "ldd app",
+      "LD_DEBUG=libs ./app 2>&1 | head -20"
+    ],
+    "beobachtung": "Mit `-rpath` erscheint ein Eintrag `RUNPATH [$ORIGIN/lib]`. `LD_DEBUG=libs` zeigt Schritt für Schritt, welche Verzeichnisse der Loader durchsucht."
+  },
+  "begriffe": [
+    { "begriff": "RUNPATH / RPATH", "englisch": "run-time search path", "erklaerung": "Im Programm gespeicherte Suchpfade für Shared Libraries. `$ORIGIN` steht für das Verzeichnis des Programms." },
+    { "begriff": "soname", "englisch": "shared object name", "erklaerung": "Versionierter Name einer Shared Library (z. B. `libmathe.so.1`). Ändert sich bei ABI-Brüchen." },
+    { "begriff": "Symbol-Sichtbarkeit", "englisch": "symbol visibility", "erklaerung": "Legt fest, welche Symbole eine Shared Library nach aussen exportiert (`-fvisibility=hidden`)." }
+  ],
+  "weiterlesen": [
+    { "titel": "man ld.so (Suchreihenfolge des Loaders)", "url": "https://man7.org/linux/man-pages/man8/ld.so.8.html" },
+    { "titel": "GCC Wiki: Visibility", "url": "https://gcc.gnu.org/wiki/Visibility" }
+  ]
+}

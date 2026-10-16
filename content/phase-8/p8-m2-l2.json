@@ -1,0 +1,120 @@
+{
+  "id": "p8-m2-l2",
+  "phase": 8,
+  "modul": "8.2 Entscheidungen und Trade-offs",
+  "titel": "Umkehrbare und unumkehrbare Entscheidungen",
+  "lernziele": [
+    "Entscheidungen nach ihrer Umkehrbarkeit einordnen",
+    "Den Aufwand für eine Entscheidung passend wählen",
+    "Entscheidungen bewusst umkehrbar gestalten"
+  ],
+  "dauerMinuten": 5,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Welche dieser Entscheidungen lässt sich am schwersten rückgängig machen?",
+      "optionen": [
+        "Das Datenformat, in dem 100 000 ausgelieferte Geräte ihre Einstellungen speichern",
+        "Der Name einer internen Hilfsfunktion",
+        "Die Logging-Bibliothek hinter einer eigenen `ILogger`-Schnittstelle"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Sind die Geräte beim Kunden, muss jede künftige Firmware dieses Format lesen können, für Jahre. Eine solche Entscheidung ist praktisch **unumkehrbar** und verdient sorgfältige Prüfung. Die beiden anderen lassen sich in Stunden ändern.",
+      "begruendungen": [
+        "Richtig.",
+        "Eine Umbenennung ist eine Sache von Minuten.",
+        "Dank Adapter (Modul 7.4) ist das in einem Modul austauschbar."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Einbahnstrassen und Drehtüren",
+      "text": "Jeff Bezos unterscheidet zwei Arten von Entscheidungen: **Einbahnstrassen** (one-way doors), die sich kaum umkehren lassen, und **Drehtüren** (two-way doors), durch die man jederzeit zurückgehen kann.\n\nDaraus folgt eine einfache Regel: Drehtüren schnell entscheiden, von der Person, die am nächsten dran ist. Einbahnstrassen sorgfältig prüfen, mit Daten, Prototyp und mehreren Meinungen. Ein häufiger Fehler ist, alle Entscheidungen gleich zu behandeln: entweder alles ewig diskutieren oder alles im Vorbeigehen entscheiden."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Wie gehst du mit diesen Entscheidungen um?",
+      "paare": [
+        { "links": "Protokollformat zu Kundengeräten", "rechts": "Schwer umkehrbar: sorgfältig prüfen und ein Versionsfeld einbauen" },
+        { "links": "Name einer internen Hilfsfunktion", "rechts": "Leicht umkehrbar: schnell entscheiden" },
+        { "links": "Programmiersprache für ein neues Produkt", "rechts": "Schwer umkehrbar: Prototyp und bewusste Bewertung" },
+        { "links": "Implementierung hinter einer stabilen Schnittstelle", "rechts": "Leicht umkehrbar, solange die Schnittstelle bleibt" }
+      ],
+      "erklaerung": "Gute Architektur macht viele Entscheidungen zu Drehtüren: Wer eine Bibliothek hinter einem Adapter, eine Hardware hinter einer HAL und ein Format hinter einer Version verbirgt, kann diese Entscheidungen später korrigieren."
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze den Kopf eines Datenformats so, dass spätere Änderungen möglich bleiben.",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "struct EinstellungenKopf {",
+          "    std::uint32_t magie;        // erkennt die Datei",
+          "    std::uint16_t {{?}};        // erlaubt spätere Formatänderungen",
+          "    std::uint16_t laenge;",
+          "};",
+          "static_assert(sizeof(EinstellungenKopf) == 8);"
+        ]
+      },
+      "luecken": [{ "loesungen": ["version"] }],
+      "auswahl": ["version", "padding", "zeiger", "debug"],
+      "erklaerung": "Mit einem Versionsfeld kann künftige Firmware alte Dateien erkennen und umwandeln. Ohne Versionsfeld bleibt nur Raten. Das `static_assert` (Modul 2.5) stellt sicher, dass niemand das Layout versehentlich verändert."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Wann sollte man eine schwer umkehrbare Entscheidung treffen?",
+      "optionen": [
+        "So spät wie verantwortbar: wenn man genug weiss, aber bevor das Warten selbst teurer wird",
+        "So früh wie möglich, damit sie vom Tisch ist",
+        "Erst, wenn es gar nicht mehr anders geht"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Das Prinzip heisst *last responsible moment*. Bis dahin sammelt man Informationen, etwa mit einem Prototyp, und hält die Optionen offen. Zu frühe Entscheidungen beruhen auf Vermutungen, zu späte blockieren das Team oder werden vom Termin erzwungen.",
+      "begruendungen": [
+        "Richtig.",
+        "Dann entscheidet man mit dem geringsten Wissen.",
+        "Dann entscheidet der Zeitdruck statt der Überlegung."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Entscheidungen zu Ende bringen",
+      "text": "Manche Diskussionen enden nie, weil niemand entscheidet. Hilfreich ist:\n\n- **Wer entscheidet?** Das vorher klären. Eine Person entscheidet nach Anhörung aller.\n- **Bis wann?** Eine Frist setzen (*time-box*), besonders bei Drehtüren.\n- **Disagree and commit**: Wer anderer Meinung war, sagt das, trägt die Entscheidung danach aber mit.\n- **Festhalten**: das Ergebnis und die Gründe, z. B. in einem ADR."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Das Team diskutiert seit drei Wochen über die Logging-Bibliothek. Sie steckt hinter einer eigenen Schnittstelle `ILogger`. Was schlägst du vor?",
+      "optionen": [
+        "Eine Frist bis Freitag setzen, dann eine Wahl treffen. Die Entscheidung ist dank Adapter leicht umkehrbar",
+        "Weiter diskutieren, bis alle einverstanden sind",
+        "Alle infrage kommenden Bibliotheken gleichzeitig einbauen"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Bei einer Drehtür kostet die Diskussion mehr als eine spätere Korrektur. Drei Wochen Diskussion für eine Entscheidung, die sich in einem Tag umkehren lässt, sind ein typisches Zeichen für fehlende Entscheidungsregeln.",
+      "begruendungen": [
+        "Richtig.",
+        "Einstimmigkeit ist bei Geschmacksfragen selten zu erreichen und hier nicht nötig.",
+        "Das erhöht Komplexität und Abhängigkeiten ohne Nutzen."
+      ]
+    }
+  ],
+  "praxis": "Eine der wertvollsten Fähigkeiten eines Seniors ist, Entscheidungen richtig einzuordnen: bei Kleinigkeiten das Team zügig weiterbringen, bei Einbahnstrassen bremsen und gründlich prüfen. In Embedded-Projekten sind Einbahnstrassen besonders häufig: Speicherformate, Protokolle, Bootloader, Pinbelegungen. Alles, was im Feld beim Kunden landet, verdient einen zweiten Blick und ein Versionsfeld.",
+  "labor": {
+    "titel": "Einbahnstrassen im eigenen Projekt",
+    "anleitung": "Liste in einem Projekt alle Datenformate und Schnittstellen auf, die nach aussen gehen: Dateien auf Geräten, Netzwerkprotokolle, öffentliche APIs. Prüfe für jede: Gibt es ein Versionsfeld?",
+    "befehle": [
+      "rg -n 'struct \\w*(Kopf|Header|Telegramm|Paket)' src/ | head",
+      "rg -n -i 'version' src/protokoll/ | head"
+    ],
+    "beobachtung": "Formate ohne Versionsfeld sind Kandidaten für ein Risiko-Ticket. Eine nachträgliche Version lässt sich oft noch einbauen, z. B. über einen neuen Magie-Wert für das neue Format."
+  },
+  "begriffe": [
+    { "begriff": "Einbahnstrasse", "englisch": "one-way door", "erklaerung": "Entscheidung, die sich nur schwer oder gar nicht umkehren lässt." },
+    { "begriff": "Drehtür", "englisch": "two-way door", "erklaerung": "Entscheidung, die sich mit geringem Aufwand umkehren lässt." },
+    { "begriff": "Last responsible moment", "englisch": "last responsible moment", "erklaerung": "So spät entscheiden wie verantwortbar, um möglichst viel Wissen zu haben." },
+    { "begriff": "Disagree and commit", "englisch": "disagree and commit", "erklaerung": "Widerspruch äussern, die getroffene Entscheidung danach aber mittragen." }
+  ],
+  "weiterlesen": [
+    { "titel": "Amazon: 2015 Letter to Shareholders (Type 1 und Type 2 decisions)", "url": "https://s2.q4cdn.com/299287126/files/doc_financials/annual/2015-Letter-to-Shareholders.PDF" }
+  ]
+}

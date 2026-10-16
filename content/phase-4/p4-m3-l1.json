@@ -1,0 +1,136 @@
+{
+  "id": "p4-m3-l1",
+  "phase": 4,
+  "modul": "4.3 Atomics und Speichermodell",
+  "titel": "std::atomic",
+  "lernziele": [
+    "Einzelne Variablen mit `std::atomic` thread-sicher machen",
+    "Erkennen, wann Atomics nicht reichen",
+    "Eine Schleife mit `compare_exchange` lesen"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Mehrere Threads zählen Anfragen in einem gemeinsamen Zähler. Was ist die einfachste korrekte Lösung?",
+      "optionen": ["`std::atomic<long> anfragen;`", "`volatile long anfragen;`", "`long anfragen;` mit einem Kommentar „nur von einem Thread schreiben“"],
+      "korrekt": 0,
+      "erklaerung": "Eine Operation auf einem `std::atomic` ist **unteilbar**: Kein anderer Thread kann einen halb fertigen Zustand sehen, und `++anfragen` geht nie verloren. Für einen einfachen Zähler ist das billiger und einfacher als ein Mutex.",
+      "begruendungen": [
+        "Richtig.",
+        "`volatile` macht nichts atomar und synchronisiert keine Threads.",
+        "Kommentare verhindern keine Data Races."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Atomare Operationen",
+      "text": "`std::atomic<T>` gibt es für ganze Zahlen, Zeiger, `bool` und mit Einschränkungen für andere triviale Typen. Die wichtigsten Operationen: `load`, `store`, `fetch_add` (und `++`, `+=`), `exchange` und `compare_exchange_weak`/`_strong`.\n\nFür kleine Typen setzt der Compiler dafür spezielle CPU-Befehle ein, ganz ohne Sperre (*lock-free*). Ob das der Fall ist, verrät `std::atomic<T>::is_always_lock_free`. Bei grösseren Typen nimmt die Bibliothek intern doch einen Mutex."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Zwei Threads führen je 100 000 Mal `a++` aus. Was gibt das Programm danach aus?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "std::atomic<int> a{0};",
+          "",
+          "void zaehle() { for (int i = 0; i < 100'000; ++i) a++; }",
+          "",
+          "// zwei Threads mit zaehle(), dann join()",
+          "std::cout << a.load();"
+        ]
+      },
+      "optionen": ["Immer `200000`", "Meist weniger als `200000`", "Undefined Behavior"],
+      "korrekt": 0,
+      "fest": true,
+      "erklaerung": "`a++` auf einem `std::atomic<int>` ist ein einziger unteilbarer Lese-Ändere-Schreibe-Vorgang, auf x86 z. B. `lock xadd`. Keine Erhöhung geht verloren, und es gibt kein Data Race.",
+      "begruendungen": [
+        "Richtig.",
+        "Das wäre bei `int` ohne `atomic` so.",
+        "Zugriffe auf Atomics sind nie ein Data Race."
+      ]
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Ein anderer Thread prüft regelmässig `belegt + frei == 100` und sieht manchmal `101`. Warum?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "std::atomic<int> belegt{0};",
+          "std::atomic<int> frei{100};",
+          "",
+          "void reserviere() {",
+          "    belegt++;",
+          "    frei--;",
+          "}"
+        ]
+      },
+      "optionen": [
+        "Jede Operation ist atomar, die beiden zusammen aber nicht: Dazwischen kann ein anderer Thread lesen",
+        "`std::atomic` ist bei mehreren Variablen fehlerhaft",
+        "Der Compiler vertauscht die beiden Zeilen"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Atomics schützen **einzelne** Variablen. Gehören mehrere Werte zu einer Invariante, braucht es einen Mutex, der beide Änderungen zu einem kritischen Abschnitt zusammenfasst. Oder man speichert nur einen Wert: Hier reicht `belegt`, denn `frei` ist immer `100 - belegt`.",
+      "begruendungen": [
+        "Richtig.",
+        "Jedes Atomic tut genau, was es verspricht.",
+        "Mit der Standard-Speicherordnung bleibt die Reihenfolge erhalten. Das Problem ist das Fenster zwischen den beiden Operationen."
+      ]
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze die Funktion, die ein gemeinsames Maximum ohne Mutex aktualisiert.",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "void aktualisiereMaximum(std::atomic<int>& maximum, int wert) {",
+          "    int bisher = maximum.load();",
+          "    while (bisher < wert && !maximum.{{?}}(bisher, wert)) {",
+          "        // bisher enthält jetzt den aktuellen Wert, nochmals versuchen",
+          "    }",
+          "}"
+        ]
+      },
+      "luecken": [{ "loesungen": ["compare_exchange_weak"] }],
+      "auswahl": ["compare_exchange_weak", "fetch_add", "store", "exchange"],
+      "erklaerung": "`compare_exchange_weak(erwartet, neu)` setzt `neu` nur, wenn der aktuelle Wert noch `erwartet` ist. Sonst schreibt es den aktuellen Wert nach `erwartet` und liefert `false`. Die Schleife versucht es, bis entweder der eigene Wert drin ist oder ein anderer Thread schon einen grösseren geschrieben hat. Die `weak`-Variante darf gelegentlich ohne Grund scheitern, ist in Schleifen aber auf manchen CPUs schneller."
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Lock-free ist nicht automatisch schnell",
+      "text": "Atomics sind sehr günstig, solange nur ein Thread zugreift. Schreiben viele Kerne auf dieselbe Variable, muss die Cache-Zeile ständig zwischen den Kernen wandern. Dann kann ein Atomic langsamer sein als lokale Zähler pro Thread, die man am Ende addiert.\n\nUnd: Lock-freie Datenstrukturen mit mehreren Atomics (Listen, Warteschlangen) sind extrem schwer korrekt zu bauen. Im Alltag nimmt man dafür bewährte Bibliotheken, nicht eigene Experimente."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Was macht welche Operation?",
+      "paare": [
+        { "links": "`load()`", "rechts": "Wert lesen" },
+        { "links": "`store(x)`", "rechts": "Wert schreiben" },
+        { "links": "`fetch_add(n)`", "rechts": "Unteilbar addieren und den alten Wert liefern" },
+        { "links": "`exchange(x)`", "rechts": "Neuen Wert setzen und den alten liefern" },
+        { "links": "`compare_exchange_strong(e, x)`", "rechts": "Nur setzen, wenn der aktuelle Wert gleich `e` ist" }
+      ],
+      "erklaerung": "`exchange` ist praktisch für Flags, die genau einmal ausgewertet werden sollen: `if (!bereitsGestartet.exchange(true)) starte();` startet garantiert nur einmal, auch wenn viele Threads gleichzeitig ankommen."
+    }
+  ],
+  "praxis": "Typische, gute Einsatzorte für Atomics: Zähler und Statistiken, ein Flag zum Beenden (`std::atomic<bool> laufen`), ein Zeiger, der einmal gesetzt und dann nur gelesen wird. Im Review bist du skeptisch, sobald jemand mehrere Atomics zu einer eigenen lock-freien Struktur kombiniert: Hier ist die Gefahr subtiler Fehler sehr gross, und ein Mutex ist fast immer schnell genug.",
+  "labor": {
+    "titel": "Atomic gegen lokale Zähler",
+    "anleitung": "Lass 8 Threads je 10 Millionen Mal einen gemeinsamen `std::atomic<long>` erhöhen. Vergleiche mit einer Variante, in der jeder Thread lokal zählt und am Ende einmal addiert.",
+    "befehle": [
+      "g++ -std=c++20 -O2 -pthread zaehler.cpp -o zaehler && ./zaehler",
+      "perf stat -e cache-misses ./zaehler"
+    ],
+    "beobachtung": "Die Variante mit lokalen Zählern ist oft um ein Vielfaches schneller. `perf stat` zeigt beim gemeinsamen Atomic deutlich mehr Cache-Misses, weil die Cache-Zeile zwischen den Kernen hin- und herwandert."
+  },
+  "begriffe": [
+    { "begriff": "Atomare Operation", "englisch": "atomic operation", "erklaerung": "Operation, die unteilbar ist: Kein anderer Thread kann einen halb fertigen Zustand sehen." },
+    { "begriff": "Lock-free", "englisch": "lock-free", "erklaerung": "Ohne Sperren umgesetzt: Mindestens ein Thread kommt immer voran." },
+    { "begriff": "Compare-and-Swap", "englisch": "compare-and-swap, CAS", "erklaerung": "Setzt einen Wert nur, wenn der aktuelle Wert dem erwarteten entspricht. Grundlage vieler lock-freier Algorithmen." }
+  ],
+  "weiterlesen": [
+    { "titel": "cppreference: std::atomic", "url": "https://en.cppreference.com/w/cpp/atomic/atomic" }
+  ]
+}

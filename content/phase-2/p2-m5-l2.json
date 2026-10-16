@@ -1,0 +1,164 @@
+{
+  "id": "p2-m5-l2",
+  "phase": 2,
+  "modul": "2.5 Templates, inline und constexpr im Binary",
+  "titel": "constexpr und Kompilierzeit",
+  "lernziele": [
+    "`constexpr`, `consteval` und `constinit` unterscheiden",
+    "Erkennen, wann eine Berechnung zur Kompilierzeit stattfindet",
+    "Tabellen zur Kompilierzeit erzeugen"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Wann wird hier gerechnet?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "constexpr int quadrat(int x) { return x * x; }",
+          "",
+          "constexpr int a = quadrat(5);",
+          "int b = quadrat(eingabe());"
+        ]
+      },
+      "optionen": [
+        "`a` garantiert beim Kompilieren, `b` zur Laufzeit",
+        "Beide beim Kompilieren",
+        "Beide zur Laufzeit"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Eine `constexpr`-Funktion **kann** zur Kompilierzeit laufen, wenn die Argumente konstant sind. Garantiert ist das nur, wenn das Ergebnis in einem konstanten Kontext gebraucht wird, z. B. für eine `constexpr`-Variable, eine Array-Grösse oder ein `static_assert`. `eingabe()` kennt man erst zur Laufzeit, also wird `quadrat` dafür ganz normal aufgerufen.",
+      "begruendungen": [
+        "Richtig. Dieselbe Funktion für beide Fälle.",
+        "Der Wert von `eingabe()` steht beim Kompilieren nicht fest.",
+        "Für `a` muss der Compiler rechnen, sonst wäre die `constexpr`-Variable ungültig."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Vier Schlüsselwörter",
+      "text": "- `constexpr` bei einer **Variable**: Der Wert muss beim Kompilieren feststehen.\n- `constexpr` bei einer **Funktion**: Sie darf zur Kompilierzeit *und* zur Laufzeit laufen.\n- `consteval` (C++20): Die Funktion **muss** zur Kompilierzeit laufen.\n- `constinit` (C++20): Eine statische Variable wird garantiert ohne Laufzeit-Code initialisiert. Sie bleibt aber veränderbar. Das verhindert das *static initialization order fiasco*, bei dem globale Objekte verschiedener Dateien in unbestimmter Reihenfolge initialisiert werden.\n\nDazu kommt `static_assert(bedingung)`: eine Prüfung, die den Build abbricht, wenn sie fehlschlägt."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Ordne zu.",
+      "paare": [
+        { "links": "`constexpr int n = 8;`", "rechts": "Wert steht beim Kompilieren fest" },
+        { "links": "`constexpr int f(int)`", "rechts": "Läuft zur Kompilierzeit oder zur Laufzeit" },
+        { "links": "`consteval int g(int)`", "rechts": "Muss zur Kompilierzeit laufen" },
+        { "links": "`constinit int zaehler = 0;`", "rechts": "Statisch initialisiert, danach veränderbar" },
+        { "links": "`static_assert(sizeof(int) == 4);`", "rechts": "Bricht den Build ab, wenn die Bedingung falsch ist" }
+      ],
+      "erklaerung": "`static_assert` eignet sich hervorragend, um Annahmen festzuhalten: Grösse einer Struktur für ein Netzwerkprotokoll, Ausrichtung, Anzahl Einträge in einer Tabelle. Bricht jemand die Annahme, scheitert der Build statt das Programm im Feld."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Was passiert?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "constexpr int fak(int n) { return n <= 1 ? 1 : n * fak(n - 1); }",
+          "",
+          "static_assert(fak(5) == 121);"
+        ]
+      },
+      "optionen": [
+        "Compilerfehler: `static assertion failed`",
+        "Das Programm bricht beim Start ab",
+        "Nichts, `static_assert` wird im Release-Build ignoriert"
+      ],
+      "korrekt": 0,
+      "fest": true,
+      "erklaerung": "`fak(5)` ist 120, die Prüfung ist falsch, und der Compiler bricht ab. Damit kann man `constexpr`-Funktionen **beim Kompilieren testen**. Das ist ein Unit-Test, der bei jedem Build läuft. Anders als `assert` hängt `static_assert` nicht von `NDEBUG` ab.",
+      "begruendungen": [
+        "Richtig.",
+        "`static_assert` existiert zur Laufzeit gar nicht.",
+        "Das gilt für `assert`, nicht für `static_assert`."
+      ]
+    },
+    {
+      "typ": "terminal-deuten",
+      "frage": "`main` enthält nur `constexpr int x = fak(4); return x;`. So sieht der erzeugte Code aus. Was sagt er?",
+      "terminal": {
+        "befehl": "g++ -O1 -c fak.cpp && objdump -d --no-show-raw-insn fak.o",
+        "ausgabe": [
+          "0000000000000000 <main>:",
+          "   0:  mov    $0x18,%eax",
+          "   5:  ret"
+        ]
+      },
+      "optionen": [
+        "`fak(4)` wurde beim Kompilieren zu 24 (`0x18`) ausgerechnet",
+        "`fak` wird zur Laufzeit 0x18-mal aufgerufen",
+        "Die Funktion `fak` fehlt, das ist ein Linkerfehler"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Von der ganzen Rekursion ist nur die Konstante 24 übrig. Ohne `constexpr` an `x` hätte der Optimierer das hier wahrscheinlich auch geschafft. Mit `constexpr` ist es aber **garantiert**, unabhängig von der Optimierungsstufe.",
+      "begruendungen": [
+        "Richtig: `0x18` = 24 = 4!.",
+        "Im Code gibt es keinen Aufruf (`call`).",
+        "Die Funktion wird nicht gebraucht, also erzeugt der Compiler sie auch nicht."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Was landet im Binary?",
+      "text": "- Ein Template erzeugt nur Code für die **benutzten** Instanzen.\n- Eine `inline`-Funktion erscheint nur, wenn sie benutzt **und** nicht überall inlined wurde, als schwaches Symbol.\n- Eine `constexpr`-Funktion, die nur zur Kompilierzeit benutzt wird, erscheint gar nicht.\n- Eine zur Kompilierzeit berechnete Tabelle landet als fertige Daten in `.rodata`. Auf Mikrocontrollern heisst das: im Flash, ohne RAM-Verbrauch und ohne Rechenzeit beim Start."
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze: Eine Tabelle der Quadratzahlen soll vollständig beim Kompilieren entstehen und geprüft werden.",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "{{?}} auto quadrate = [] {",
+          "    std::array<int, 8> t{};",
+          "    for (int i = 0; i < 8; ++i) t[i] = i * i;",
+          "    return t;",
+          "}();",
+          "",
+          "static_assert(quadrate[3] == {{?}});"
+        ]
+      },
+      "luecken": [{ "loesungen": ["constexpr"] }, { "loesungen": ["9"] }],
+      "auswahl": ["constexpr", "const", "9", "6"],
+      "erklaerung": "Das Lambda wird sofort aufgerufen (`}();`) und ist seit C++17 implizit `constexpr`. Mit `const` statt `constexpr` dürfte der Compiler die Tabelle auch zur Laufzeit berechnen, und das `static_assert` wäre ungültig."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Ein Bonus der Kompilierzeit-Auswertung: Was passiert, wenn eine `constexpr`-Berechnung in einem `static_assert` Undefined Behavior auslöst, z. B. einen `int`-Überlauf?",
+      "optionen": [
+        "Der Compiler muss einen Fehler melden, denn UB ist in konstanten Ausdrücken verboten",
+        "Das Ergebnis ist zufällig, der Build läuft aber durch",
+        "Der Compiler ersetzt das Ergebnis durch 0"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Bei der Auswertung zur Kompilierzeit prüft der Compiler auf UB wie Überläufe, Zugriffe ausserhalb von Arrays oder Lesen nicht initialisierter Werte. `static_assert`-Tests von `constexpr`-Funktionen finden so Fehler, die zur Laufzeit unbemerkt blieben.",
+      "begruendungen": [
+        "Richtig. Eine eingebaute UB-Prüfung.",
+        "Zur Laufzeit wäre das möglich, bei der Kompilierzeit-Auswertung nicht.",
+        "Der Compiler darf nichts ersetzen, er muss den Fehler melden."
+      ]
+    }
+  ],
+  "praxis": "`constexpr` lohnt sich besonders für Lookup-Tabellen (CRC, Sinus, Zustandsautomaten), Konfigurationswerte und Einheitenumrechnungen. In Embedded-Projekten verschiebt das Rechenzeit und RAM in den Flash. `static_assert` gehört in jede Struktur, die ein festes Layout haben muss, z. B. `static_assert(sizeof(Telegramm) == 16);`. Ändert jemand das Layout, scheitert der Build statt das Protokoll im Feld.",
+  "labor": {
+    "titel": "Kompilierzeit sichtbar machen",
+    "anleitung": "Erzeuge eine CRC-Tabelle mit 256 Einträgen als `constexpr` und vergleiche das Binary mit einer Version, die die Tabelle beim Start berechnet.",
+    "befehle": [
+      "g++ -std=c++20 -O2 crc.cpp -o crc && objdump -s -j .rodata crc | head",
+      "g++ -std=c++20 -O2 -S crc.cpp -o - | grep -c 'xor'"
+    ],
+    "beobachtung": "Die `constexpr`-Variante hat die 1024 Byte der Tabelle fertig in `.rodata` und keinen Initialisierungscode. Die Laufzeit-Variante hat die Schleife im Maschinencode und die Tabelle in `.bss`."
+  },
+  "begriffe": [
+    { "begriff": "constexpr", "englisch": "constexpr", "erklaerung": "Kennzeichnet Variablen mit Kompilierzeit-Wert und Funktionen, die zur Kompilierzeit laufen können." },
+    { "begriff": "consteval", "englisch": "immediate function", "erklaerung": "Funktion, die zwingend zur Kompilierzeit ausgewertet wird (C++20)." },
+    { "begriff": "static_assert", "englisch": "static assertion", "erklaerung": "Prüfung zur Kompilierzeit. Ist sie falsch, bricht der Build ab." }
+  ],
+  "weiterlesen": [
+    { "titel": "cppreference: constexpr specifier", "url": "https://en.cppreference.com/w/cpp/language/constexpr" },
+    { "titel": "cppreference: constinit specifier", "url": "https://en.cppreference.com/w/cpp/language/constinit" }
+  ]
+}

@@ -1,0 +1,193 @@
+{
+  "id": "p3-m1-l1",
+  "phase": 3,
+  "modul": "3.1 Unit-Tests mit GoogleTest",
+  "titel": "Aufbau eines Tests",
+  "lernziele": [
+    "Einen Test nach dem Muster Arrange, Act, Assert schreiben",
+    "`EXPECT_*` und `ASSERT_*` gezielt einsetzen",
+    "Die Ausgabe eines fehlgeschlagenen Tests lesen"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "`parse()` liefert einen Zeiger. Der Test soll sofort abbrechen, wenn er `nullptr` ist, weil die folgenden Prüfungen ihn dereferenzieren. Welches Makro nimmst du?",
+      "optionen": ["`ASSERT_NE(p, nullptr)`", "`EXPECT_NE(p, nullptr)`", "`EXPECT_TRUE(p)`"],
+      "korrekt": 0,
+      "erklaerung": "`ASSERT_*` bricht den aktuellen Test bei einem Fehlschlag ab. `EXPECT_*` meldet den Fehler und läuft weiter. Das ist gut, um mehrere Abweichungen auf einmal zu sehen, aber gefährlich, wenn die nächste Zeile von der Prüfung abhängt.",
+      "begruendungen": [
+        "Richtig. Ohne Abbruch würde der Test beim Dereferenzieren abstürzen.",
+        "Der Test liefe weiter und würde danach `nullptr` dereferenzieren.",
+        "Prüft dasselbe, bricht aber ebenfalls nicht ab."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Ein Test mit GoogleTest",
+      "text": "**GoogleTest** ist das verbreitetste Test-Framework für C++. Ein Test ist eine Funktion mit dem Makro `TEST(Suite, Name)`. Gut lesbare Tests folgen dem Muster **Arrange, Act, Assert**: vorbereiten, ausführen, prüfen.",
+      "code": {
+        "sprache": "cpp",
+        "datei": "rechner_test.cpp",
+        "zeilen": [
+          "#include <gtest/gtest.h>",
+          "#include \"rechner.h\"",
+          "",
+          "TEST(RechnerTest, AddiertZweiZahlen) {",
+          "    Rechner r;                          // Arrange",
+          "    int ergebnis = r.addiere(2, 3);     // Act",
+          "    EXPECT_EQ(ergebnis, 5);             // Assert",
+          "}"
+        ],
+        "anmerkungen": [
+          { "zeile": 4, "text": "Suite und Name ergeben zusammen `RechnerTest.AddiertZweiZahlen`. Der Name beschreibt das erwartete Verhalten." },
+          { "zeile": 7, "text": "Schlägt die Prüfung fehl, zeigt GoogleTest beide Werte an." }
+        ]
+      }
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze die Prüfungen: erst sicherstellen, dass ein Objekt da ist, dann den Wert prüfen.",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "TEST(ParserTest, LiestPort) {",
+          "    auto konfig = parse(\"port=8080\");",
+          "    {{?}}(konfig, nullptr);",
+          "    {{?}}(konfig->port, 8080);",
+          "}"
+        ]
+      },
+      "luecken": [{ "loesungen": ["ASSERT_NE"] }, { "loesungen": ["EXPECT_EQ"] }],
+      "auswahl": ["ASSERT_NE", "EXPECT_EQ", "EXPECT_NE", "ASSERT_TRUE"],
+      "erklaerung": "Erst `ASSERT_NE`, weil Zeile 4 ohne gültiges `konfig` abstürzen würde. Dann `EXPECT_EQ` für den eigentlichen Wert. Gibt es mehrere Werte zu prüfen, zeigt `EXPECT_*` alle Abweichungen in einem Durchlauf."
+    },
+    {
+      "typ": "terminal-deuten",
+      "frage": "Was sagt diese Ausgabe?",
+      "terminal": {
+        "befehl": "./rechner_test",
+        "ausgabe": [
+          "[ RUN      ] RechnerTest.TeiltGanzzahlig",
+          "rechner_test.cpp:14: Failure",
+          "Expected equality of these values:",
+          "  r.teile(7, 2)",
+          "    Which is: 3",
+          "  4",
+          "[  FAILED  ] RechnerTest.TeiltGanzzahlig (0 ms)"
+        ]
+      },
+      "optionen": [
+        "`teile(7, 2)` lieferte 3, der Test erwartete 4. Zu klären ist, ob der Code oder der Test falsch ist",
+        "Der Test ist abgestürzt",
+        "Zeile 14 von `rechner.cpp` enthält einen Syntaxfehler"
+      ],
+      "korrekt": 0,
+      "erklaerung": "GoogleTest zeigt den Ausdruck, seinen tatsächlichen Wert (*Which is*) und den erwarteten Wert. Ganzzahlige Division von 7 durch 2 ergibt in C++ 3. Ein fehlschlagender Test heisst nicht automatisch, dass der Code falsch ist. Vielleicht ist die Erwartung falsch. Die Entscheidung trifft die Spezifikation.",
+      "begruendungen": [
+        "Richtig. Erst prüfen, was gewollt ist, dann korrigieren.",
+        "Ein Absturz sähe anders aus, ohne `Failure` mit Werten.",
+        "Die Zeile gehört zur Testdatei `rechner_test.cpp`, und es ist ein Prüfungsfehler, kein Syntaxfehler."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Tests in CMake einbinden",
+      "text": "Mit `FetchContent` holt CMake GoogleTest in einer festen Version. `gtest_discover_tests` meldet jeden einzelnen Test bei CTest an, `ctest` führt dann alle aus.",
+      "code": {
+        "sprache": "cmake",
+        "zeilen": [
+          "include(FetchContent)",
+          "FetchContent_Declare(googletest",
+          "  URL https://github.com/google/googletest/archive/refs/tags/v1.15.2.zip)",
+          "FetchContent_MakeAvailable(googletest)",
+          "",
+          "enable_testing()",
+          "add_executable(rechner_test rechner_test.cpp)",
+          "target_link_libraries(rechner_test PRIVATE rechner GTest::gtest_main)",
+          "",
+          "include(GoogleTest)",
+          "gtest_discover_tests(rechner_test)"
+        ],
+        "anmerkungen": [
+          { "zeile": 3, "text": "Feste Version, damit der Build reproduzierbar bleibt." },
+          { "zeile": 8, "text": "`gtest_main` bringt eine fertige `main()`, die alle Tests ausführt." }
+        ]
+      }
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Was prüft welches Makro?",
+      "paare": [
+        { "links": "`EXPECT_EQ(a, b)`", "rechts": "Gleichheit, der Test läuft bei Fehler weiter" },
+        { "links": "`ASSERT_TRUE(x)`", "rechts": "Bedingung, der Test bricht bei Fehler ab" },
+        { "links": "`EXPECT_THROW(f(), std::invalid_argument)`", "rechts": "Erwartet eine bestimmte Exception" },
+        { "links": "`EXPECT_NEAR(a, b, 1e-9)`", "rechts": "Gleitkommavergleich mit Toleranz" }
+      ],
+      "erklaerung": "Für Fehlerfälle gibt es `EXPECT_THROW` und `EXPECT_NO_THROW`. Für `std::expected` und `std::optional` prüft man einfach mit `ASSERT_TRUE(r.has_value())` und dann den Inhalt."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Besteht dieser Test?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "TEST(MathTest, Summe) {",
+          "    EXPECT_EQ(0.1 + 0.2, 0.3);",
+          "}"
+        ]
+      },
+      "optionen": [
+        "Nein: `0.1 + 0.2` ist als `double` nicht exakt `0.3`",
+        "Ja, die Summe ist 0.3",
+        "Compilerfehler: `EXPECT_EQ` geht nicht mit `double`"
+      ],
+      "korrekt": 0,
+      "fest": true,
+      "erklaerung": "0.1 und 0.2 sind im Binärsystem nicht exakt darstellbar. Die Summe ist `0.30000000000000004`. Für Gleitkommazahlen nimmt man `EXPECT_DOUBLE_EQ` (erlaubt wenige Rundungsschritte Abstand) oder `EXPECT_NEAR` mit einer fachlich begründeten Toleranz.",
+      "begruendungen": [
+        "Richtig.",
+        "Mathematisch ja, als `double` nicht.",
+        "`EXPECT_EQ` funktioniert mit `double`, vergleicht aber exakt."
+      ]
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Was macht einen guten Unit-Test aus?",
+      "optionen": [
+        "Er läuft in Millisekunden",
+        "Er hängt nicht von anderen Tests oder deren Reihenfolge ab",
+        "Er prüft ein Verhalten und sagt das in seinem Namen",
+        "Er greift auf die echte Firmendatenbank zu, damit er realistisch ist"
+      ],
+      "korrekt": [0, 1, 2],
+      "erklaerung": "Unit-Tests sollen bei jedem Build laufen. Das klappt nur, wenn sie schnell, unabhängig und eindeutig sind. Ein Name wie `EntnahmeUeberBestandWirftException` sagt beim Fehlschlag schon, was kaputt ist. Externe Systeme gehören in Integrationstests.",
+      "begruendungen": [
+        "Richtig. Tausende Tests in wenigen Sekunden.",
+        "Richtig. Sonst sind Fehlschläge nicht reproduzierbar.",
+        "Richtig.",
+        "Langsam, unzuverlässig und gefährlich. Das ist kein Unit-Test mehr."
+      ]
+    }
+  ],
+  "praxis": "Im Alltag liest du Testausgaben vor allem in der CI. Die wichtigste Zeile ist `Datei:Zeile: Failure` mit den beiden Werten. Mit `--gtest_filter=RechnerTest.*` führst du lokal nur die betroffenen Tests aus. Im Review prüfst du bei neuen Funktionen: Gibt es Tests, auch für Fehlerfälle und Grenzwerte, und beschreiben die Namen das Verhalten?",
+  "labor": {
+    "titel": "Ein erstes Testprojekt",
+    "anleitung": "Lege ein CMake-Projekt mit einer Bibliothek `rechner` und dem Test aus der Lektion an und führe die Tests aus.",
+    "befehle": [
+      "cmake -S . -B build && cmake --build build",
+      "ctest --test-dir build --output-on-failure",
+      "./build/rechner_test --gtest_filter='RechnerTest.*' --gtest_color=yes"
+    ],
+    "beobachtung": "`ctest` zeigt jeden Test einzeln, weil `gtest_discover_tests` sie angemeldet hat. Mit `--output-on-failure` siehst du bei Fehlern die GoogleTest-Ausgabe."
+  },
+  "begriffe": [
+    { "begriff": "Unit-Test", "englisch": "unit test", "erklaerung": "Schneller, isolierter Test einer kleinen Einheit, z. B. einer Funktion oder Klasse." },
+    { "begriff": "Arrange, Act, Assert", "englisch": "arrange, act, assert", "erklaerung": "Aufbau eines Tests in drei Teilen: vorbereiten, ausführen, prüfen." },
+    { "begriff": "GoogleTest", "englisch": "GoogleTest", "erklaerung": "Verbreitetes C++-Test-Framework mit Makros wie `TEST`, `EXPECT_EQ` und `ASSERT_TRUE`." }
+  ],
+  "weiterlesen": [
+    { "titel": "GoogleTest Primer", "url": "https://google.github.io/googletest/primer.html" },
+    { "titel": "GoogleTest: Quickstart with CMake", "url": "https://google.github.io/googletest/quickstart-cmake.html" }
+  ]
+}

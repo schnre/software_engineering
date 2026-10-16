@@ -1,0 +1,122 @@
+{
+  "id": "p5-m1-l2",
+  "phase": 5,
+  "modul": "5.1 Continuous Integration und Deployment",
+  "titel": "Continuous Delivery und Deployment",
+  "lernziele": [
+    "Continuous Delivery und Continuous Deployment unterscheiden",
+    "Das Prinzip „einmal bauen, mehrfach ausliefern“ erklären",
+    "Eine Auslieferungs-Pipeline in Stufen gliedern"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Was ist der Unterschied zwischen **Continuous Delivery** und **Continuous Deployment**?",
+      "optionen": [
+        "Bei Delivery ist jede Änderung jederzeit auslieferbar, ausgeliefert wird per Entscheidung. Bei Deployment geht jede grüne Änderung automatisch in Produktion",
+        "Das sind zwei Namen für dasselbe",
+        "Delivery betrifft nur Embedded-Systeme, Deployment nur Web-Anwendungen"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Beide setzen CI voraus und automatisieren den Weg bis zum auslieferbaren Artefakt. Der Unterschied liegt im letzten Schritt: ein Knopfdruck nach einer bewussten Entscheidung (Delivery) oder vollautomatisch (Deployment). Die Abkürzung „CD“ wird für beides verwendet.",
+      "begruendungen": [
+        "Richtig.",
+        "Der letzte Schritt unterscheidet sich.",
+        "Beide Ansätze gibt es in allen Bereichen."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Von Commit bis Produktion",
+      "text": "Eine Auslieferungs-Pipeline (*delivery pipeline*) führt jede Änderung durch eine Reihe von Stufen. Jede Stufe erhöht das Vertrauen und kostet mehr Zeit. Wichtig ist das Prinzip **einmal bauen**: Das Artefakt, also das Binary, Paket oder Image, entsteht genau einmal. Danach wird es durch die Stufen **befördert**, statt in jeder Stufe neu gebaut zu werden. So ist das ausgelieferte Artefakt bitgenau das, was getestet wurde."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Ordne die Begriffe zu.",
+      "paare": [
+        { "links": "Continuous Integration", "rechts": "Jede Änderung wird automatisch gebaut und getestet" },
+        { "links": "Continuous Delivery", "rechts": "Jede Änderung ist jederzeit auslieferbar, die Auslieferung erfolgt per Knopfdruck" },
+        { "links": "Continuous Deployment", "rechts": "Jede grüne Änderung geht automatisch in Produktion" },
+        { "links": "Release", "rechts": "Eine Version wird für Nutzer verfügbar gemacht" }
+      ],
+      "erklaerung": "Deployment und Release lassen sich trennen: Neuer Code kann ausgeliefert, aber per Feature Flag noch abgeschaltet sein. Freigeschaltet wird dann für einzelne Kunden oder schrittweise."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Warum baut man das Artefakt nur einmal und befördert es durch Test- und Produktionsstufe, statt es für jede Stufe neu zu bauen?",
+      "optionen": [
+        "Damit das ausgelieferte Artefakt exakt das ist, das getestet wurde",
+        "Weil Bauen teuer ist und Lizenzen kostet",
+        "Weil die Produktionsumgebung keinen Compiler hat"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Ein neuer Build kann sich unterscheiden: andere Abhängigkeitsversion, anderer Compiler auf dem Agent, andere Umgebungsvariablen. Dann wäre das ausgelieferte Binary nie getestet worden. Konfiguration, die je Umgebung variiert, wird deshalb ausserhalb des Artefakts gehalten, z. B. in Konfigurationsdateien oder Umgebungsvariablen.",
+      "begruendungen": [
+        "Richtig.",
+        "Zeit spart man auch, der Hauptgrund ist aber die Gewissheit.",
+        "Das trifft oft zu, ist aber nicht der Grund."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Und bei Geräten?",
+      "text": "Bei Firmware für Fahrzeuge, Medizingeräte oder Industrieanlagen geht selten jeder Commit automatisch ins Feld. Continuous **Delivery** ist trotzdem erreichbar: Jeder Stand auf `main` erzeugt ein signiertes, versioniertes Firmware-Paket, das automatisch auf Prüfständen getestet wird und jederzeit freigegeben werden könnte. Ausgeliefert wird per Over-the-Air-Update (OTA), oft schrittweise (*staged rollout*): erst an wenige Geräte, dann an alle, mit der Möglichkeit, zurückzurollen."
+    },
+    {
+      "typ": "reihenfolge",
+      "frage": "Bringe die Stufen einer typischen Auslieferungs-Pipeline in die richtige Reihenfolge.",
+      "elemente": [
+        "Commit und Push",
+        "Build und Unit-Tests",
+        "Statische Analyse und Integrationstests",
+        "Artefakt versionieren und ablegen",
+        "Auslieferung in eine Testumgebung und Systemtests",
+        "Freigabe und Auslieferung in Produktion"
+      ],
+      "erklaerung": "Schnelle, billige Prüfungen kommen zuerst (*fail fast*). Ab Schritt 4 wird nicht mehr gebaut, sondern dasselbe Artefakt weitergereicht."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Wozu dient ein Feature Flag in einer Continuous-Delivery-Umgebung?",
+      "optionen": [
+        "Unfertigen Code in den Hauptzweig integrieren und ausliefern, ohne ihn für Nutzer zu aktivieren",
+        "Kennzeichnen, welche Commits Features und welche Bugfixes sind",
+        "Den Build für bestimmte Features beschleunigen"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Ohne Feature Flags müsste man unfertige Funktionen auf langen Branches halten, und das widerspricht CI. Der Preis: Flags erhöhen die Komplexität und müssen nach dem Abschluss wieder entfernt werden, sonst entsteht ein Dickicht aus toten Schaltern.",
+      "begruendungen": [
+        "Richtig.",
+        "Dafür gibt es Commit-Konventionen oder Labels.",
+        "Flags wirken zur Laufzeit, nicht beim Bauen."
+      ]
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze die Begriffe.",
+      "text": "Bei Continuous {{?}} geht jede Änderung, die alle Prüfungen besteht, automatisch in Produktion. Bei Continuous {{?}} ist sie jederzeit auslieferbar, ausgeliefert wird aber auf Entscheidung.",
+      "luecken": [{ "loesungen": ["Deployment"] }, { "loesungen": ["Delivery"] }],
+      "auswahl": ["Deployment", "Delivery", "Integration", "Testing"],
+      "erklaerung": "Merkhilfe: *Deployment* ist der Vorgang des Ausrollens. Bei Continuous Deployment passiert er ständig und von selbst."
+    }
+  ],
+  "praxis": "Frag in jedem Projekt: Wie lange dauert es vom Commit bis zur Auslieferung, und wie viele manuelle Schritte liegen dazwischen? Jeder manuelle Schritt ist eine Fehlerquelle und ein Engpass. Ein Senior hilft, diese Strecke zu automatisieren und das Prinzip „einmal bauen“ durchzusetzen, besonders dort, wo heute noch jemand „schnell auf seinem Rechner das Release baut“.",
+  "labor": {
+    "titel": "Den Weg eines Releases nachzeichnen",
+    "anleitung": "Nimm ein Projekt aus deinem Alltag und zeichne auf, welche Schritte zwischen einem Commit und der Auslieferung liegen. Markiere die manuellen Schritte und notiere, wie lange jeder dauert.",
+    "befehle": [
+      "git log --tags --simplify-by-decoration --pretty='%ad %d' --date=short | head"
+    ],
+    "beobachtung": "Der Befehl zeigt, wie oft bisher released wurde. Lange Abstände zwischen Releases deuten meist auf viele manuelle Schritte oder fehlendes Vertrauen in die automatischen Prüfungen hin."
+  },
+  "begriffe": [
+    { "begriff": "Continuous Delivery", "englisch": "continuous delivery", "erklaerung": "Jede Änderung ist jederzeit auslieferbar. Ausgeliefert wird per Entscheidung und Knopfdruck." },
+    { "begriff": "Continuous Deployment", "englisch": "continuous deployment", "erklaerung": "Jede Änderung, die alle Prüfungen besteht, geht automatisch in Produktion." },
+    { "begriff": "Artefakt", "englisch": "artifact", "erklaerung": "Ergebnis eines Builds, das ausgeliefert wird: Binary, Paket, Firmware-Image oder Container-Image." },
+    { "begriff": "Staged Rollout", "englisch": "staged rollout", "erklaerung": "Schrittweise Auslieferung, erst an wenige Nutzer oder Geräte, dann an alle." }
+  ],
+  "weiterlesen": [
+    { "titel": "Martin Fowler: Continuous Delivery", "url": "https://martinfowler.com/bliki/ContinuousDelivery.html" }
+  ]
+}

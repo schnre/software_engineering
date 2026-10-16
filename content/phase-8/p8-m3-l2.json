@@ -1,0 +1,124 @@
+{
+  "id": "p8-m3-l2",
+  "phase": 8,
+  "modul": "8.3 Schätzen und Planen",
+  "titel": "Risiken früh sichtbar machen",
+  "lernziele": [
+    "Risiken nach Wahrscheinlichkeit und Auswirkung bewerten",
+    "Die riskantesten Teile zuerst angehen",
+    "Schlechte Nachrichten früh und mit Optionen überbringen"
+  ],
+  "dauerMinuten": 5,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Ein neues Produkt besteht aus einer bewährten Oberfläche, neuer Hardware und einem Sensor, mit dem das Team noch nie gearbeitet hat. Womit beginnst du?",
+      "optionen": [
+        "Mit einer frühen, einfachen Anbindung des neuen Sensors auf der neuen Hardware, weil dort das grösste Risiko liegt",
+        "Mit der Oberfläche, weil man dort schnell sichtbare Fortschritte zeigen kann",
+        "Mit der Dokumentation, damit alles sauber geplant ist"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Wer das Riskanteste zuletzt macht, erfährt erst kurz vor dem Termin, dass etwas nicht geht. Dann ist keine Zeit mehr für Alternativen. Das Unbekannte zuerst anzugehen, verwandelt Risiken früh in Wissen.",
+      "begruendungen": [
+        "Richtig.",
+        "Sichtbarer Fortschritt bei bekannten Teilen täuscht über das eigentliche Risiko hinweg.",
+        "Planung ist wichtig, ersetzt aber nicht das Ausprobieren des Unbekannten."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Mit Risiken umgehen",
+      "text": "Ein **Risiko** ist ein mögliches Ereignis, das dem Vorhaben schadet. Man bewertet es nach **Wahrscheinlichkeit** und **Auswirkung**. Das Produkt der beiden zeigt grob, wie ernst es ist.\n\nWerkzeuge dagegen:\n- eine **Risikoliste** mit Bewertung, Massnahme und verantwortlicher Person\n- ein **Walking Skeleton**: früh eine dünne, durchgehende Version des ganzen Systems, die von Sensor bis Anzeige funktioniert, wenn auch mit minimaler Logik\n- **Spikes** und Prototypen für einzelne offene Fragen\n- **frühe Integration** auf der Zielhardware, nicht erst am Ende"
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Welche Technik dient wozu?",
+      "paare": [
+        { "links": "Walking Skeleton", "rechts": "Dünne, durchgehende Version des ganzen Systems, die früh läuft" },
+        { "links": "Spike", "rechts": "Eine einzelne unsichere Frage gezielt klären" },
+        { "links": "Risikoliste", "rechts": "Risiken mit Wahrscheinlichkeit, Auswirkung und Massnahme festhalten" },
+        { "links": "Frühe Integration auf der Zielhardware", "rechts": "Überraschungen bei Timing, Treibern und Speicher früh finden" }
+      ],
+      "erklaerung": "Das Walking Skeleton ist besonders wertvoll, weil es Integrationsrisiken zwischen den Teilen aufdeckt: Passen Protokoll, Timing und Datenformate wirklich zusammen? Diese Probleme zeigen sich sonst erst ganz am Schluss."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Welches Risiko ist ernster?",
+      "code": {
+        "sprache": "text",
+        "zeilen": [
+          "Risiko A: Treiber für den neuen Sensor fehlerhaft",
+          "          Wahrscheinlichkeit 50 %, Auswirkung 10 Tage Verzug",
+          "",
+          "Risiko B: Zertifizierung verlangt Nacharbeit",
+          "          Wahrscheinlichkeit 10 %, Auswirkung 30 Tage Verzug"
+        ]
+      },
+      "optionen": [
+        "A: erwartet 5 Tage Verzug gegenüber 3 Tagen bei B",
+        "B, weil die mögliche Auswirkung grösser ist",
+        "Beide gleich ernst"
+      ],
+      "korrekt": 0,
+      "fest": true,
+      "erklaerung": "0,5 × 10 = 5 Tage gegenüber 0,1 × 30 = 3 Tagen. Der Erwartungswert spricht für A. B sollte trotzdem auf der Liste bleiben: Bei sehr grosser Auswirkung, etwa wenn ein Termin dann ganz platzt, lohnen sich auch Massnahmen gegen seltene Risiken. Die Rechnung ist eine Orientierung, kein Automatismus.",
+      "begruendungen": [
+        "Richtig.",
+        "Die Auswirkung allein reicht nicht, die Wahrscheinlichkeit gehört dazu.",
+        "Die Erwartungswerte unterscheiden sich deutlich."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Schlechte Nachrichten früh",
+      "text": "Wenn sich ein Verzug abzeichnet, ist die Versuchung gross, zu hoffen, dass es noch klappt. Für alle anderen ist es aber viel besser, es früh zu wissen: Dann gibt es noch Optionen, z. B. Umfang reduzieren, Termin verschieben, Hilfe holen. Eine gute Meldung enthält:\n\n- was passiert ist und wie sicher die Einschätzung ist\n- die Auswirkung auf Termin, Kosten oder Qualität\n- Optionen mit ihren Folgen\n- eine Empfehlung"
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Mitten im Projekt merkst du, dass sich die Sensor-Anbindung wahrscheinlich um zwei Wochen verzögert. Wann sagst du es?",
+      "optionen": [
+        "Sofort, mit Ursache, voraussichtlicher Auswirkung und Optionen",
+        "Erst, wenn es sicher ist, um niemanden unnötig zu beunruhigen",
+        "Gar nicht, vielleicht holst du es ja noch auf"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Wer früh meldet, gibt anderen Zeit zu reagieren, und baut Vertrauen auf. Wer spät meldet, nimmt ihnen diese Optionen. „Sicher“ ist ein Verzug oft erst, wenn es zu spät ist. Eine wahrscheinliche Verzögerung mit Einschätzung ist eine wertvolle Information.",
+      "begruendungen": [
+        "Richtig.",
+        "Dann ist es meist zu spät, um noch umzusteuern.",
+        "Hoffen ist keine Strategie, und das Vertrauen leidet, wenn es herauskommt."
+      ]
+    },
+    {
+      "typ": "reihenfolge",
+      "frage": "Du entdeckst ein neues Risiko. Bringe die Schritte in eine sinnvolle Reihenfolge.",
+      "elemente": [
+        "Das Risiko konkret beschreiben",
+        "Wahrscheinlichkeit und Auswirkung abschätzen",
+        "Gegenmassnahmen und Optionen überlegen",
+        "Mit den Betroffenen besprechen und entscheiden",
+        "Im Blick behalten und regelmässig neu bewerten"
+      ],
+      "erklaerung": "Ein Risiko, das nur in deinem Kopf existiert, kann niemand mitsteuern. Schon das Aufschreiben in einer gemeinsamen Liste ändert viel: Andere können ergänzen, und es gerät nicht in Vergessenheit."
+    }
+  ],
+  "praxis": "Seniors werden oft daran gemessen, wie wenig Überraschungen es in ihren Projekten gibt, und zwar nicht, weil weniger schiefgeht, sondern weil es früher sichtbar wird. Die Gewohnheit, das Unbekannte zuerst anzupacken und schlechte Nachrichten sofort mit Optionen zu überbringen, macht dich zu einer Person, der Projektleitungen und Kunden vertrauen.",
+  "labor": {
+    "titel": "Eine Risikoliste anlegen",
+    "anleitung": "Lege für ein aktuelles Vorhaben eine kleine Risikoliste mit fünf Einträgen an: Risiko, Wahrscheinlichkeit, Auswirkung, Massnahme, verantwortliche Person. Sortiere nach dem Produkt aus Wahrscheinlichkeit und Auswirkung.",
+    "befehle": [
+      "printf 'Risiko;Wahrscheinlichkeit;Auswirkung (Tage);Massnahme;Wer\\n' > risiken.csv",
+      "sort -t';' -k2,2 -k3,3 -rn risiken.csv | column -t -s';'"
+    ],
+    "beobachtung": "Die obersten zwei oder drei Einträge sind die Dinge, die du diese Woche angehen solltest, oft mit einem Spike oder einer frühen Integration."
+  },
+  "begriffe": [
+    { "begriff": "Risiko", "englisch": "risk", "erklaerung": "Mögliches Ereignis, das einem Vorhaben schadet, bewertet nach Wahrscheinlichkeit und Auswirkung." },
+    { "begriff": "Walking Skeleton", "englisch": "walking skeleton", "erklaerung": "Früh lauffähige, dünne Version des ganzen Systems, die alle Teile einmal verbindet." },
+    { "begriff": "Risikoliste", "englisch": "risk register", "erklaerung": "Liste der bekannten Risiken mit Bewertung, Massnahmen und Verantwortlichen." }
+  ],
+  "weiterlesen": [
+    { "titel": "Alistair Cockburn: Walking Skeleton", "url": "https://wiki.c2.com/?WalkingSkeleton" }
+  ]
+}

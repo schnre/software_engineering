@@ -1,0 +1,168 @@
+{
+  "id": "p4-m2-l2",
+  "phase": 4,
+  "modul": "4.2 Synchronisation",
+  "titel": "Futures, std::async und parallele Algorithmen",
+  "lernziele": [
+    "Ergebnisse mit `std::future` aus einem anderen Thread abholen",
+    "Fallen von `std::async` kennen",
+    "Parallele Algorithmen der Standardbibliothek korrekt einsetzen"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "code-lesen",
+      "frage": "Was macht `f.get()` in Zeile 3?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "auto f = std::async(std::launch::async, [] { return berechne(); });",
+          "bereiteAnzeigeVor();          // läuft parallel zu berechne()",
+          "int ergebnis = f.get();"
+        ]
+      },
+      "optionen": [
+        "Es wartet, bis `berechne()` fertig ist, und liefert das Ergebnis oder wirft dessen Exception weiter",
+        "Es startet `berechne()` erst jetzt",
+        "Es bricht `berechne()` ab, falls es noch läuft"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Ein **Future** ist ein Platzhalter für ein Ergebnis, das später kommt. `get()` blockiert, bis es da ist, und darf nur einmal aufgerufen werden. Mit `std::launch::async` ist garantiert, dass die Aufgabe in einem eigenen Thread läuft.",
+      "begruendungen": [
+        "Richtig.",
+        "Das wäre bei `std::launch::deferred` so.",
+        "Ein Future kann eine Aufgabe nicht abbrechen."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Futures und Promises",
+      "text": "- `std::async(policy, f)` führt `f` aus und liefert ein `std::future` für das Ergebnis.\n- `std::launch::async` heisst: neuer Thread. `std::launch::deferred` heisst: erst beim `get()` im aufrufenden Thread. Ohne Angabe darf die Bibliothek wählen, und das ist selten, was man will.\n- Wirft `f`, wird die Exception im Future gespeichert und beim `get()` erneut geworfen.\n- `std::promise` ist das Gegenstück zum Future: Ein Thread setzt damit von Hand den Wert (`set_value`) oder einen Fehler (`set_exception`)."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Der Log-Eintrag soll im Hintergrund geschrieben werden. Was passiert tatsächlich?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "void speichere(const Daten& d) {",
+          "    schreibeDatei(d);",
+          "    std::async(std::launch::async, schreibeLog, \"gespeichert\");",
+          "    zeigeErfolg();",
+          "}"
+        ]
+      },
+      "optionen": [
+        "Zeile 3 blockiert, bis `schreibeLog` fertig ist: Das temporäre Future wartet in seinem Destruktor",
+        "`schreibeLog` läuft im Hintergrund, `zeigeErfolg` sofort",
+        "Compilerfehler, weil das Ergebnis nicht verwendet wird"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Ein Future aus `std::async` wartet in seinem Destruktor auf das Ende der Aufgabe. Wird es nicht gespeichert, wird es am Ende der Anweisung zerstört, und der Aufruf ist faktisch synchron. Für echtes „abschicken und vergessen“ braucht man eine Warteschlange oder einen Thread-Pool.",
+      "begruendungen": [
+        "Richtig. Eine bekannte Überraschung.",
+        "Das würde passieren, wenn man das Future speichert und erst später zerstört.",
+        "Es kompiliert. Viele Standardbibliotheken warnen inzwischen wegen `[[nodiscard]]`."
+      ]
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Ordne zu.",
+      "paare": [
+        { "links": "`std::future<T>`", "rechts": "Ergebnis, das später verfügbar ist und einmal abgeholt wird" },
+        { "links": "`std::promise<T>`", "rechts": "Gegenstück, mit dem ein Thread das Ergebnis setzt" },
+        { "links": "`std::shared_future<T>`", "rechts": "Ergebnis, das mehrere Threads lesen können" },
+        { "links": "`std::launch::deferred`", "rechts": "Aufgabe läuft erst beim `get()`, im aufrufenden Thread" }
+      ],
+      "erklaerung": "Mit `wait_for(0s)` kann man prüfen, ob ein Ergebnis schon da ist, ohne zu blockieren. Bei `deferred` liefert das allerdings immer `future_status::deferred`."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Was gibt dieser Code aus?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "auto f = std::async(std::launch::async, []() -> int {",
+          "    throw std::runtime_error(\"Sensor antwortet nicht\");",
+          "});",
+          "try {",
+          "    f.get();",
+          "} catch (const std::exception& e) {",
+          "    std::cout << e.what();",
+          "}"
+        ]
+      },
+      "optionen": [
+        "`Sensor antwortet nicht`",
+        "Nichts, die Exception geht im anderen Thread verloren",
+        "Das Programm wird mit `std::terminate` beendet"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Das Future transportiert die Exception über die Thread-Grenze, `get()` wirft sie im aufrufenden Thread erneut. Das ist ein grosser Vorteil gegenüber einem rohen `std::thread`: Dort beendet eine nicht gefangene Exception das ganze Programm.",
+      "begruendungen": [
+        "Richtig.",
+        "Genau das verhindert das Future.",
+        "Das wäre bei einem `std::thread` ohne `try`/`catch` der Fall."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Parallele Algorithmen",
+      "text": "Seit C++17 nehmen viele Algorithmen eine **Ausführungsrichtlinie** (execution policy): `std::sort(std::execution::par, v.begin(), v.end());` sortiert parallel. Die Bibliothek verteilt die Arbeit selbst. Mit GCC braucht das unter Linux Intel TBB (`-ltbb`).\n\nWichtig: Die übergebene Funktion läuft dann in mehreren Threads gleichzeitig. Sie darf keine gemeinsamen Daten ohne Synchronisation verändern. Für Summen und ähnliches gibt es dafür eigene Algorithmen wie `std::reduce` und `std::transform_reduce`."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Was ist hier falsch?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "long summe = 0;",
+          "std::for_each(std::execution::par, v.begin(), v.end(),",
+          "              [&](int x) { summe += x; });"
+        ]
+      },
+      "optionen": [
+        "Mehrere Threads erhöhen `summe` gleichzeitig: ein Data Race",
+        "`std::for_each` kennt keine Ausführungsrichtlinie",
+        "Nichts, `par` synchronisiert automatisch"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Die Richtlinie verteilt die Aufrufe auf Threads, synchronisiert aber nichts. Ein `std::atomic<long>` würde das Race beheben, aber alle Threads würden um dieselbe Variable kämpfen und wären womöglich langsamer als seriell. Richtig ist ein Algorithmus, der Teilsummen bildet und am Ende zusammenführt.",
+      "begruendungen": [
+        "Richtig.",
+        "Doch, seit C++17.",
+        "Die Richtlinie synchronisiert nicht."
+      ]
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze die korrekte parallele Summe.",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": ["long summe = std::{{?}}(std::execution::par, v.begin(), v.end(), 0L);"]
+      },
+      "luecken": [{ "loesungen": ["reduce"] }],
+      "auswahl": ["reduce", "accumulate", "for_each", "sort"],
+      "erklaerung": "`std::reduce` darf die Elemente in beliebiger Reihenfolge und Gruppierung zusammenfassen. Deshalb kann es parallel arbeiten. `std::accumulate` rechnet streng von links nach rechts und hat keine Variante mit Ausführungsrichtlinie. Achtung: Bei Gleitkommazahlen kann `reduce` wegen der anderen Reihenfolge minimal andere Ergebnisse liefern."
+    }
+  ],
+  "praxis": "Im Alltag begegnet dir `std::async` vor allem für gelegentliche Hintergrundarbeiten, parallele Algorithmen für rechenintensive Schleifen. Für Server und Echtzeitsysteme nutzt man meist eigene Thread-Pools oder Bibliotheken wie Intel TBB. Mit C++26 kommt `std::execution` (Senders und Receivers) als Standardmodell. Im Review achtest du auf ungespeicherte Futures und auf Lambdas in parallelen Algorithmen, die gemeinsame Daten verändern.",
+  "labor": {
+    "titel": "Seriell gegen parallel",
+    "anleitung": "Sortiere 50 Millionen Zufallszahlen einmal seriell und einmal mit `std::execution::par` und vergleiche die Laufzeit.",
+    "befehle": [
+      "sudo apt install libtbb-dev",
+      "g++ -std=c++20 -O2 parallel.cpp -ltbb -o parallel && ./parallel"
+    ],
+    "beobachtung": "Auf einem Rechner mit 8 Kernen ist die parallele Variante typischerweise 3- bis 6-mal schneller, nicht 8-mal. Das zeigt Amdahl, den Aufwand fürs Verteilen und die begrenzte Speicherbandbreite."
+  },
+  "begriffe": [
+    { "begriff": "Future", "englisch": "future", "erklaerung": "Platzhalter für ein Ergebnis, das ein anderer Thread später liefert." },
+    { "begriff": "Promise", "englisch": "promise", "erklaerung": "Gegenstück zum Future, mit dem ein Wert oder eine Exception gesetzt wird." },
+    { "begriff": "Ausführungsrichtlinie", "englisch": "execution policy", "erklaerung": "Parameter wie `std::execution::par`, der einen Algorithmus parallel laufen lässt." }
+  ],
+  "weiterlesen": [
+    { "titel": "cppreference: std::async", "url": "https://en.cppreference.com/w/cpp/thread/async" },
+    { "titel": "cppreference: Execution policies", "url": "https://en.cppreference.com/w/cpp/algorithm/execution_policy_tag_t" }
+  ]
+}

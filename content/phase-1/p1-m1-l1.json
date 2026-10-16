@@ -1,0 +1,143 @@
+{
+  "id": "p1-m1-l1",
+  "phase": 1,
+  "modul": "1.1 Vom Quellcode zum Object-File",
+  "titel": "Die vier Stufen der Übersetzung",
+  "lernziele": [
+    "Die vier Stufen Präprozessor, Compiler, Assembler und Linker in der richtigen Reihenfolge nennen",
+    "Mit -E, -S und -c gezielt nach einer Stufe anhalten",
+    "An einer Fehlermeldung erkennen, welche Stufe sie erzeugt"
+  ],
+  "dauerMinuten": 5,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Du tippst `g++ main.cpp -o app`. Was passiert dabei?",
+      "optionen": [
+        "g++ übersetzt main.cpp in einem einzigen Schritt direkt in die ausführbare Datei",
+        "g++ ist ein Treiber, der nacheinander Präprozessor, Compiler, Assembler und Linker aufruft",
+        "g++ interpretiert main.cpp beim Start von app Zeile für Zeile"
+      ],
+      "korrekt": 1,
+      "erklaerung": "`g++` ist ein **Treiber** (compiler driver): Er ruft mehrere Werkzeuge nacheinander auf und reicht die Zwischenergebnisse weiter. Weil das unsichtbar passiert, wirkt es wie ein einziger Schritt.",
+      "begruendungen": [
+        "Es sieht so aus, weil die Zwischendateien sofort wieder gelöscht werden. Intern laufen aber mehrere Stufen.",
+        "Richtig. Mit `g++ -v` siehst du jedes aufgerufene Werkzeug.",
+        "C++ wird vorab in Maschinencode übersetzt. Interpretiert werden etwa Python- oder Shell-Skripte."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Vier Stufen, vier Zwischenergebnisse",
+      "text": "1. **Präprozessor** (preprocessor): ersetzt `#include` durch den Dateiinhalt, expandiert Makros und wertet `#if` aus. Ergebnis: reiner C++-Text.\n2. **Compiler**: prüft Syntax und Typen, optimiert und erzeugt Assembler-Code für die Ziel-CPU.\n3. **Assembler**: übersetzt Assembler-Code in Maschinencode, das **Object-File** (`.o`). Verweise auf fremde Funktionen bleiben darin noch offen.\n4. **Linker**: fügt alle Object-Files und Bibliotheken zusammen, löst die offenen Verweise auf und schreibt die ausführbare Datei.",
+      "diagramm": {
+        "knoten": ["main.cpp", "Präprozessor", "main.ii", "Compiler", "main.s", "Assembler", "main.o", "Linker", "app"],
+        "beschriftung": "Jede Stufe erzeugt eine Datei, die die nächste Stufe weiterverarbeitet."
+      }
+    },
+    {
+      "typ": "reihenfolge",
+      "frage": "Bringe die Stufen in die Reihenfolge, in der sie `main.cpp` verarbeiten.",
+      "elemente": ["Präprozessor", "Compiler", "Assembler", "Linker"],
+      "erklaerung": "Der Präprozessor arbeitet nur mit Text, deshalb kommt er zuerst. Erst danach versteht der Compiler C++. Der Assembler macht daraus Maschinencode, und der Linker verbindet am Schluss alle Teile."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Welche Datei entsteht in welcher Stufe?",
+      "paare": [
+        { "links": "`main.ii`", "rechts": "Vorverarbeiteter Quelltext, alle Header eingefügt" },
+        { "links": "`main.s`", "rechts": "Assembler-Code für die Ziel-CPU" },
+        { "links": "`main.o`", "rechts": "Maschinencode mit offenen Verweisen" },
+        { "links": "`app`", "rechts": "Fertig gelinktes, ausführbares Programm" }
+      ],
+      "erklaerung": "Die Endungen sind Konvention: `.ii` für vorverarbeitetes C++ (bei C `.i`), `.s` für Assembler, `.o` für Object-Files (unter Windows/MSVC `.obj`). Die ausführbare Datei hat unter Linux meist keine Endung."
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Gezielt anhalten",
+      "text": "Mit drei Optionen hält `g++` nach einer bestimmten Stufe an. So kannst du Zwischenergebnisse untersuchen, wenn etwas Unerwartetes passiert.",
+      "tabelle": {
+        "kopf": ["Option", "Hält an nach", "Ergebnis"],
+        "zeilen": [
+          ["`-E`", "Präprozessor", "Vorverarbeiteter Text (auf die Konsole)"],
+          ["`-S`", "Compiler", "`main.s`"],
+          ["`-c`", "Assembler", "`main.o`"],
+          ["keine", "Linker", "ausführbare Datei"]
+        ]
+      }
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze den Befehl so, dass nur das Object-File `main.o` entsteht und nicht gelinkt wird.",
+      "code": {
+        "sprache": "bash",
+        "zeilen": ["g++ {{?}} main.cpp"]
+      },
+      "luecken": [{ "loesungen": ["-c"] }],
+      "auswahl": ["-c", "-E", "-S", "-o"],
+      "erklaerung": "`-c` steht für *compile only*: kompilieren und assemblieren, aber nicht linken. So baut jedes Build-System Projekte mit vielen Dateien: erst jede `.cpp` einzeln zu `.o`, am Schluss ein Link-Schritt. `-E` und `-S` halten früher an, `-o` legt nur den Namen der Ausgabedatei fest."
+    },
+    {
+      "typ": "terminal-deuten",
+      "frage": "Welche Stufe ist hier gescheitert?",
+      "terminal": {
+        "befehl": "g++ -c main.cpp",
+        "ausgabe": [
+          "main.cpp:1:10: fatal error: config.h: No such file or directory",
+          "    1 | #include \"config.h\"",
+          "      |          ^~~~~~~~~~",
+          "compilation terminated."
+        ]
+      },
+      "optionen": ["Präprozessor", "Compiler (Syntax- und Typprüfung)", "Assembler", "Linker"],
+      "korrekt": 0,
+      "erklaerung": "`#include` wird vom Präprozessor verarbeitet. Findet er die Datei nicht, bricht alles ab, bevor der Compiler eine einzige Zeile C++ gesehen hat. Die Lösung liegt meist im Include-Pfad (`-I`), nicht im Code.",
+      "begruendungen": [
+        "Richtig: `#include` ist eine Präprozessor-Direktive.",
+        "Die Meldung kommt zwar vom Programm `cc1plus`, das auch kompiliert, aber die C++-Analyse hat noch gar nicht begonnen.",
+        "Der Assembler sieht nie Header-Dateien, er bekommt fertigen Assembler-Code.",
+        "Mit `-c` läuft der Linker gar nicht. Ausserdem kennt der Linker keine Header."
+      ]
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Warum übersetzen Build-Systeme jede `.cpp`-Datei einzeln zu einem Object-File, statt alles auf einmal?",
+      "optionen": [
+        "Damit nach einer Änderung nur die betroffene Datei neu kompiliert und dann gelinkt werden muss",
+        "Weil der Compiler nur eine Datei pro Aufruf öffnen kann",
+        "Weil Object-Files kleiner sind als ausführbare Dateien und so Speicher gespart wird"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Getrennte Übersetzung ermöglicht **inkrementelle Builds**: Ändert sich eine von 2000 Dateien, wird nur sie neu kompiliert. Ausserdem lassen sich die Dateien parallel übersetzen (`make -j`, Ninja).",
+      "begruendungen": [
+        "Richtig: Das spart in grossen Projekten Minuten bis Stunden pro Build.",
+        "`g++ a.cpp b.cpp` funktioniert. Der Treiber übersetzt dann aber trotzdem jede Datei einzeln.",
+        "Object-Files zusammen sind oft sogar grösser, weil sie zusätzliche Informationen für den Linker enthalten."
+      ]
+    }
+  ],
+  "praxis": "Wenn ein Build fehlschlägt, finde zuerst heraus, welche Stufe sich meldet. `fatal error: ... No such file` beim `#include` kommt vom Präprozessor (Include-Pfad prüfen). `error:` mit Datei:Zeile:Spalte kommt vom Compiler (Code prüfen). `undefined reference` und `ld returned 1 exit status` kommen vom Linker (Bibliotheken und Definitionen prüfen). So weisst du, wo du suchen musst.",
+  "labor": {
+    "titel": "Die Zwischendateien sichtbar machen",
+    "anleitung": "Lege eine `main.cpp` mit einem Hello-World an und lass dir jede Stufe einzeln ausgeben. Unter Windows funktioniert das in WSL oder mit MinGW.",
+    "befehle": [
+      "g++ -E main.cpp -o main.ii && wc -l main.ii",
+      "g++ -S main.cpp && head -20 main.s",
+      "g++ -c main.cpp && file main.o",
+      "g++ main.o -o app && ./app",
+      "g++ -save-temps -v main.cpp -o app"
+    ],
+    "beobachtung": "Die Datei `main.ii` hat zehntausende Zeilen, obwohl `main.cpp` nur fünf hat, weil `<iostream>` alles mitbringt. `file main.o` meldet *relocatable*, `file app` meldet *executable*. Mit `-v` siehst du die einzelnen Aufrufe von `cc1plus`, `as` und `collect2`/`ld`."
+  },
+  "begriffe": [
+    { "begriff": "Compiler-Treiber", "englisch": "compiler driver", "erklaerung": "Programm wie `g++` oder `clang++`, das Präprozessor, Compiler, Assembler und Linker nacheinander aufruft." },
+    { "begriff": "Präprozessor", "englisch": "preprocessor", "erklaerung": "Erste Stufe: verarbeitet `#include`, `#define` und `#if` rein textuell, bevor C++ analysiert wird." },
+    { "begriff": "Object-File", "englisch": "object file", "erklaerung": "Ergebnis einer übersetzten `.cpp`-Datei: Maschinencode plus Symboltabelle, Verweise auf andere Dateien sind noch offen." },
+    { "begriff": "Linker", "englisch": "linker", "erklaerung": "Letzte Stufe: verbindet Object-Files und Bibliotheken zu einem Programm und löst offene Verweise auf." },
+    { "begriff": "Inkrementeller Build", "englisch": "incremental build", "erklaerung": "Build, der nur neu übersetzt, was sich seit dem letzten Mal geändert hat." }
+  ],
+  "weiterlesen": [
+    { "titel": "GCC: Options Controlling the Kind of Output", "url": "https://gcc.gnu.org/onlinedocs/gcc/Overall-Options.html" },
+    { "titel": "cppreference: Phases of translation", "url": "https://en.cppreference.com/w/cpp/language/translation_phases" }
+  ]
+}

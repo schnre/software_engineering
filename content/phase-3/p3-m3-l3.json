@@ -1,0 +1,130 @@
+{
+  "id": "p3-m3-l3",
+  "phase": 3,
+  "modul": "3.3 Debugging",
+  "titel": "Systematisch debuggen",
+  "lernziele": [
+    "Fehler mit Hypothesen und Experimenten statt durch Raten eingrenzen",
+    "Mit `git bisect` den verursachenden Commit finden",
+    "Für eine Fehlerart die passende Technik wählen"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "In Version 2.3 war alles in Ordnung, in 2.4 ist ein Fehler aufgetaucht. Dazwischen liegen 400 Commits. Wie findest du am schnellsten den schuldigen Commit?",
+      "optionen": [
+        "Mit `git bisect`: binäre Suche über die Commits",
+        "Alle 400 Diffs durchlesen",
+        "Den Autor des letzten Commits fragen"
+      ],
+      "korrekt": 0,
+      "erklaerung": "`git bisect` halbiert den Bereich bei jedem Schritt: Du sagst „gut“ oder „schlecht“, Git checkt die Mitte aus. Bei 400 Commits sind das nur etwa 9 Schritte. Mit einem Testskript läuft es sogar automatisch.",
+      "begruendungen": [
+        "Richtig.",
+        "Das dauert Tage, und subtile Ursachen übersieht man leicht.",
+        "Der letzte Commit ist nicht unbedingt der schuldige."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Debuggen ist Wissenschaft",
+      "text": "Erfahrene Entwickler raten nicht, sie gehen methodisch vor:\n\n1. **Beobachten**: Was genau passiert, was sollte passieren? Fehlermeldung vollständig lesen.\n2. **Reproduzieren** und auf ein minimales Beispiel reduzieren.\n3. **Hypothese** aufstellen: „Ich vermute, `index` ist bei leerer Liste −1.“\n4. **Experiment**, das die Hypothese bestätigt oder widerlegt: ein Haltepunkt, ein Test, ein Log.\n5. **Schluss** ziehen und weiter eingrenzen.\n\nDas wirksamste Werkzeug dabei ist das **Halbieren**: von Commits (bisect), Eingabedaten, Code-Pfaden oder Konfigurationen. Jeder Schritt halbiert den Suchraum."
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze die Befehle für `git bisect`.",
+      "code": {
+        "sprache": "bash",
+        "zeilen": [
+          "git bisect start",
+          "git bisect {{?}}             # der aktuelle Stand ist fehlerhaft",
+          "git bisect {{?}} v2.3        # dieser Stand war in Ordnung",
+          "git bisect run ./teste.sh   # automatisch: Exit-Code 0 = gut, sonst schlecht",
+          "git bisect reset"
+        ]
+      },
+      "luecken": [{ "loesungen": ["bad"] }, { "loesungen": ["good"] }],
+      "auswahl": ["bad", "good", "skip", "reset"],
+      "erklaerung": "`git bisect run` führt das Skript für jeden Kandidaten aus und wertet den Exit-Code aus. Exit-Code 125 bedeutet „überspringen“, z. B. wenn der Commit gar nicht baut. Am Ende nennt Git den ersten schlechten Commit, und `reset` kehrt zum Ausgangszustand zurück."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Wie viele Schritte braucht `git bisect` ungefähr für 400 Commits?",
+      "optionen": ["9", "20", "200", "400"],
+      "korrekt": 0,
+      "fest": true,
+      "erklaerung": "2⁹ = 512 ≥ 400. Jeder Schritt halbiert den Bereich, also braucht man log₂(400) ≈ 8,6, aufgerundet 9 Schritte. Selbst bei 10 000 Commits wären es nur 14.",
+      "begruendungen": [
+        "Richtig.",
+        "Das wäre eine lineare Suche in Zweierschritten.",
+        "Das wäre die Hälfte, nicht der Logarithmus.",
+        "Das wäre eine vollständige lineare Suche."
+      ]
+    },
+    {
+      "typ": "reihenfolge",
+      "frage": "Bringe das methodische Vorgehen in die richtige Reihenfolge.",
+      "elemente": [
+        "Fehler beobachten und genau beschreiben",
+        "Ein minimales Beispiel erstellen, das den Fehler zuverlässig zeigt",
+        "Eine Hypothese über die Ursache aufstellen",
+        "Ein Experiment durchführen, das die Hypothese bestätigt oder widerlegt",
+        "Die Ursache beheben und mit einem Test absichern"
+      ],
+      "erklaerung": "Wird die Hypothese widerlegt, geht es zurück zu Schritt 3, mit mehr Wissen als vorher. Ein aufgeschriebenes Protokoll („getestet: X, Ergebnis: Y“) verhindert, dass man dieselbe Idee zweimal prüft."
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Gewohnheiten, die Zeit sparen",
+      "text": "- **Die ganze Fehlermeldung lesen**, auch die erste Zeile eines langen Compiler-Fehlers.\n- **Annahmen prüfen**: Läuft wirklich die Version, die du gerade gebaut hast?\n- **Nur eine Sache auf einmal ändern.**\n- **Gummiente** (rubber duck debugging): Das Problem laut jemandem erklären, notfalls einer Gummiente. Oft fällt der Fehler beim Erklären auf.\n- **Pausen**: Nach einer Stunde ohne Fortschritt hilft frischer Kopf oder ein zweites Paar Augen mehr als die nächste Stunde.\n- Es ist fast nie der Compiler. Und wenn doch, lässt es sich mit einem minimalen Beispiel beweisen."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Ein Fehler verschwindet, sobald du eine Debug-Ausgabe einfügst oder das Programm im Debugger laufen lässt. Was ist die wahrscheinlichste Ursache?",
+      "optionen": [
+        "Undefined Behavior oder ein Data Race: Kleine Änderungen am Code oder Timing verändern das Verhalten",
+        "Ein Fehler im Debugger",
+        "Der Fehler ist nicht reproduzierbar und deshalb nicht relevant"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Solche Fehler nennt man **Heisenbugs**: Das Beobachten verändert sie. Eine Ausgabe ändert das Speicherlayout, die Optimierung oder das Timing zwischen Threads. Das richtige Werkzeug sind Sanitizer (ASan, UBSan, TSan), die solche Fehler unabhängig vom Zufall melden.",
+      "begruendungen": [
+        "Richtig.",
+        "Der Debugger verändert Timing und Speicher, ist aber selten selbst fehlerhaft.",
+        "Gerade diese Fehler treten in Produktion gerne auf."
+      ]
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Welche Technik passt zu welcher Situation?",
+      "paare": [
+        { "links": "Der Fehler ist zwischen zwei Versionen entstanden", "rechts": "`git bisect`" },
+        { "links": "Der Fehler tritt nur bei einer bestimmten, sehr grossen Eingabedatei auf", "rechts": "Eingabe wiederholt halbieren" },
+        { "links": "Der Fehler ändert sich mit der Optimierungsstufe", "rechts": "Sanitizer laufen lassen" },
+        { "links": "Der Fehler tritt selten in Produktion auf und ist lokal nicht reproduzierbar", "rechts": "Strukturiertes Logging mit Kontext und Core Dumps" }
+      ],
+      "erklaerung": "Allen Techniken gemeinsam: Sie verkleinern den Suchraum, statt ihn zu durchsuchen. Ein Senior wählt die Technik bewusst nach der Art des Fehlers."
+    }
+  ],
+  "praxis": "Gute Debugging-Arbeit sieht man im Ticket: Was wurde beobachtet, welche Hypothesen wurden geprüft, was war die Ursache, welcher Test sichert den Fix? So eine Notiz hilft dem nächsten, der einen ähnlichen Fehler sieht, und sie gehört zu den Dingen, an denen Vorgesetzte und Kolleginnen Seniorität erkennen.",
+  "labor": {
+    "titel": "git bisect automatisch",
+    "anleitung": "Lege ein kleines Repository mit 30 Commits an. In einem davon baust du absichtlich einen Fehler ein. Schreibe ein Skript, das baut und einen Test ausführt, und lass `git bisect run` den Commit finden.",
+    "befehle": [
+      "git bisect start HEAD HEAD~30",
+      "git bisect run sh -c 'cmake --build build && ./build/tests'",
+      "git bisect log",
+      "git bisect reset"
+    ],
+    "beobachtung": "Git braucht etwa 5 Schritte und nennt am Ende den Commit mit Autor und Nachricht. `git bisect log` zeigt jeden Schritt."
+  },
+  "begriffe": [
+    { "begriff": "git bisect", "englisch": "git bisect", "erklaerung": "Binäre Suche über die Commit-Historie, um den Commit zu finden, der einen Fehler eingeführt hat." },
+    { "begriff": "Heisenbug", "englisch": "heisenbug", "erklaerung": "Fehler, der sich verändert oder verschwindet, sobald man ihn beobachtet." },
+    { "begriff": "Minimales Beispiel", "englisch": "minimal reproducible example", "erklaerung": "Kleinstmöglicher Code, der den Fehler noch zeigt." }
+  ],
+  "weiterlesen": [
+    { "titel": "Git: git-bisect", "url": "https://git-scm.com/docs/git-bisect" }
+  ]
+}

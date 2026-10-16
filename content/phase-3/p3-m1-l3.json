@@ -1,0 +1,186 @@
+{
+  "id": "p3-m1-l3",
+  "phase": 3,
+  "modul": "3.1 Unit-Tests mit GoogleTest",
+  "titel": "Test Doubles und GoogleMock",
+  "lernziele": [
+    "Dummy, Stub, Fake und Mock unterscheiden",
+    "Eine Abhängigkeit mit GoogleMock ersetzen",
+    "Erkennen, wann Code wegen fester Abhängigkeiten nicht testbar ist"
+  ],
+  "dauerMinuten": 7,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Ein `Heizungsregler` liest die Temperatur direkt von einem Sensor über I²C. Wie testest du seine Logik ohne Hardware?",
+      "optionen": [
+        "Den Sensor hinter ein Interface legen und im Test eine Ersatzimplementierung übergeben",
+        "Gar nicht, Regler-Logik testet man nur auf dem echten Gerät",
+        "Im Test die I²C-Register direkt beschreiben"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Der Regler soll nur wissen: Ich bekomme eine Temperatur. Woher sie kommt, ist ein Detail. Mit einem Interface kann der Test eine Ersatzimplementierung einsetzen, ein **Test Double**, die genau die Werte liefert, die der Test braucht: 18 °C, 25 °C, Sensorfehler.",
+      "begruendungen": [
+        "Richtig. Das ist der Kern testbarer Architektur.",
+        "Dann wären Tests langsam, selten und Fehlerfälle kaum herzustellen.",
+        "Das testet die Hardware-Anbindung, nicht die Regel-Logik, und funktioniert nur auf dem Gerät."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Arten von Test Doubles",
+      "text": "Ein **Test Double** ersetzt im Test eine echte Abhängigkeit. Man unterscheidet:\n\n- **Dummy**: wird nur übergeben, aber nie benutzt.\n- **Stub**: liefert feste Antworten, z. B. immer 18 °C.\n- **Fake**: funktionierende, vereinfachte Implementierung, z. B. eine Datenbank im Speicher.\n- **Mock**: prüft zusätzlich, *wie* er benutzt wurde, z. B. „`ein()` wurde genau einmal aufgerufen“.",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "class ITemperaturSensor {",
+          "public:",
+          "    virtual ~ITemperaturSensor() = default;",
+          "    virtual double lies() = 0;",
+          "};"
+        ]
+      }
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Welches Test Double ist das?",
+      "paare": [
+        { "links": "Gibt bei jedem `lies()` 18.0 zurück", "rechts": "Stub" },
+        { "links": "Speichert Datensätze in einer `std::map` statt in einer echten Datenbank", "rechts": "Fake" },
+        { "links": "Schlägt fehl, wenn `ein()` nicht genau einmal aufgerufen wurde", "rechts": "Mock" },
+        { "links": "Wird an den Konstruktor übergeben, aber im Test nie benutzt", "rechts": "Dummy" }
+      ],
+      "erklaerung": "Im Alltag sagen viele zu allem „Mock“. Der Unterschied ist trotzdem nützlich: Stubs und Fakes prüfen **Zustand** (Was kommt heraus?), Mocks prüfen **Interaktion** (Was wurde aufgerufen?)."
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "GoogleMock",
+      "text": "**GoogleMock** gehört zu GoogleTest und erzeugt Test Doubles mit einem Makro.",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "class MockSensor : public ITemperaturSensor {",
+          "public:",
+          "    MOCK_METHOD(double, lies, (), (override));",
+          "};",
+          "",
+          "TEST(ReglerTest, HeiztUnterSollwert) {",
+          "    MockSensor sensor;",
+          "    MockHeizung heizung;",
+          "    EXPECT_CALL(sensor, lies()).WillOnce(::testing::Return(18.0));",
+          "    EXPECT_CALL(heizung, ein()).Times(1);",
+          "",
+          "    Regler regler(sensor, heizung, 21.0);",
+          "    regler.schritt();",
+          "}"
+        ],
+        "anmerkungen": [
+          { "zeile": 3, "text": "Rückgabetyp, Name, Parameter, Qualifizierer." },
+          { "zeile": 9, "text": "Als Stub: Beim ersten Aufruf 18.0 liefern." },
+          { "zeile": 10, "text": "Als Mock: Der Test schlägt fehl, wenn `ein()` nicht genau einmal aufgerufen wird." }
+        ]
+      }
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze den Mock und die Erwartung.",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "class MockSensor : public ITemperaturSensor {",
+          "public:",
+          "    {{?}}(double, lies, (), (override));",
+          "};",
+          "",
+          "EXPECT_CALL(sensor, lies()).{{?}}(::testing::Return(25.0));"
+        ]
+      },
+      "luecken": [{ "loesungen": ["MOCK_METHOD"] }, { "loesungen": ["WillOnce"] }],
+      "auswahl": ["MOCK_METHOD", "WillOnce", "Times", "ON_CALL"],
+      "erklaerung": "`WillOnce` legt die Antwort für einen Aufruf fest, `WillRepeatedly` für alle weiteren. `ON_CALL` setzt nur ein Standardverhalten, ohne eine Erwartung an die Anzahl der Aufrufe zu stellen. Das ist nützlich, wenn der Test die Aufrufe gar nicht prüfen will."
+    },
+    {
+      "typ": "terminal-deuten",
+      "frage": "Was bedeutet diese Meldung?",
+      "terminal": {
+        "befehl": "./regler_test",
+        "ausgabe": [
+          "regler_test.cpp:31: Failure",
+          "Actual function call count doesn't match EXPECT_CALL(heizung, ein())...",
+          "         Expected: to be called once",
+          "           Actual: never called - unsatisfied and active",
+          "[  FAILED  ] ReglerTest.HeiztUnterSollwert (0 ms)"
+        ]
+      },
+      "optionen": [
+        "Der Regler hat `heizung.ein()` nie aufgerufen, obwohl der Test das erwartet",
+        "`MockHeizung` ist falsch definiert",
+        "`ein()` wurde zu oft aufgerufen"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Bei 18 °C und Sollwert 21 °C hätte der Regler heizen müssen. Entweder ist die Regel-Logik falsch, z. B. ein vertauschter Vergleich, oder `schritt()` liest den Sensor gar nicht. Die Meldung erscheint, wenn der Mock zerstört wird, also am Ende des Tests.",
+      "begruendungen": [
+        "Richtig: *never called*.",
+        "Dann käme ein Compilerfehler, kein Fehlschlag zur Laufzeit.",
+        "Dann stünde dort z. B. *called twice*."
+      ]
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Was ist das Hauptrisiko, wenn Tests sehr viele Interaktionen mit Mocks festschreiben?",
+      "optionen": [
+        "Die Tests prüfen die Umsetzung statt des Verhaltens und brechen bei jedem Refactoring, obwohl das Ergebnis stimmt",
+        "Mocks machen Tests langsam",
+        "Mocks funktionieren nur mit virtuellen Funktionen"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Wenn ein Test festlegt, dass `lies()` genau dreimal und in einer bestimmten Reihenfolge aufgerufen wird, scheitert er nach einer harmlosen Optimierung. Faustregel: Mocks für Interaktionen, die fachlich zählen (wird geheizt, wird ein Alarm gesendet?). Für alles andere Stubs und Fakes mit Prüfung des Ergebnisses.",
+      "begruendungen": [
+        "Richtig. Solche Tests nennt man fragil.",
+        "Mocks sind in der Regel schnell.",
+        "Das ist eine Eigenschaft, kein Risiko. Mit Templates gibt es auch Mocks ohne `virtual`."
+      ]
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Welche Zeile verhindert, dass man die Regel-Logik ohne Hardware testen kann?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "class Regler {",
+          "public:",
+          "    explicit Regler(double soll) : soll_(soll) {}",
+          "    void schritt() {",
+          "        I2cTemperaturSensor sensor(0x48);",
+          "        if (sensor.lies() < soll_) heizung_.ein();",
+          "    }",
+          "private:",
+          "    double soll_;",
+          "    Heizung heizung_;",
+          "};"
+        ]
+      },
+      "fehlerZeile": 5,
+      "erklaerung": "Der Regler erzeugt seinen Sensor selbst und fest verdrahtet. Kein Test kann ihn ersetzen. Die Lösung: Abhängigkeiten von aussen übergeben (`Regler(ITemperaturSensor&, IHeizung&, double)`). Das heisst **Dependency Injection** und ist Thema in Phase 6. Auch `Heizung heizung_` in Zeile 10 ist fest verdrahtet, die Ursache für den Sensor liegt aber in Zeile 5."
+    }
+  ],
+  "praxis": "Wenn ein Stück Code „nicht testbar“ ist, liegt das fast immer an fest verdrahteten Abhängigkeiten: `new` oder lokale Objekte konkreter Klassen, Singletons, direkte Hardware- oder Dateizugriffe, `std::chrono::system_clock::now()` mitten in der Logik. Im Review fragst du deshalb: Wie würde ein Test diese Klasse mit einem Sensorfehler füttern? Gibt es keine Antwort, ist das ein Design-Befund.",
+  "labor": {
+    "titel": "Einen Regler mit Mocks testen",
+    "anleitung": "Baue `Regler`, `ITemperaturSensor` und `IHeizung` mit Dependency Injection und schreibe drei Tests: zu kalt (heizt), zu warm (heizt nicht), Sensorfehler (Exception, schaltet sicherheitshalber aus).",
+    "befehle": [
+      "cmake --build build && ./build/regler_test --gtest_brief=1"
+    ],
+    "beobachtung": "Für den Sensorfehler genügt `EXPECT_CALL(sensor, lies()).WillOnce(::testing::Throw(SensorFehler{}));`. Auf echter Hardware wäre dieser Fall kaum herzustellen."
+  },
+  "begriffe": [
+    { "begriff": "Test Double", "englisch": "test double", "erklaerung": "Ersatz für eine echte Abhängigkeit im Test: Dummy, Stub, Fake, Mock oder Spy." },
+    { "begriff": "Mock", "englisch": "mock object", "erklaerung": "Test Double, das prüft, wie es aufgerufen wurde." },
+    { "begriff": "Stub", "englisch": "stub", "erklaerung": "Test Double mit festen Antworten." },
+    { "begriff": "Fake", "englisch": "fake", "erklaerung": "Funktionierende, vereinfachte Implementierung, z. B. eine Datenbank im Speicher." }
+  ],
+  "weiterlesen": [
+    { "titel": "gMock for Dummies", "url": "https://google.github.io/googletest/gmock_for_dummies.html" },
+    { "titel": "Martin Fowler: Mocks Aren't Stubs", "url": "https://martinfowler.com/articles/mocksArentStubs.html" }
+  ]
+}

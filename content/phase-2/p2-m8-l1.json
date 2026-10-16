@@ -1,0 +1,127 @@
+{
+  "id": "p2-m8-l1",
+  "phase": 2,
+  "modul": "2.8 Eine fremde Codebase lesen",
+  "titel": "Entry Points und Call Graphs",
+  "lernziele": [
+    "Die Einstiegspunkte eines Programms finden, auch die versteckten",
+    "Einen Aufrufpfad mit Suche, IDE und Debugger nachvollziehen",
+    "Erklären, warum statische Analyse indirekte Aufrufe oft nicht sieht"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Du bist neu in einem Projekt mit 500 000 Zeilen. Dein erstes Ticket: Der CSV-Export schreibt falsche Datumswerte. Wie beginnst du am sinnvollsten?",
+      "optionen": [
+        "Vom Einstiegspunkt des Exports aus (z. B. dem Menü-Handler oder CLI-Befehl) den Aufrufpfad bis zur Datumsformatierung verfolgen",
+        "Alle Dateien der Reihe nach lesen, um das System zu verstehen",
+        "Die grösste Datei zuerst lesen, dort steckt vermutlich die meiste Logik"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Niemand versteht 500 000 Zeilen auf einmal, auch Seniors nicht. Man verfolgt gezielt den einen Pfad, der für die Aufgabe zählt, und baut so ein Teilbild auf, das mit jeder Aufgabe wächst.",
+      "begruendungen": [
+        "Richtig. Ein konkreter Faden durch das System.",
+        "Das dauert Wochen, und das meiste davon ist für die Aufgabe irrelevant.",
+        "Grösse sagt nichts darüber, ob eine Datei für dein Problem relevant ist."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Wo ein Programm beginnt",
+      "text": "Offensichtlich: `main()`. In echten Systemen gibt es aber viele weitere **Einstiegspunkte** (entry points):\n\n- Konstruktoren globaler Objekte, die vor `main` laufen\n- Threads, die beim Start erzeugt werden\n- Callbacks und Event-Handler (GUI, Netzwerk, Timer)\n- Interrupt-Service-Routinen auf Mikrocontrollern\n- Plugins und Fabriken, die sich über eine Registrierung anmelden\n- `main` der Testprogramme, oft der beste Einstieg, um eine Komponente zu verstehen\n\nVon dort aus beschreibt der **Call Graph**, wer wen aufruft."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Welches Werkzeug beantwortet welche Frage?",
+      "paare": [
+        { "links": "`rg 'exportiere\\(' src/`", "rechts": "Wo im Code wird die Funktion überhaupt erwähnt?" },
+        { "links": "IDE: *Call Hierarchy*", "rechts": "Wer ruft die Funktion auf, über mehrere Ebenen?" },
+        { "links": "gdb: `break exportiere` und `bt`", "rechts": "Über welchen Pfad wird sie zur Laufzeit wirklich aufgerufen?" },
+        { "links": "`git log -p --follow export.cpp`", "rechts": "Warum sieht der Code so aus, und wer hat ihn geändert?" },
+        { "links": "`compile_commands.json` für clangd", "rechts": "Damit Sprünge zur Definition in der IDE korrekt funktionieren" }
+      ],
+      "erklaerung": "Statische Werkzeuge (Suche, IDE) zeigen, was *möglich* ist, der Debugger zeigt, was *tatsächlich* passiert. Die Git-Historie erklärt das *Warum*. Erst die Kombination ergibt ein verlässliches Bild."
+    },
+    {
+      "typ": "terminal-deuten",
+      "frage": "Du hast einen Breakpoint auf `schreibeZeile` gesetzt. Welche Aussage stimmt?",
+      "terminal": {
+        "befehl": "(gdb) bt",
+        "ausgabe": [
+          "#0  Exporter::schreibeZeile (this=0x55555556aeb0, z=...) at export/csv.cpp:88",
+          "#1  Exporter::exportiere (this=0x55555556aeb0, daten=...) at export/exporter.cpp:41",
+          "#2  MenueHandler::beiExport (this=0x55555556a2c0) at ui/menue.cpp:120",
+          "#3  EventLoop::verteile (this=0x7fffffffd9a0, e=...) at core/eventloop.cpp:57",
+          "#4  main (argc=1, argv=0x7fffffffdb18) at main.cpp:23"
+        ]
+      },
+      "optionen": [
+        "Die Event-Loop verteilt ein Ereignis an den Menü-Handler, der den Export startet. Von unten nach oben gelesen ist das die Aufrufreihenfolge",
+        "`schreibeZeile` ruft `main` auf",
+        "Der Export läuft in einem eigenen Thread"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Frame `#0` ist die innerste Funktion, also die, in der du gerade stehst. Von unten (`main`) nach oben gelesen ergibt sich der Ablauf. Mit `frame 2` springst du in den Menü-Handler und kannst dort Variablen ansehen.",
+      "begruendungen": [
+        "Richtig.",
+        "Die Reihenfolge ist umgekehrt: `main` steht ganz unten, weil es zuerst aufgerufen wurde.",
+        "Der Stack führt durchgehend bis `main`, also läuft alles im Haupt-Thread."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Wenn die Suche nichts findet",
+      "text": "Statische Werkzeuge stossen an Grenzen, sobald Aufrufe **indirekt** sind: virtuelle Funktionen, Funktionszeiger, `std::function`, Signal/Slot-Mechanismen, Tabellen von Handlern oder Namen, die per Makro zusammengesetzt werden. Dann hilft:\n\n- nach der **Registrierung** suchen (`registriere(`, `connect(`, `subscribe(`, `REGISTER_`)\n- nach Implementierungen des Interfaces suchen (`: public IExporter`)\n- zur Laufzeit messen: Breakpoint, Log-Ausgabe oder `perf record -g`"
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Die Volltextsuche findet keinen Aufruf von `CsvExporter::exportiere()`, die Funktion läuft aber nachweislich. Was ist die wahrscheinlichste Erklärung?",
+      "optionen": [
+        "Der Aufruf erfolgt indirekt, z. B. virtuell über `IExporter&` oder über einen registrierten Callback",
+        "Der Compiler ruft ungenutzte Funktionen automatisch auf",
+        "Die Suche funktioniert nicht für Memberfunktionen"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Gesucht wird oft nach `CsvExporter::exportiere`, aufgerufen wird aber `exporter.exportiere(...)` auf einer Referenz vom Interface-Typ. Suche deshalb nach dem Funktionsnamen allein und nach der Stelle, an der ein `CsvExporter` erzeugt und weitergegeben wird.",
+      "begruendungen": [
+        "Richtig.",
+        "Der Compiler ruft nichts von sich aus auf.",
+        "Die Suche findet Text. Steht der Text so nicht im Code, findet sie ihn nicht."
+      ]
+    },
+    {
+      "typ": "reihenfolge",
+      "frage": "Bringe das Vorgehen bei einem Fehler in unbekanntem Code in eine sinnvolle Reihenfolge.",
+      "elemente": [
+        "Den Fehler zuverlässig reproduzieren",
+        "Den Einstiegspunkt des betroffenen Ablaufs finden",
+        "Den Aufrufpfad mit Breakpoint und Backtrace bestätigen",
+        "Die betroffene Stelle verstehen und den Fehler mit einem Test festhalten",
+        "Den Fix umsetzen und den Test grün machen"
+      ],
+      "erklaerung": "Ohne Reproduktion weiss man nicht, ob der Fix wirkt. Der Test vor dem Fix beweist, dass er den Fehler wirklich erfasst, und schützt später vor einem Rückfall (Regression)."
+    }
+  ],
+  "praxis": "In den ersten Wochen in einem neuen Projekt sind diese Werkzeuge deine wichtigsten: eine gut eingerichtete IDE mit `compile_commands.json`, `rg` (ripgrep) für schnelle Suche, gdb für echte Aufrufpfade und `git log`/`git blame` für die Geschichte. Notiere dir jeden verstandenen Pfad in zwei, drei Sätzen. Daraus wird später deine Einarbeitungsdoku für die nächste Person.",
+  "labor": {
+    "titel": "Einen Aufrufpfad in einem Open-Source-Projekt finden",
+    "anleitung": "Nimm ein mittelgrosses C++-Projekt, z. B. `fmt` oder `nlohmann/json`. Baue es mit Debug-Infos und finde heraus, über welchen Pfad eine bestimmte Funktion in einem Test aufgerufen wird.",
+    "befehle": [
+      "git clone --depth 1 https://github.com/fmtlib/fmt && cd fmt",
+      "cmake -S . -B build -DCMAKE_BUILD_TYPE=Debug -DCMAKE_EXPORT_COMPILE_COMMANDS=ON && cmake --build build -j",
+      "rg -n 'format_to\\(' include/ | head",
+      "gdb -batch -ex 'break fmt::v11::vformat' -ex run -ex bt build/bin/format-test"
+    ],
+    "beobachtung": "Die Namespace-Version (`v11`) kann je nach Stand des Repositorys anders lauten. Finde sie mit `rg 'inline namespace v' include/`. Der Backtrace zeigt dir den Weg vom Test bis in die Bibliothek."
+  },
+  "begriffe": [
+    { "begriff": "Einstiegspunkt", "englisch": "entry point", "erklaerung": "Stelle, an der ein Ablauf beginnt: `main`, Thread-Funktion, Callback, Interrupt-Handler." },
+    { "begriff": "Call Graph", "englisch": "call graph", "erklaerung": "Graph, der zeigt, welche Funktion welche andere aufruft." },
+    { "begriff": "Backtrace", "englisch": "backtrace, stack trace", "erklaerung": "Liste der aktiven Funktionsaufrufe an einer Stelle, innerste Funktion zuerst." }
+  ],
+  "weiterlesen": [
+    { "titel": "GDB: Backtraces", "url": "https://sourceware.org/gdb/current/onlinedocs/gdb.html/Backtrace.html" },
+    { "titel": "ripgrep User Guide", "url": "https://github.com/BurntSushi/ripgrep/blob/master/GUIDE.md" }
+  ]
+}

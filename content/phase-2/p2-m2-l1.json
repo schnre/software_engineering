@@ -1,0 +1,139 @@
+{
+  "id": "p2-m2-l1",
+  "phase": 2,
+  "modul": "2.2 Lebenszeit und Ownership",
+  "titel": "Zeiger, Referenzen und Lebenszeit",
+  "lernziele": [
+    "Zeiger und Referenzen unterscheiden und passend einsetzen",
+    "Hängende Referenzen erkennen, auch versteckte",
+    "Aus einer Funktionssignatur ablesen, wem ein Objekt gehört"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Welche Aussagen über Zeiger und Referenzen stimmen?",
+      "optionen": [
+        "Eine Referenz muss bei ihrer Erzeugung an ein Objekt gebunden werden",
+        "Eine Referenz kann man nachträglich auf ein anderes Objekt zeigen lassen",
+        "Ein Zeiger kann `nullptr` sein",
+        "Eine Referenz verlängert immer die Lebenszeit des Objekts, an das sie gebunden ist"
+      ],
+      "korrekt": [0, 2],
+      "erklaerung": "Eine **Referenz** ist ein zweiter Name für ein bestehendes Objekt, fest gebunden und nie null. Ein **Zeiger** ist eine eigene Variable, die eine Adresse enthält. Er darf null sein und neu zugewiesen werden.",
+      "begruendungen": [
+        "Richtig. `int& r;` ohne Initialisierung ist ein Compilerfehler.",
+        "`r = y;` weist dem gebundenen Objekt den Wert von `y` zu. Die Bindung bleibt.",
+        "Richtig.",
+        "Nur in einem Sonderfall: wenn eine `const T&` direkt an ein Temporärobjekt gebunden wird. Sonst nie."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Lebenszeit",
+      "text": "Jedes Objekt hat eine **Lebenszeit** (lifetime): von der fertigen Konstruktion bis zum Beginn des Destruktors. Zeiger und Referenzen verlängern sie nicht. Zeigen sie danach noch auf das Objekt, **hängen** sie (dangling), und jeder Zugriff ist Undefined Behavior.\n\nIn modernem C++ gilt als Faustregel: Rohe Zeiger und Referenzen **besitzen nichts**, sie verweisen nur. Besitz drückt man mit Werten, Containern und Smart Pointern aus."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Was gibt dieser Code aus?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "std::vector<int> v = {1, 2, 3};",
+          "int& erstes = v[0];",
+          "v.push_back(4);",
+          "std::cout << erstes;"
+        ]
+      },
+      "optionen": [
+        "`1`",
+        "Undefined Behavior: `push_back` kann den Speicher neu anlegen, `erstes` zeigt dann ins Leere",
+        "`4`"
+      ],
+      "korrekt": 1,
+      "fest": true,
+      "erklaerung": "Ist die Kapazität erschöpft, legt `push_back` einen grösseren Speicherblock an, verschiebt die Elemente und gibt den alten frei. Alle Referenzen, Zeiger und Iteratoren auf Elemente werden dadurch ungültig. Ob das passiert, hängt von der Kapazität ab, deshalb fällt der Fehler oft erst spät auf.",
+      "begruendungen": [
+        "Das kommt manchmal heraus, garantiert ist es nicht.",
+        "Richtig. Ein Klassiker im Code-Review.",
+        "`erstes` war an das erste Element gebunden, nicht an das letzte."
+      ]
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Welche Zeile muss geändert werden, damit die Funktion korrekt ist?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "const std::string& name() {",
+          "    std::string n = \"Sensor \" + std::to_string(id());",
+          "    return n;",
+          "}"
+        ]
+      },
+      "fehlerZeile": 1,
+      "erklaerung": "Der Rückgabetyp `const std::string&` verspricht eine Referenz auf ein Objekt, das den Aufruf überlebt. `n` ist aber lokal und stirbt beim Return. Richtig ist die Rückgabe als Wert: `std::string name()`. Das ist billig, weil der Compiler die Kopie meist ganz weglässt (Return Value Optimization) oder sonst verschiebt."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Was sagt die Signatur über den Umgang mit dem `Sensor`?",
+      "paare": [
+        { "links": "`void f(const Sensor& s)`", "rechts": "Liest nur, braucht ein gültiges Objekt, keine Kopie" },
+        { "links": "`void f(Sensor& s)`", "rechts": "Verändert das Objekt des Aufrufers" },
+        { "links": "`void f(Sensor* s)`", "rechts": "Objekt ist optional, `nullptr` ist erlaubt" },
+        { "links": "`void f(Sensor s)`", "rechts": "Arbeitet mit einer eigenen Kopie" },
+        { "links": "`void f(std::unique_ptr<Sensor> s)`", "rechts": "Übernimmt den Besitz" }
+      ],
+      "erklaerung": "Gute Signaturen sind Dokumentation. Die C++ Core Guidelines (F.15 ff.) empfehlen genau diese Konventionen. Der rohe Zeiger als Parameter heisst dabei nur „vielleicht vorhanden“, nie „du musst es löschen“."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Was passiert hier?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "std::string_view sv = std::string(\"temporär\");",
+          "std::cout << sv;"
+        ]
+      },
+      "optionen": [
+        "Undefined Behavior: Das temporäre `std::string` ist nach Zeile 1 schon zerstört",
+        "Es gibt `temporär` aus, `string_view` verlängert die Lebenszeit",
+        "Compilerfehler"
+      ],
+      "korrekt": 0,
+      "erklaerung": "`std::string_view` ist ein nicht besitzender Verweis auf Zeichen, intern ein Zeiger und eine Länge. Das Temporärobjekt stirbt am Ende des vollständigen Ausdrucks in Zeile 1, `sv` zeigt danach auf freigegebenen Speicher. Die Sonderregel zur Lebenszeitverlängerung gilt nur für Referenzen, nicht für Klassen wie `string_view` oder `span`.",
+      "begruendungen": [
+        "Richtig.",
+        "Das gilt nur für `const std::string&`, nicht für `string_view`.",
+        "Der Code kompiliert. Neuere Compiler warnen zum Teil (`-Wdangling`)."
+      ]
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze die Faustregel aus den C++ Core Guidelines.",
+      "text": "Ein roher Zeiger `T*` ist {{?}} besitzend. Muss ein Objekt existieren, nimmt man als Parameter eine {{?}}.",
+      "luecken": [{ "loesungen": ["nicht"] }, { "loesungen": ["Referenz"] }],
+      "auswahl": ["nicht", "immer", "Referenz", "Kopie"],
+      "erklaerung": "Wer einen rohen Zeiger bekommt, darf ihn nie `delete`n. Besitz wird mit `std::unique_ptr` oder `std::shared_ptr` übergeben."
+    }
+  ],
+  "praxis": "Im Code-Review lohnt es sich, bei jeder Referenz und jedem `string_view` oder `span` als Klassen-Member zu fragen: Wer garantiert, dass das Objekt länger lebt? Besonders gefährlich: Lambdas mit `[&]`, die gespeichert oder an Threads übergeben werden, und Referenzen auf Container-Elemente, während der Container wächst.",
+  "labor": {
+    "titel": "Hängende Referenzen sichtbar machen",
+    "anleitung": "Baue das `push_back`-Beispiel und das `string_view`-Beispiel mit AddressSanitizer.",
+    "befehle": [
+      "g++ -g -fsanitize=address dangling.cpp -o dangling && ./dangling"
+    ],
+    "beobachtung": "ASan meldet `heap-use-after-free` und zeigt drei Stacktraces: den Lesezugriff, die Freigabe und die ursprüngliche Allokation. Ohne ASan läuft das Programm oft scheinbar korrekt."
+  },
+  "begriffe": [
+    { "begriff": "Lebenszeit", "englisch": "lifetime", "erklaerung": "Zeitraum vom Ende der Konstruktion bis zum Beginn der Destruktion eines Objekts." },
+    { "begriff": "Hängende Referenz", "englisch": "dangling reference", "erklaerung": "Referenz oder Zeiger auf ein Objekt, dessen Lebenszeit vorbei ist." },
+    { "begriff": "Ownership", "englisch": "ownership", "erklaerung": "Wer für die Freigabe eines Objekts verantwortlich ist." }
+  ],
+  "weiterlesen": [
+    { "titel": "C++ Core Guidelines: F.15–F.22 Parameter passing", "url": "https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#fcall-parameter-passing" },
+    { "titel": "cppreference: Lifetime", "url": "https://en.cppreference.com/w/cpp/language/lifetime" }
+  ]
+}

@@ -1,0 +1,134 @@
+{
+  "id": "p8-m1-l1",
+  "phase": 8,
+  "modul": "8.1 Technische Schulden und Refactoring",
+  "titel": "Technische Schulden erkennen und priorisieren",
+  "lernziele": [
+    "Technische Schulden mit der Metapher von Kapital und Zinsen erklären",
+    "Schulden dort abbauen, wo sie am meisten kosten",
+    "Den Abbau gegenüber Nicht-Technikern begründen"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Was meint der Begriff **technische Schulden**?",
+      "optionen": [
+        "Abkürzungen und Mängel im Code, die jede künftige Änderung teurer machen, bis man sie behebt",
+        "Lizenzkosten für Entwicklungswerkzeuge",
+        "Fehler, die Kunden gemeldet haben"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Die Metapher stammt von Ward Cunningham: Eine Abkürzung ist wie ein Kredit. Man kommt schneller voran, zahlt aber **Zinsen**: Jede Änderung in diesem Bereich kostet mehr Zeit und Risiko. Behebt man den Mangel, zahlt man das **Kapital** zurück, und die Zinsen enden.",
+      "begruendungen": [
+        "Richtig.",
+        "Mit Geld im wörtlichen Sinn hat der Begriff nichts zu tun.",
+        "Fehler können eine Folge technischer Schulden sein, sind aber nicht dasselbe."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Nicht jede Schuld ist schlecht",
+      "text": "Martin Fowler unterscheidet Schulden nach zwei Fragen: **bewusst oder unbewusst** aufgenommen, **umsichtig oder leichtsinnig**. Eine bewusste, umsichtige Schuld kann eine gute Entscheidung sein, etwa um eine Messe zu erreichen, wenn man das Aufräumen fest einplant.\n\nEntscheidend ist: Zinsen zahlt man nur dort, wo der Code **geändert** wird. Ein hässliches Modul, das seit fünf Jahren niemand anfasst, kostet fast nichts. Ein mittelmässiges Modul, das jede Woche geändert wird und ständig Fehler produziert, kostet sehr viel."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Ordne die Aussagen den Arten technischer Schulden zu.",
+      "paare": [
+        { "links": "„Wir liefern mit der bekannten Abkürzung und räumen nach der Messe auf.“", "rechts": "Bewusst und umsichtig" },
+        { "links": "„Für Design haben wir keine Zeit.“", "rechts": "Bewusst und leichtsinnig" },
+        { "links": "„Was ist eine Schichtenarchitektur?“", "rechts": "Unbewusst und leichtsinnig" },
+        { "links": "„Jetzt wissen wir, wie wir es hätten bauen sollen.“", "rechts": "Unbewusst und umsichtig" }
+      ],
+      "erklaerung": "Die letzte Art ist unvermeidbar und sogar ein gutes Zeichen: Man lernt beim Bauen. Gegen die leichtsinnigen Arten helfen Ausbildung, Reviews und eine Teamkultur, in der „Wir brauchen dafür zwei Tage mehr“ eine akzeptierte Aussage ist."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Ihr habt Zeit für ein Aufräumprojekt. Wo lohnt es sich am meisten?",
+      "optionen": [
+        "Im Modul, das sehr oft geändert wird und in dem die meisten Fehler entstehen",
+        "Im ältesten Modul, das seit Jahren niemand geändert hat",
+        "Im Modul mit dem unschönsten Code"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Hohe Änderungshäufigkeit mal hohe Komplexität ergibt die teuersten Stellen, man nennt sie **Hotspots**. Dort zahlt das Team die meisten Zinsen, und dort wirkt Aufräumen sofort. Schöner Code ist kein Selbstzweck.",
+      "begruendungen": [
+        "Richtig.",
+        "Code, den niemand ändert, verursacht kaum Kosten.",
+        "Hässlich, aber selten geändert, kostet wenig."
+      ]
+    },
+    {
+      "typ": "terminal-deuten",
+      "frage": "Diese Auswertung zeigt, wie oft jede Datei im letzten Jahr geändert wurde. In `parser.cpp` waren zudem fast die Hälfte der Commits Fehlerbehebungen. Wo setzt du an?",
+      "terminal": {
+        "befehl": "git log --since=1.year --name-only --format='' | sort | uniq -c | sort -rn | head -4",
+        "ausgabe": [
+          "    142 src/protokoll/parser.cpp",
+          "     97 src/ui/hauptfenster.cpp",
+          "     12 src/drivers/can/can.cpp",
+          "      3 src/legacy/alt_export.cpp"
+        ]
+      },
+      "optionen": [
+        "Bei `parser.cpp`: viele Änderungen und viele Fehler, dort sind die Zinsen am höchsten",
+        "Bei `alt_export.cpp`: Legacy-Code sollte man zuerst modernisieren",
+        "Bei `can.cpp`: Treiber sind immer am kritischsten"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Die Git-Historie ist eine objektive Datenquelle für technische Schulden. Kombiniert mit einem Mass für Komplexität (Länge, Verschachtelung) und dem Anteil von Fehlerbehebungen ergibt sie eine Prioritätenliste, die man auch Nicht-Technikern zeigen kann.",
+      "begruendungen": [
+        "Richtig.",
+        "Drei Änderungen im Jahr kosten kaum etwas, so alt der Code auch ist.",
+        "Kritisch ja, aber mit 12 Änderungen offenbar stabil."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Schulden sichtbar machen",
+      "text": "Technische Schulden, die nur in Köpfen existieren, werden nie abgebaut. Bewährt hat sich:\n\n- Schulden als **Tickets** erfassen, mit Ort, Wirkung und geschätztem Aufwand.\n- Die Wirkung in **geschäftlichen Begriffen** beschreiben: Zeit pro Änderung, Fehlerhäufigkeit, Risiko.\n- Einen festen Anteil der Kapazität einplanen, z. B. 15 bis 20 % pro Sprint.\n- Die **Pfadfinderregel**: Wer Code ändert, hinterlässt ihn ein wenig sauberer, als er ihn vorgefunden hat."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Wie begründest du gegenüber der Projektleitung zwei Wochen Aufräumarbeit am Parser am überzeugendsten?",
+      "optionen": [
+        "„Jede Änderung am Parser dauert etwa doppelt so lange wie anderswo, und er verursacht 40 % unserer Fehler. Mit zwei Wochen Umbau sparen wir das in etwa drei Monaten wieder ein.“",
+        "„Der Code ist hässlich und entspricht nicht den Best Practices.“",
+        "„Wir Entwickler wollen das schon lange machen.“"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Die Projektleitung entscheidet über Zeit, Kosten und Risiko. Ein Argument in diesen Begriffen, mit Zahlen aus Git und Ticketsystem, macht aus einer Bitte eine Investitionsentscheidung. Ob der Code „schön“ ist, interessiert sie zu Recht nicht.",
+      "begruendungen": [
+        "Richtig.",
+        "Für Nicht-Techniker ist das nicht greifbar.",
+        "Das klingt nach Eigeninteresse statt nach Nutzen."
+      ]
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze die Pfadfinderregel.",
+      "text": "Hinterlasse den Code {{?}}, als du ihn vorgefunden hast.",
+      "luecken": [{ "loesungen": ["sauberer"] }],
+      "auswahl": ["sauberer", "schneller", "kürzer", "älter"],
+      "erklaerung": "Kleine Verbesserungen bei jeder Änderung, z. B. einen besseren Namen, eine extrahierte Funktion oder einen fehlenden Test, summieren sich. Wichtig: in eigenen Commits, getrennt von der fachlichen Änderung, damit Reviews übersichtlich bleiben."
+    }
+  ],
+  "praxis": "Ein Senior hat ein Gespür dafür, welche Schulden das Team wirklich bremsen, und kann das mit Daten belegen. In Planungsrunden bringst du konkrete Vorschläge mit Kosten und Nutzen ein, statt allgemein über Codequalität zu klagen. Und bei Termindruck hilfst du, eine bewusste Schuld aufzunehmen, mit einem Ticket, das sicherstellt, dass sie wieder abgebaut wird.",
+  "labor": {
+    "titel": "Hotspots finden",
+    "anleitung": "Ermittle in einem Projekt die am häufigsten geänderten Dateien und die Dateien mit den meisten Fehlerbehebungen.",
+    "befehle": [
+      "git log --since=1.year --name-only --format='' | sort | uniq -c | sort -rn | head",
+      "git log --since=1.year -i --grep='fix\\|fehler\\|bug' --name-only --format='' | sort | uniq -c | sort -rn | head"
+    ],
+    "beobachtung": "Dateien, die in beiden Listen weit oben stehen, sind deine Hotspots. Vergleiche mit der Dateigrösse (`wc -l`): Gross, oft geändert und fehleranfällig ist die klassische Kombination für einen lohnenden Umbau."
+  },
+  "begriffe": [
+    { "begriff": "Technische Schulden", "englisch": "technical debt", "erklaerung": "Mängel im Code, die künftige Änderungen verteuern. Die Mehrkosten sind die „Zinsen“." },
+    { "begriff": "Hotspot", "englisch": "hotspot", "erklaerung": "Code, der häufig geändert wird und zugleich komplex oder fehleranfällig ist." },
+    { "begriff": "Pfadfinderregel", "englisch": "boy scout rule", "erklaerung": "Code bei jeder Änderung ein wenig sauberer hinterlassen, als man ihn vorgefunden hat." }
+  ],
+  "weiterlesen": [
+    { "titel": "Martin Fowler: Technical Debt Quadrant", "url": "https://martinfowler.com/bliki/TechnicalDebtQuadrant.html" }
+  ]
+}

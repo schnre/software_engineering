@@ -1,0 +1,201 @@
+{
+  "id": "p1-m6-l1",
+  "phase": 1,
+  "modul": "1.6 Build-Systeme",
+  "titel": "Make: Regeln und inkrementelle Builds",
+  "lernziele": [
+    "Eine Make-Regel aus Ziel, Voraussetzungen und Befehl lesen",
+    "Vorhersagen, was Make nach einer Änderung neu baut",
+    "Fehlende Header-Abhängigkeiten als Fehlerquelle erkennen"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Ein Projekt hat 100 `.cpp`-Dateien. Du änderst einen Header, den 10 davon einbinden. Was sollte ein gutes Build-System tun?",
+      "optionen": [
+        "Genau diese 10 Dateien neu kompilieren und dann neu linken",
+        "Alle 100 Dateien neu kompilieren, sicher ist sicher",
+        "Nur neu linken, Header werden ja nicht kompiliert"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Ein Build-System kennt den **Abhängigkeitsgraphen**: welche Datei aus welchen anderen entsteht. Es baut genau das neu, was von der Änderung betroffen ist. Das nennt man **inkrementell**.",
+      "begruendungen": [
+        "Richtig. Nicht mehr, aber auch nicht weniger.",
+        "Das ist korrekt, aber langsam. In grossen Projekten macht es aus Sekunden Stunden.",
+        "Header werden zwar nicht eigenständig kompiliert, sind aber Teil der Übersetzungseinheiten, die sie einbinden. Die müssen neu übersetzt werden."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Eine Regel in Make",
+      "text": "Ein Makefile besteht aus **Regeln**: *Ziel: Voraussetzungen*, darunter der Befehl, **eingerückt mit einem Tabulator**. Make baut ein Ziel neu, wenn es fehlt oder wenn eine Voraussetzung neuer ist als das Ziel. Dafür vergleicht es die Änderungszeiten der Dateien.",
+      "code": {
+        "sprache": "make",
+        "datei": "Makefile",
+        "zeilen": [
+          "app: main.o vektor.o",
+          "\tg++ main.o vektor.o -o app",
+          "",
+          "main.o: main.cpp vektor.h",
+          "\tg++ -c main.cpp",
+          "",
+          "vektor.o: vektor.cpp vektor.h",
+          "\tg++ -c vektor.cpp"
+        ],
+        "anmerkungen": [
+          { "zeile": 1, "text": "`app` hängt von zwei Object-Files ab." },
+          { "zeile": 2, "text": "Der Befehl, der `app` erzeugt. Die Einrückung muss ein Tabulator sein." },
+          { "zeile": 4, "text": "`main.o` muss neu entstehen, wenn sich `main.cpp` **oder** `vektor.h` ändert." }
+        ]
+      }
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Alles ist gebaut. Dann änderst du `vektor.cpp` und rufst `make` auf. Welche Befehle führt Make aus? (Makefile wie oben)",
+      "code": {
+        "sprache": "make",
+        "zeilen": [
+          "app: main.o vektor.o",
+          "\tg++ main.o vektor.o -o app",
+          "main.o: main.cpp vektor.h",
+          "\tg++ -c main.cpp",
+          "vektor.o: vektor.cpp vektor.h",
+          "\tg++ -c vektor.cpp"
+        ]
+      },
+      "optionen": [
+        "`g++ -c vektor.cpp`, dann den Link-Befehl",
+        "Alle drei Befehle",
+        "Nur den Link-Befehl",
+        "Keinen, `app` existiert ja"
+      ],
+      "korrekt": 0,
+      "fest": true,
+      "erklaerung": "`vektor.cpp` ist neuer als `vektor.o`, also wird `vektor.o` neu erzeugt. Danach ist `vektor.o` neuer als `app`, also wird neu gelinkt. `main.o` hängt nicht von `vektor.cpp` ab und bleibt.",
+      "begruendungen": [
+        "Richtig.",
+        "`main.o` ist weiterhin aktuell.",
+        "Ohne neues `vektor.o` würde der Link die alte Version einbauen.",
+        "Make vergleicht Zeitstempel über die ganze Kette, nicht nur das Endziel."
+      ]
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "`main.cpp` bindet `vektor.h` ein. Nach einer Änderung an `struct Vektor` in `vektor.h` baut `make` ohne Fehler, aber das Programm rechnet falsch oder stürzt ab. Welche Zeile ist schuld?",
+      "code": {
+        "sprache": "make",
+        "datei": "Makefile",
+        "zeilen": [
+          "app: main.o vektor.o",
+          "\tg++ main.o vektor.o -o app",
+          "",
+          "main.o: main.cpp",
+          "\tg++ -c main.cpp",
+          "",
+          "vektor.o: vektor.cpp vektor.h",
+          "\tg++ -c vektor.cpp"
+        ]
+      },
+      "fehlerZeile": 4,
+      "erklaerung": "In Zeile 4 fehlt `vektor.h` als Voraussetzung. Make baut `main.o` deshalb nicht neu. `main.o` rechnet weiter mit dem alten Layout von `Vektor`, `vektor.o` mit dem neuen. Das verletzt die One Definition Rule, und der Linker merkt davon nichts. Von Hand gepflegte Header-Abhängigkeiten veralten immer irgendwann. Deshalb lässt man sie den Compiler erzeugen."
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Ein Makefile, wie man es wirklich schreibt",
+      "text": "Musterregeln (`%.o: %.cpp`) und automatische Variablen ersparen Wiederholung. Mit `-MMD -MP` schreibt der Compiler beim Kompilieren eine `.d`-Datei mit allen eingebundenen Headern, und Make liest sie ein. So stimmen die Abhängigkeiten immer.",
+      "code": {
+        "sprache": "make",
+        "datei": "Makefile",
+        "zeilen": [
+          "CXXFLAGS := -O2 -Wall -Wextra -MMD -MP",
+          "OBJ := main.o vektor.o",
+          "",
+          "app: $(OBJ)",
+          "\t$(CXX) $^ -o $@",
+          "",
+          "%.o: %.cpp",
+          "\t$(CXX) $(CXXFLAGS) -c $< -o $@",
+          "",
+          "-include $(OBJ:.o=.d)",
+          "",
+          ".PHONY: clean",
+          "clean:",
+          "\trm -f app $(OBJ) $(OBJ:.o=.d)"
+        ],
+        "anmerkungen": [
+          { "zeile": 7, "text": "Musterregel: Jede `.o` entsteht aus der gleichnamigen `.cpp`." },
+          { "zeile": 10, "text": "Liest die vom Compiler erzeugten Abhängigkeiten. Das `-` unterdrückt Fehler, solange die `.d`-Dateien noch fehlen." },
+          { "zeile": 12, "text": "`clean` ist kein Dateiname, sondern eine Aktion." }
+        ]
+      }
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Was bedeutet was?",
+      "paare": [
+        { "links": "`$@`", "rechts": "Name des Ziels" },
+        { "links": "`$<`", "rechts": "Erste Voraussetzung" },
+        { "links": "`$^`", "rechts": "Alle Voraussetzungen" },
+        { "links": "`-MMD -MP`", "rechts": "Compiler schreibt die Header-Abhängigkeiten in `.d`-Dateien" }
+      ],
+      "erklaerung": "In der Musterregel `%.o: %.cpp` ist `$<` die `.cpp`-Datei und `$@` die `.o`-Datei. `-MP` fügt für jeden Header eine leere Regel hinzu. Löscht man später einen Header, bricht Make dann nicht mit „No rule to make target“ ab."
+    },
+    {
+      "typ": "terminal-deuten",
+      "frage": "Was ist die Ursache?",
+      "terminal": {
+        "befehl": "make",
+        "ausgabe": ["Makefile:2: *** missing separator.  Stop."]
+      },
+      "optionen": [
+        "Der Befehl in Zeile 2 ist mit Leerzeichen statt mit einem Tabulator eingerückt",
+        "In Zeile 2 fehlt ein Doppelpunkt",
+        "Der Compiler wurde nicht gefunden"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Make verlangt vor Befehlen zwingend einen Tabulator. Viele Editoren ersetzen Tabs automatisch durch Leerzeichen, deshalb ist das einer der häufigsten Make-Fehler. In `.editorconfig` legt man für Makefiles deshalb `indent_style = tab` fest.",
+      "begruendungen": [
+        "Richtig. Ein Klassiker.",
+        "Ein fehlender Doppelpunkt führt zu anderen Meldungen. `missing separator` bei einer Befehlszeile heisst fast immer: kein Tab.",
+        "Dann käme `g++: command not found`, und zwar erst beim Ausführen."
+      ]
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Wozu dient `.PHONY: clean`?",
+      "optionen": [
+        "Damit `make clean` auch dann ausgeführt wird, wenn zufällig eine Datei namens `clean` existiert",
+        "Damit `clean` nach jedem Build automatisch läuft",
+        "Damit Fehler beim Löschen ignoriert werden"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Ohne `.PHONY` hält Make `clean` für einen Dateinamen. Gäbe es diese Datei und hätte sie keine Voraussetzungen, wäre das Ziel immer aktuell, und Make würde nichts tun.",
+      "begruendungen": [
+        "Richtig. Phony-Ziele sind Aktionen, keine Dateien.",
+        "Make führt nur aus, was man anfordert oder was als Voraussetzung gebraucht wird.",
+        "Das erledigt hier `rm -f`. Allgemein ignoriert ein `-` vor dem Befehl Fehler."
+      ]
+    }
+  ],
+  "praxis": "Selbst wenn du nie ein Makefile von Hand schreibst: CMake erzeugt oft welche, und viele ältere Projekte und Embedded-SDKs nutzen Make direkt. Wenn ein Build „komisch“ ist und erst nach `make clean` funktioniert, ist fast immer eine fehlende Abhängigkeit schuld. Das ist ein echter Bug im Build-System und gehört behoben, nicht mit `clean` umgangen.",
+  "labor": {
+    "titel": "Make bei der Arbeit beobachten",
+    "anleitung": "Lege das zweite Makefile aus der Lektion mit `main.cpp`, `vektor.cpp` und `vektor.h` an.",
+    "befehle": [
+      "make && make",
+      "touch vektor.h && make",
+      "cat main.d",
+      "make -n clean"
+    ],
+    "beobachtung": "Der zweite `make`-Aufruf meldet `'app' is up to date`. Nach `touch vektor.h` werden beide Object-Files neu gebaut. `main.d` enthält die vom Compiler ermittelten Abhängigkeiten. `-n` zeigt Befehle an, ohne sie auszuführen."
+  },
+  "begriffe": [
+    { "begriff": "Abhängigkeitsgraph", "englisch": "dependency graph", "erklaerung": "Welche Datei aus welchen anderen entsteht. Grundlage jedes inkrementellen Builds." },
+    { "begriff": "Phony-Ziel", "englisch": "phony target", "erklaerung": "Make-Ziel, das eine Aktion bezeichnet und keine Datei, z. B. `clean` oder `test`." }
+  ],
+  "weiterlesen": [
+    { "titel": "GNU Make Manual", "url": "https://www.gnu.org/software/make/manual/make.html" },
+    { "titel": "GCC: Preprocessor Options (-MMD, -MP)", "url": "https://gcc.gnu.org/onlinedocs/gcc/Preprocessor-Options.html" }
+  ]
+}

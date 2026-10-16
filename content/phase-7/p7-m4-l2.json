@@ -1,0 +1,143 @@
+{
+  "id": "p7-m4-l2",
+  "phase": 7,
+  "modul": "7.4 Entwurfsmuster",
+  "titel": "Observer und Strategy",
+  "lernziele": [
+    "Mit dem Observer-Muster Benachrichtigungen entkoppeln",
+    "Lebenszeitprobleme bei Beobachtern vermeiden",
+    "Algorithmen mit dem Strategy-Muster austauschbar machen"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Ein Temperatursensor soll die Anzeige, das Protokoll und den Alarm über neue Werte informieren, ohne diese drei zu kennen. Welches Muster passt?",
+      "optionen": ["Observer", "Singleton", "Facade"],
+      "korrekt": 0,
+      "erklaerung": "Beim **Observer**-Muster melden sich Interessenten beim Subjekt an. Bei einer Änderung benachrichtigt das Subjekt alle angemeldeten Beobachter, ohne zu wissen, wer sie sind. Neue Beobachter kommen hinzu, ohne den Sensor zu ändern (Open/Closed).",
+      "begruendungen": [
+        "Richtig.",
+        "Ein Singleton regelt, wie viele Instanzen es gibt, nicht die Benachrichtigung.",
+        "Eine Facade vereinfacht den Zugang zu einem Teilsystem."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Observer in modernem C++",
+      "text": "Statt einer Klassenhierarchie mit `IBeobachter` nimmt man heute oft `std::function`: Der Sensor speichert eine Liste von Callbacks und ruft sie bei jedem neuen Wert auf.\n\nDie Tücken liegen in den Details:\n- **Lebenszeit**: Wird ein Beobachter zerstört, ohne sich abzumelden, ruft der Sensor einen hängenden Callback auf.\n- **Reentrancy**: Meldet sich ein Beobachter im Callback ab oder neu an, ändert sich die Liste während der Iteration.\n- **Threads**: Callbacks unter einer Sperre aufzurufen, lädt zu Deadlocks ein (Modul 4.1).\n\nBewährt hat sich: `registriere` gibt ein **Abmelde-Token** zurück, ein RAII-Objekt, das im Destruktor automatisch abmeldet."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Was passiert in der letzten Zeile?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "Sensor sensor;",
+          "{",
+          "    Anzeige anzeige;",
+          "    sensor.registriere([&anzeige](double t) { anzeige.zeige(t); });",
+          "}",
+          "sensor.neuerWert(21.5);"
+        ]
+      },
+      "optionen": [
+        "Undefined Behavior: Der Callback benutzt `anzeige`, die am Ende des Blocks schon zerstört wurde",
+        "Die Anzeige zeigt 21.5 an",
+        "Nichts, der Callback wurde automatisch entfernt"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Der Callback hat eine Referenz auf `anzeige` gefangen, nicht die Anzeige selbst. Der Sensor kann nicht wissen, dass sie nicht mehr existiert. Mit einem Abmelde-Token als Member der Anzeige wäre der Callback beim Zerstören der Anzeige automatisch entfernt worden.",
+      "begruendungen": [
+        "Richtig.",
+        "Die Anzeige existiert nicht mehr.",
+        "`std::function` kennt die Lebenszeit der gefangenen Objekte nicht."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Strategy",
+      "text": "Beim **Strategy**-Muster wird ein Algorithmus austauschbar: Ein `Regler` bekommt eine Regelstrategie (Zweipunkt, PI, PID) übergeben, statt sie fest einzubauen. Umsetzen lässt sich das mit einer Schnittstelle, mit `std::function` oder mit einem Template-Parameter.",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "class Regler {",
+          "public:",
+          "    using Strategie = std::function<double(double ist, double soll)>;",
+          "    explicit Regler(Strategie s) : strategie_(std::move(s)) {}",
+          "    double stellgroesse(double ist) const { return strategie_(ist, soll_); }",
+          "private:",
+          "    Strategie strategie_;",
+          "    double soll_ = 21.0;",
+          "};",
+          "",
+          "Regler zweipunkt([](double ist, double soll) { return ist < soll ? 1.0 : 0.0; });"
+        ]
+      }
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Ordne zu.",
+      "paare": [
+        { "links": "Observer", "rechts": "Viele Interessenten werden über eine Änderung informiert, ohne dass das Subjekt sie kennt" },
+        { "links": "Strategy", "rechts": "Ein Algorithmus wird austauschbar hinter einer Schnittstelle" },
+        { "links": "Abmelde-Token", "rechts": "Meldet einen Beobachter automatisch ab, wenn er zerstört wird" },
+        { "links": "`std::function`", "rechts": "Leichtgewichtige Umsetzung beider Muster ohne eigene Klassenhierarchie" }
+      ],
+      "erklaerung": "Viele klassische Entwurfsmuster sind in modernem C++ kleiner geworden: Wo früher eine Schnittstelle mit einer Methode und mehrere Klassen nötig waren, reicht heute oft ein Lambda."
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze die Strategy mit `std::function`.",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "class Regler {",
+          "public:",
+          "    using Strategie = std::{{?}}<double(double ist, double soll)>;",
+          "    explicit Regler(Strategie s) : strategie_(std::{{?}}(s)) {}",
+          "private:",
+          "    Strategie strategie_;",
+          "};"
+        ]
+      },
+      "luecken": [{ "loesungen": ["function"] }, { "loesungen": ["move"] }],
+      "auswahl": ["function", "move", "vector", "forward"],
+      "erklaerung": "Der Parameter wird als Wert übernommen und dann ins Member verschoben, das Sink-Parameter-Muster aus Modul 4.4. `std::forward` ist nur in Templates mit Weiterleitungsreferenzen sinnvoll."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Wann nimmt man für eine Strategie besser einen Template-Parameter statt `std::function`?",
+      "optionen": [
+        "Wenn sie in einer heissen Schleife läuft und schon beim Kompilieren feststeht. `std::function` kostet einen indirekten Aufruf und kann Heap-Speicher anfordern",
+        "Immer, `std::function` sollte man nie verwenden",
+        "Wenn die Strategie zur Laufzeit gewechselt werden soll"
+      ],
+      "korrekt": 0,
+      "erklaerung": "`std::function` verbirgt den genauen Typ (*type erasure*). Das ist bequem, verhindert aber Inlining, und grosse Lambdas landen auf dem Heap. Ein Template wie `template <typename Strategie> class Regler` kennt den Typ, der Compiler kann alles inlinen. Dafür lässt sich die Strategie zur Laufzeit nicht wechseln. Das Thema vertieft Modul 7.5.",
+      "begruendungen": [
+        "Richtig.",
+        "Für die meisten Fälle ist `std::function` gut und lesbar.",
+        "Gerade dann ist `std::function` oder eine Schnittstelle die richtige Wahl."
+      ]
+    }
+  ],
+  "praxis": "Observer begegnet dir überall: Signale und Slots in Qt, Callbacks in Netzwerkbibliotheken, Ereignisse in Steuerungen. Im Review fragst du immer: Wer meldet den Beobachter wann ab? Was passiert, wenn ein Callback eine Exception wirft oder länger dauert? Wird er unter einer Sperre aufgerufen? Für Strategy prüfst du, ob die Austauschbarkeit wirklich gebraucht wird oder nur auf Vorrat eingebaut ist.",
+  "labor": {
+    "titel": "Ein Abmelde-Token bauen",
+    "anleitung": "Schreibe ein `Subjekt` mit `registriere`, das ein `Abo`-Objekt zurückgibt. `Abo` meldet im Destruktor ab und ist nur verschiebbar. Teste das Beispiel aus der Lektion damit unter AddressSanitizer.",
+    "befehle": [
+      "g++ -std=c++20 -g -fsanitize=address observer.cpp -o observer && ./observer"
+    ],
+    "beobachtung": "Ohne Token meldet ASan `stack-use-after-scope` beim Aufruf des Callbacks. Mit Token als Member der Anzeige ist der Callback beim Verlassen des Blocks entfernt, und ASan bleibt still."
+  },
+  "begriffe": [
+    { "begriff": "Observer", "englisch": "observer pattern", "erklaerung": "Beobachter melden sich bei einem Subjekt an und werden über Änderungen benachrichtigt." },
+    { "begriff": "Strategy", "englisch": "strategy pattern", "erklaerung": "Ein austauschbarer Algorithmus wird von aussen übergeben." },
+    { "begriff": "Type Erasure", "englisch": "type erasure", "erklaerung": "Verbergen des konkreten Typs hinter einer einheitlichen Schnittstelle, z. B. bei `std::function`." }
+  ],
+  "weiterlesen": [
+    { "titel": "cppreference: std::function", "url": "https://en.cppreference.com/w/cpp/utility/functional/function" },
+    { "titel": "refactoring.guru: Observer", "url": "https://refactoring.guru/design-patterns/observer" }
+  ]
+}

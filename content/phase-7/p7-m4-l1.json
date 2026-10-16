@@ -1,0 +1,127 @@
+{
+  "id": "p7-m4-l1",
+  "phase": 7,
+  "modul": "7.4 Entwurfsmuster",
+  "titel": "State Machine",
+  "lernziele": [
+    "Zustände, Ereignisse und Übergänge eines Systems modellieren",
+    "Eine Zustandsmaschine mit `enum class` und `switch` umsetzen",
+    "Wissen, warum `default` in solchen `switch`-Anweisungen gefährlich ist"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Ein Gerät merkt sich seinen Zustand in drei Variablen: `bool gestartet`, `bool bereit`, `bool fehler`. Was ist das Problem?",
+      "optionen": [
+        "Es gibt acht Kombinationen, aber nur vier sinnvolle Zustände. Unmögliche Kombinationen wie „bereit und fehlerhaft“ lassen sich trotzdem herstellen",
+        "Drei `bool` brauchen zu viel Speicher",
+        "Kein Problem, so ist es am flexibelsten"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Verteilt man einen Zustand auf mehrere Flags, muss jede Stelle im Code darauf achten, sie konsistent zu halten. Irgendwann setzt eine Stelle `bereit = true` und vergisst `fehler = false`. Ein einziger Zustandswert macht unmögliche Zustände unmöglich.",
+      "begruendungen": [
+        "Richtig.",
+        "Der Speicher ist nicht das Problem.",
+        "Gerade diese Flexibilität erzeugt Fehler."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Zustandsmaschinen",
+      "text": "Eine **Zustandsmaschine** (state machine) beschreibt ein System durch:\n\n- **Zustände**: Aus, Startet, Bereit, Fehler\n- **Ereignisse**: Einschalten, Fertig, Fehler, Reset\n- **Übergänge**: In Zustand X führt Ereignis Y zu Zustand Z\n- **Aktionen**: was beim Übergang oder beim Betreten eines Zustands passiert\n\nIn C++ ist die einfachste Umsetzung ein `enum class` für den Zustand und eine Funktion mit `switch`, die für jedes Paar aus Zustand und Ereignis den nächsten Zustand liefert. Zustandsmaschinen sind in Embedded-Software, Protokollen und Bedienoberflächen allgegenwärtig, weil sie sich gut zeichnen, prüfen und testen lassen."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Das Gerät ist im Zustand `Bereit` und bekommt das Ereignis `Einschalten`. Was liefert die Funktion?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "enum class Zustand { Aus, Startet, Bereit, Fehler };",
+          "enum class Ereignis { Einschalten, Fertig, Stoerung, Reset };",
+          "",
+          "Zustand naechster(Zustand z, Ereignis e) {",
+          "    switch (z) {",
+          "    case Zustand::Aus:     return e == Ereignis::Einschalten ? Zustand::Startet : z;",
+          "    case Zustand::Startet: return e == Ereignis::Fertig ? Zustand::Bereit",
+          "                                : e == Ereignis::Stoerung ? Zustand::Fehler : z;",
+          "    case Zustand::Bereit:  return e == Ereignis::Stoerung ? Zustand::Fehler : z;",
+          "    case Zustand::Fehler:  return e == Ereignis::Reset ? Zustand::Aus : z;",
+          "    }",
+          "    return z;",
+          "}"
+        ]
+      },
+      "optionen": ["`Bereit`", "`Startet`", "`Aus`", "`Fehler`"],
+      "korrekt": 0,
+      "fest": true,
+      "erklaerung": "Im Zustand `Bereit` reagiert die Maschine nur auf `Stoerung`. Alle anderen Ereignisse lassen den Zustand unverändert (`: z`). Ob „ignorieren“ richtig ist oder ein unerwartetes Ereignis als Fehler gelten soll, ist eine fachliche Entscheidung. Eine Zustandsmaschine zwingt dazu, sie bewusst zu treffen.",
+      "begruendungen": [
+        "Richtig.",
+        "Der Übergang nach `Startet` gibt es nur aus `Aus`.",
+        "Nach `Aus` führt nur `Reset` aus `Fehler`.",
+        "Nach `Fehler` führt nur `Stoerung`."
+      ]
+    },
+    {
+      "typ": "reihenfolge",
+      "frage": "Das Gerät startet in `Aus` und bekommt nacheinander: Einschalten, Fertig, Stoerung, Reset. Welche Zustände durchläuft es?",
+      "elemente": ["`Startet`", "`Bereit`", "`Fehler`", "`Aus`"],
+      "erklaerung": "Genau so schreibt man auch einen Test für eine Zustandsmaschine: eine Folge von Ereignissen und die erwartete Folge von Zuständen. Weil `naechster` eine reine Funktion ohne Seiteneffekte ist, ist dieser Test trivial."
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Zustände mit eigenen Daten",
+      "text": "Brauchen Zustände eigene Daten (z. B. der Fehlerzustand einen Fehlercode, der Startzustand einen Zeitpunkt), eignet sich `std::variant`: Jeder Zustand ist ein eigener `struct`, und der Zustand der Maschine ist eine `std::variant<Aus, Startet, Bereit, Fehler>`. Mit `std::visit` behandelt man jeden Zustand. Vergisst man einen, meldet der Compiler einen Fehler.\n\nFür grosse Maschinen gibt es Bibliotheken wie *Boost.SML*, die Übergänge als Tabelle beschreiben. Wichtiger als die Technik ist ein **Zustandsdiagramm**, das zur Implementierung passt und mit ihr gepflegt wird."
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Später kommt ein neuer Zustand `Wartung` hinzu. Der Compiler warnt nicht, dass er im `switch` fehlt. Welche Zeile verhindert die Warnung?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "Zustand naechster(Zustand z, Ereignis e) {",
+          "    switch (z) {",
+          "    case Zustand::Aus:     return e == Ereignis::Einschalten ? Zustand::Startet : z;",
+          "    case Zustand::Startet: return e == Ereignis::Fertig ? Zustand::Bereit : z;",
+          "    case Zustand::Bereit:  return e == Ereignis::Stoerung ? Zustand::Fehler : z;",
+          "    default:               return z;",
+          "    }",
+          "}"
+        ]
+      },
+      "fehlerZeile": 6,
+      "erklaerung": "Mit `-Wall` warnt GCC (`-Wswitch`), wenn ein `switch` über ein `enum` nicht alle Werte behandelt, aber nur ohne `default`. Hier fängt `default` den Fehlerzustand und jeden künftigen Zustand still ab. Neue Zustände bleiben so unbemerkt unbehandelt. Besser: jeden Zustand ausdrücklich aufführen und auf `default` verzichten."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Ordne die Begriffe zu.",
+      "paare": [
+        { "links": "Zustand", "rechts": "Situation, in der sich das System gerade befindet" },
+        { "links": "Ereignis", "rechts": "Auslöser von aussen oder von innen" },
+        { "links": "Übergang", "rechts": "Wechsel von einem Zustand in einen anderen" },
+        { "links": "Aktion", "rechts": "Was beim Übergang oder beim Betreten eines Zustands ausgeführt wird" }
+      ],
+      "erklaerung": "Eine gute Gewohnheit: Übergang und Aktionen trennen. Die Funktion `naechster` berechnet nur den neuen Zustand. Eine zweite Stelle führt die Aktionen aus, z. B. Relais schalten oder Meldungen senden. So bleibt die Logik testbar."
+    }
+  ],
+  "praxis": "Wenn du in Code viele `bool`-Flags siehst, die zusammen einen Ablauf steuern, oder verschachtelte `if`-Abfragen wie `if (gestartet && !fehler && bereit)`, steckt dahinter fast immer eine unentdeckte Zustandsmaschine. Sie ausdrücklich zu machen, mit Diagramm, Enum und Tests, ist eine der wirkungsvollsten Aufräumarbeiten in Embedded-Software.",
+  "labor": {
+    "titel": "Eine Zustandsmaschine testen",
+    "anleitung": "Baue die Funktion `naechster` aus der Lektion und schreibe einen parametrisierten Test (Modul 3.1) mit allen 16 Kombinationen aus Zustand und Ereignis.",
+    "befehle": [
+      "g++ -std=c++20 -Wall -Werror -c zustand.cpp",
+      "ctest --test-dir build -R Zustand --output-on-failure"
+    ],
+    "beobachtung": "Mit `-Wall -Werror` bricht der Build ab, sobald du einen neuen Zustand hinzufügst und im `switch` vergisst, solange kein `default` dort steht. Die 16 Testfälle sind gleichzeitig die vollständige Übergangstabelle."
+  },
+  "begriffe": [
+    { "begriff": "Zustandsmaschine", "englisch": "state machine, finite state machine", "erklaerung": "Modell eines Systems aus Zuständen, Ereignissen und Übergängen." },
+    { "begriff": "Übergang", "englisch": "transition", "erklaerung": "Wechsel von einem Zustand in einen anderen, ausgelöst durch ein Ereignis." },
+    { "begriff": "Zustandsdiagramm", "englisch": "state diagram", "erklaerung": "Grafische Darstellung einer Zustandsmaschine mit Zuständen als Knoten und Übergängen als Pfeilen." }
+  ],
+  "weiterlesen": [
+    { "titel": "cppreference: std::variant", "url": "https://en.cppreference.com/w/cpp/utility/variant" },
+    { "titel": "Boost.SML", "url": "https://boost-ext.github.io/sml/" }
+  ]
+}

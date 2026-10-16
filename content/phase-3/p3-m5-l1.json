@@ -1,0 +1,140 @@
+{
+  "id": "p3-m5-l1",
+  "phase": 3,
+  "modul": "3.5 Statische Analyse",
+  "titel": "Compiler-Warnungen ernst nehmen",
+  "lernziele": [
+    "Einen sinnvollen Satz an Warnoptionen wählen",
+    "Typische Warnungen deuten und beheben",
+    "In einem Projekt mit vielen Warnungen eine realistische Strategie umsetzen"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Ein Projekt baut mit 800 Warnungen. Deine Änderung erzeugt eine neue, die auf einen echten Fehler hinweist. Was passiert typischerweise?",
+      "optionen": [
+        "Niemand bemerkt sie zwischen den 800 anderen",
+        "Der Compiler bricht ab, weil es zu viele Warnungen sind",
+        "Die CI meldet die neue Warnung automatisch"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Warnungen helfen nur, wenn es wenige sind. Bei 800 sieht niemand mehr hin, und die eine wichtige geht unter. Deshalb gilt in gut geführten Projekten: **null Warnungen**, und die CI baut mit `-Werror`, damit das so bleibt.",
+      "begruendungen": [
+        "Richtig.",
+        "Der Compiler bricht bei Warnungen nur mit `-Werror` ab.",
+        "Nur, wenn die CI Warnungen als Fehler behandelt oder neue Warnungen vergleicht."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Ein guter Satz an Warnungen",
+      "text": "`-Wall` heisst trotz des Namens nicht „alle Warnungen“. Ein bewährter Satz für GCC und Clang:\n\n`-Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wsign-conversion -Wnon-virtual-dtor -Wold-style-cast -Woverloaded-virtual -Wnull-dereference -Wimplicit-fallthrough`\n\nFür MSVC: `/W4`. In der CI dazu `-Werror` (MSVC: `/WX`). Warnungen aus Bibliotheken von Dritten unterdrückt man, indem man deren Include-Pfade als `SYSTEM` einbindet. Den eigenen Code schaltet man aber nicht leise."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Was meldet `g++ -Wall` hier?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "std::vector<int> v = lade();",
+          "for (int i = 0; i < v.size(); ++i) {",
+          "    verarbeite(v[i]);",
+          "}"
+        ]
+      },
+      "optionen": [
+        "Einen Vergleich zwischen vorzeichenbehaftetem `int` und vorzeichenlosem `std::size_t`",
+        "Nichts, der Code ist einwandfrei",
+        "Einen Fehler, weil `size()` keine Zahl liefert"
+      ],
+      "korrekt": 0,
+      "erklaerung": "`-Wsign-compare` (in C++ Teil von `-Wall`) warnt: `comparison of integer expressions of different signedness`. Bei grossen Vektoren kann `int` überlaufen, und bei negativen Werten liefert der Vergleich überraschende Ergebnisse. Besser: `for (int x : v)` oder `std::size_t i`.",
+      "begruendungen": [
+        "Richtig.",
+        "Er funktioniert meistens, ist aber eine typische Fehlerquelle.",
+        "`size()` liefert `std::size_t`, eine vorzeichenlose Ganzzahl."
+      ]
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Wovor warnt welche Option?",
+      "paare": [
+        { "links": "`-Wshadow`", "rechts": "Eine lokale Variable verdeckt eine gleichnamige äussere oder ein Member" },
+        { "links": "`-Wconversion`", "rechts": "Implizite Umwandlung, die Werte verlieren kann, z. B. `double` zu `int`" },
+        { "links": "`-Wnon-virtual-dtor`", "rechts": "Klasse mit virtuellen Funktionen ohne virtuellen Destruktor" },
+        { "links": "`-Wimplicit-fallthrough`", "rechts": "Ein `case` ohne `break` läuft in den nächsten" },
+        { "links": "`-Wunused-variable`", "rechts": "Eine Variable wird nie benutzt" }
+      ],
+      "erklaerung": "Ist ein Durchfallen bei `switch` gewollt, macht man es mit `[[fallthrough]];` ausdrücklich. Dann schweigt die Warnung, und der Leser weiss, dass es Absicht ist."
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "`setzeSaldo` hat keine Wirkung. `-Wshadow` hätte den Fehler sofort gezeigt. In welcher Zeile?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "class Konto {",
+          "public:",
+          "    void setzeSaldo(double saldo) {",
+          "        double saldo_ = saldo;",
+          "    }",
+          "private:",
+          "    double saldo_ = 0;",
+          "};"
+        ]
+      },
+      "fehlerZeile": 4,
+      "erklaerung": "Zeile 4 legt eine **neue** lokale Variable `saldo_` an, die das Member verdeckt. Das Member bleibt bei 0. Richtig wäre `saldo_ = saldo;` ohne Typ. Solche Fehler entstehen oft beim Kopieren von Code und sind ohne Warnung schwer zu sehen."
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze die CMake-Zeilen: Warnungen als Fehler für das eigene Target, aber keine Warnungen aus den Headern einer externen Bibliothek.",
+      "code": {
+        "sprache": "cmake",
+        "zeilen": [
+          "target_compile_options(app PRIVATE -Wall -Wextra -Wshadow {{?}})",
+          "target_include_directories(app {{?}} PRIVATE extern/json/include)"
+        ]
+      },
+      "luecken": [{ "loesungen": ["-Werror"] }, { "loesungen": ["SYSTEM"] }],
+      "auswahl": ["-Werror", "SYSTEM", "-w", "INTERFACE"],
+      "erklaerung": "`SYSTEM` bindet den Pfad mit `-isystem` statt `-I` ein. Der Compiler meldet dann keine Warnungen aus diesen Headern. `-w` würde **alle** Warnungen abschalten, also das Gegenteil des Ziels. Oft setzt man `-Werror` nur in der CI (z. B. über eine CMake-Option), damit lokale Experimente mit neueren Compilern nicht blockiert sind."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Ein Legacy-Projekt hat 3000 Warnungen. Welche Strategie ist realistisch?",
+      "optionen": [
+        "Keine neuen Warnungen zulassen (z. B. `-Werror` für neue und bereinigte Module) und die alten Modul für Modul abbauen",
+        "Alle Warnungen mit `-w` abschalten, damit die Ausgabe sauber ist",
+        "Alles stoppen und zwei Wochen lang alle Warnungen beheben"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Das Prinzip heisst **Baseline**: Der Ist-Zustand wird eingefroren, und ab jetzt darf es nur besser werden. Pro Modul, das bereinigt ist, wird `-Werror` eingeschaltet. So verbessert sich der Code stetig, ohne dass die Arbeit stillsteht.",
+      "begruendungen": [
+        "Richtig.",
+        "Dann sieht man auch neue echte Fehler nicht mehr.",
+        "Unrealistisch, riskant (viele Änderungen auf einmal) und schwer zu rechtfertigen."
+      ]
+    }
+  ],
+  "praxis": "Warnungen sind die billigste Fehlersuche, die es gibt: Sie laufen bei jedem Build mit. Im Review fragst du bei jeder unterdrückten Warnung (`#pragma GCC diagnostic ignored`, `[[maybe_unused]]`, Casts nur zum Ruhigstellen) nach dem Grund. Ein Senior sorgt dafür, dass ein Projekt warnungsfrei wird und bleibt.",
+  "labor": {
+    "titel": "Ein Projekt mit mehr Warnungen bauen",
+    "anleitung": "Baue ein eigenes Projekt mit dem Warnungssatz aus der Lektion und zähle die Warnungen pro Art.",
+    "befehle": [
+      "cmake -S . -B build-warn -DCMAKE_CXX_FLAGS='-Wall -Wextra -Wshadow -Wconversion -Wsign-conversion' && cmake --build build-warn 2>&1 | tee warn.log",
+      "grep -o '\\[-W[a-z-]*\\]' warn.log | sort | uniq -c | sort -rn"
+    ],
+    "beobachtung": "Die Statistik zeigt, welche Warnungsarten dominieren. `-Wsign-conversion` erzeugt in älterem Code oft hunderte Meldungen. Da lohnt eine eigene, gut geplante Aufräumrunde."
+  },
+  "begriffe": [
+    { "begriff": "-Werror", "englisch": "warnings as errors", "erklaerung": "Compiler-Option, die jede Warnung zu einem Fehler macht und so den Build abbricht." },
+    { "begriff": "Verdecken", "englisch": "shadowing", "erklaerung": "Eine innere Variable hat denselben Namen wie eine äussere oder ein Member und verdeckt sie." },
+    { "begriff": "Baseline", "englisch": "baseline", "erklaerung": "Eingefrorener Ist-Zustand, ab dem keine Verschlechterung mehr erlaubt ist." }
+  ],
+  "weiterlesen": [
+    { "titel": "GCC: Warning Options", "url": "https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html" },
+    { "titel": "cpp-best-practices: Use the Tools Available (Warnings)", "url": "https://github.com/cpp-best-practices/cppbestpractices/blob/master/02-Use_the_Tools_Available.md" }
+  ]
+}

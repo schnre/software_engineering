@@ -1,0 +1,142 @@
+{
+  "id": "p4-m1-l1",
+  "phase": 4,
+  "modul": "4.1 Threads und Data Races",
+  "titel": "std::thread und std::jthread",
+  "lernziele": [
+    "Threads starten und korrekt beenden",
+    "Lebenszeit-Fehler bei Threads erkennen",
+    "Mit dem Gesetz von Amdahl den möglichen Gewinn abschätzen"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "code-lesen",
+      "frage": "Was passiert am Ende von `main`?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "void arbeite() { std::cout << \"fertig\\n\"; }",
+          "",
+          "int main() {",
+          "    std::thread t(arbeite);",
+          "}"
+        ]
+      },
+      "optionen": [
+        "Das Programm wird mit `std::terminate` beendet, weil `t` beim Zerstören noch nicht `join`ed wurde",
+        "`main` wartet automatisch auf den Thread und gibt `fertig` aus",
+        "Compilerfehler"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Ein `std::thread`, der noch *joinable* ist, ruft in seinem Destruktor `std::terminate` auf. Der Standard zwingt dich so, dich zu entscheiden: warten (`join`) oder loslassen (`detach`). Ob vorher noch `fertig` erscheint, ist Zufall.",
+      "begruendungen": [
+        "Richtig.",
+        "Das macht erst `std::jthread` (C++20).",
+        "Der Code kompiliert. Der Fehler passiert zur Laufzeit."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Threads in C++",
+      "text": "`std::thread t(f, args...)` startet sofort einen neuen Thread, der `f(args...)` ausführt. Die Argumente werden **kopiert**. Für Referenzen braucht es `std::ref(x)`.\n\nVor dem Ende der Lebenszeit muss man `t.join()` (warten) oder `t.detach()` (loslassen) aufrufen. `detach` ist selten richtig: Der Thread läuft dann weiter, auch wenn die Objekte, die er benutzt, längst zerstört sind.\n\n`std::jthread` (C++20) ist die bessere Wahl. Er ruft im Destruktor selbst `join` auf (RAII) und unterstützt kooperatives Beenden über ein `std::stop_token`."
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze: Ein Hintergrund-Thread soll arbeiten, bis er zum Aufhören aufgefordert wird, und beim Zerstören automatisch beendet werden.",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "std::{{?}} t([](std::stop_token st) {",
+          "    while (!st.{{?}}()) {",
+          "        verarbeiteNaechstes();",
+          "    }",
+          "});",
+          "// ... später, z. B. im Destruktor des Besitzers:",
+          "t.request_stop();"
+        ]
+      },
+      "luecken": [{ "loesungen": ["jthread"] }, { "loesungen": ["stop_requested"] }],
+      "auswahl": ["jthread", "stop_requested", "thread", "join"],
+      "erklaerung": "Der `jthread` übergibt das `stop_token` automatisch, wenn die Funktion eines als ersten Parameter erwartet. Im Destruktor ruft er erst `request_stop()` und dann `join()` auf. Der explizite Aufruf am Ende ist deshalb nur nötig, wenn man früher anhalten will."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Was ist hier das Problem?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "void starte() {",
+          "    std::string name = \"Sensor 1\";",
+          "    std::thread t([&] { log(name); });",
+          "    t.detach();",
+          "}"
+        ]
+      },
+      "optionen": [
+        "Undefined Behavior: `starte()` kann enden und `name` zerstören, bevor der Thread `name` benutzt",
+        "`detach` beendet den Thread sofort",
+        "Kein Problem, das Lambda hält `name` am Leben"
+      ],
+      "korrekt": 0,
+      "erklaerung": "`[&]` fängt `name` per Referenz. Nach `detach` läuft der Thread unabhängig weiter, `starte()` kehrt zurück, und `name` ist weg. Die Referenz im Thread hängt. Abhilfe: per Wert fangen (`[name]`) und auf `detach` verzichten, sodass jemand für das Ende des Threads verantwortlich bleibt.",
+      "begruendungen": [
+        "Richtig.",
+        "`detach` trennt nur die Verbindung zum `std::thread`-Objekt. Der Thread läuft weiter.",
+        "Ein Lambda mit `[&]` hält gar nichts am Leben, es speichert nur Referenzen."
+      ]
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Was macht was?",
+      "paare": [
+        { "links": "`join()`", "rechts": "Wartet, bis der Thread fertig ist" },
+        { "links": "`detach()`", "rechts": "Thread läuft unabhängig weiter, warten ist nicht mehr möglich" },
+        { "links": "`joinable()`", "rechts": "Prüft, ob noch `join` oder `detach` nötig ist" },
+        { "links": "`request_stop()`", "rechts": "Bittet einen `jthread`, kooperativ aufzuhören" },
+        { "links": "`std::thread::hardware_concurrency()`", "rechts": "Hinweis auf die Anzahl gleichzeitig laufender Hardware-Threads" }
+      ],
+      "erklaerung": "„Kooperativ“ heisst: Der Thread muss selbst regelmässig nachsehen. C++ kann Threads nicht von aussen abbrechen. Das wäre auch gefährlich, weil sie dabei Sperren halten oder Daten halb geschrieben zurücklassen könnten."
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Threads sind nicht gratis",
+      "text": "Jeder Thread braucht einen eigenen Stack (unter Linux standardmässig 8 MB reserviert), und das Erzeugen kostet einige Mikrosekunden. Für viele kleine Aufgaben nimmt man deshalb einen **Thread-Pool**: eine feste Zahl von Threads, die Aufgaben aus einer Warteschlange abarbeiten.\n\nWie viel Parallelisierung überhaupt bringen kann, beschreibt das **Gesetz von Amdahl**: Ist ein Anteil *s* des Programms zwingend sequenziell, ist die Beschleunigung auf höchstens 1/*s* begrenzt, egal wie viele Kerne man hat."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "20 % eines Programms lassen sich nicht parallelisieren. Wie viel schneller kann es mit beliebig vielen Kernen höchstens werden?",
+      "optionen": ["5-mal", "20-mal", "unbegrenzt", "1,25-mal"],
+      "korrekt": 0,
+      "fest": true,
+      "erklaerung": "Selbst wenn die übrigen 80 % auf null Zeit schrumpfen, bleiben 20 % der ursprünglichen Laufzeit, also höchstens Faktor 1/0,2 = 5. In der Praxis kommen Kosten für Synchronisation und Datenaustausch hinzu. Deshalb lohnt es sich oft mehr, den sequenziellen Teil zu verkleinern, als weitere Kerne einzusetzen.",
+      "begruendungen": [
+        "Richtig: 1 / 0,2 = 5.",
+        "20 ist der sequenzielle Anteil in Prozent, nicht der Faktor.",
+        "Der sequenzielle Teil begrenzt den Gewinn.",
+        "1,25 wäre der Faktor, wenn nur der sequenzielle Teil wegfiele."
+      ]
+    }
+  ],
+  "praxis": "Im Review fallen bei Threads immer wieder dieselben Muster auf: `detach` (wer ist verantwortlich für das Ende?), Lambdas mit `[&]`, die an Threads gehen, und Threads ohne Möglichkeit zum sauberen Beenden. Ein Programm, das sich nicht in wenigen Millisekunden geordnet herunterfahren lässt, hat fast immer einen dieser Fehler.",
+  "labor": {
+    "titel": "Threads beobachten",
+    "anleitung": "Starte vier `jthread`s, die je eine Sekunde rechnen, und beobachte sie im System.",
+    "befehle": [
+      "g++ -std=c++20 -O2 -pthread threads.cpp -o threads && ./threads &",
+      "ps -L -p $! -o pid,lwp,pcpu,comm",
+      "gdb -p $! -batch -ex 'info threads'"
+    ],
+    "beobachtung": "`ps -L` zeigt jeden Thread mit eigener ID (LWP). Mit `pthread_setname_np` kannst du Threads benennen. Dann erscheinen die Namen in `ps`, `top` und im Debugger, was das Debugging enorm erleichtert."
+  },
+  "begriffe": [
+    { "begriff": "Thread", "englisch": "thread", "erklaerung": "Ausführungsstrang innerhalb eines Prozesses mit eigenem Stack, teilt sich den Speicher mit den anderen Threads." },
+    { "begriff": "join", "englisch": "join", "erklaerung": "Auf das Ende eines Threads warten." },
+    { "begriff": "Thread-Pool", "englisch": "thread pool", "erklaerung": "Feste Menge von Threads, die Aufgaben aus einer Warteschlange abarbeiten." },
+    { "begriff": "Gesetz von Amdahl", "englisch": "Amdahl's law", "erklaerung": "Der sequenzielle Anteil eines Programms begrenzt die mögliche Beschleunigung durch Parallelisierung." }
+  ],
+  "weiterlesen": [
+    { "titel": "cppreference: std::jthread", "url": "https://en.cppreference.com/w/cpp/thread/jthread" },
+    { "titel": "C++ Core Guidelines: CP – Concurrency and parallelism", "url": "https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#S-concurrency" }
+  ]
+}

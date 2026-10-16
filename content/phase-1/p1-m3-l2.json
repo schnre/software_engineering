@@ -1,0 +1,122 @@
+{
+  "id": "p1-m3-l2",
+  "phase": 1,
+  "modul": "1.3 Bibliotheken",
+  "titel": "Die Link-Reihenfolge",
+  "lernziele": [
+    "Erklären, warum die Reihenfolge von Bibliotheken im Link-Befehl zählt",
+    "Eine korrekte Link-Reihenfolge aus den Abhängigkeiten ableiten",
+    "Zyklische Abhängigkeiten zwischen Bibliotheken erkennen"
+  ],
+  "dauerMinuten": 5,
+  "schritte": [
+    {
+      "typ": "terminal-deuten",
+      "frage": "`libmathe.a` enthält `skalar()` nachweislich (`nm` zeigt `T skalar(...)`). Warum scheitert der Link trotzdem?",
+      "terminal": {
+        "befehl": "g++ -L. -lmathe main.o -o app",
+        "ausgabe": [
+          "/usr/bin/ld: main.o: in function `main':",
+          "main.cpp:(.text+0x1f): undefined reference to `skalar(Vektor const&, Vektor const&)'",
+          "collect2: error: ld returned 1 exit status"
+        ]
+      },
+      "optionen": [
+        "Die Bibliothek steht vor `main.o` – zu dem Zeitpunkt wurde `skalar` noch nicht gebraucht",
+        "`-L.` muss nach `-lmathe` stehen",
+        "Die Bibliothek ist beschädigt und muss neu erstellt werden"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Der GNU-Linker liest die Eingaben von links nach rechts. Als er `libmathe.a` liest, gibt es noch kein offenes Symbol `skalar`. Also nimmt er nichts aus dem Archiv. Danach kommt `main.o` und braucht `skalar`, aber die Bibliothek ist schon vorbei.",
+      "begruendungen": [
+        "Richtig. Bei statischen Bibliotheken zählt die Reihenfolge.",
+        "`-L` ist eine Pfadangabe und gilt für alle `-l`, egal wo sie steht.",
+        "`nm` zeigt das Symbol, die Bibliothek ist in Ordnung."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Wie der Linker Archive liest",
+      "text": "Der GNU-Linker führt eine Liste offener Symbole. Bei jedem Object-File fügt er dessen `U`-Symbole zur Liste hinzu. Bei jedem Archiv (`.a`) holt er **nur** die Object-Files heraus, die gerade offene Symbole liefern. Danach schaut er das Archiv nicht mehr an.\n\nDaraus folgt die Regel: **Wer etwas braucht, steht links von dem, was es liefert.** Also zuerst die eigenen Object-Files, dann die Bibliotheken, von den speziellen zu den grundlegenden.",
+      "code": {
+        "sprache": "bash",
+        "zeilen": ["g++ main.o sensor.o -lnetz -lbasis -o app"],
+        "anmerkungen": [
+          { "zeile": 1, "text": "`main.o` braucht `libnetz`, `libnetz` braucht `libbasis`. Jede Bibliothek steht rechts von ihren Nutzern." }
+        ]
+      }
+    },
+    {
+      "typ": "reihenfolge",
+      "frage": "`main.o` verwendet `libnetz`. `libnetz` verwendet `libbasis`, und `libbasis` verwendet die Kompressionsbibliothek zlib (`-lz`). Bringe den Link-Befehl in die richtige Reihenfolge.",
+      "elemente": ["`main.o`", "`-lnetz`", "`-lbasis`", "`-lz`"],
+      "erklaerung": "Von links nach rechts folgt man den Abhängigkeiten: Jedes Element liefert, was die Elemente links davon brauchen. zlib hängt von nichts ab und steht deshalb ganz rechts."
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "`main.o` nutzt `libgrafik`, und `libgrafik` nutzt `libmathe`. Ergänze den Befehl.",
+      "code": {
+        "sprache": "bash",
+        "zeilen": ["g++ main.o {{?}} {{?}} -o app"]
+      },
+      "luecken": [{ "loesungen": ["-lgrafik"] }, { "loesungen": ["-lmathe"] }],
+      "auswahl": ["-lgrafik", "-lmathe", "-lmain"],
+      "erklaerung": "Erst die Bibliothek, die `main.o` direkt braucht, dann deren Abhängigkeit. Stünde `-lmathe` vorne, wären die von `libgrafik` benötigten Mathe-Symbole beim Lesen von `libmathe` noch nicht offen."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "`liba` braucht etwas aus `libb`, und `libb` braucht etwas aus `liba`. Wie bekommt man das gelinkt?",
+      "optionen": [
+        "Mit `-Wl,--start-group -la -lb -Wl,--end-group` oder indem man eine Bibliothek doppelt angibt",
+        "Gar nicht, das ist mit statischen Bibliotheken unmöglich",
+        "Die Reihenfolge ist bei gegenseitiger Abhängigkeit egal"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Innerhalb einer Gruppe durchsucht der Linker die Archive so lange wiederholt, bis keine neuen Symbole mehr aufgelöst werden. Das funktioniert, ist aber ein Symptom: Zwei Bibliotheken, die sich gegenseitig brauchen, sind eigentlich eine. Besser ist es, den Zyklus aufzulösen. Wie das geht, zeigt Phase 6.",
+      "begruendungen": [
+        "Richtig. Technisch lösbar, architektonisch aber ein Warnsignal.",
+        "Es geht, mit Gruppen oder Wiederholung.",
+        "Mit einem einzigen Durchgang bleibt immer eine Richtung offen."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Und bei Shared Libraries?",
+      "text": "Bei `.so`-Dateien merkt sich der Linker alle Symbole, die Reihenfolge ist also weniger kritisch. Viele Distributionen (z. B. Ubuntu) linken aber standardmässig mit `--as-needed`: Eine Shared Library wird nur eingetragen, wenn sie zu diesem Zeitpunkt offene Symbole liefert. Dann gilt dieselbe Regel wie bei Archiven. Halte dich deshalb immer an „Nutzer vor Lieferant“."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "In CMake schreibst du `target_link_libraries(app PRIVATE grafik)` und `target_link_libraries(grafik PUBLIC mathe)`. Warum musst du dich dann nicht um die Reihenfolge kümmern?",
+      "optionen": [
+        "CMake kennt den Abhängigkeitsgraphen und erzeugt die Link-Zeile in passender Reihenfolge",
+        "CMake verwendet einen anderen Linker, bei dem die Reihenfolge egal ist",
+        "CMake linkt grundsätzlich alles dynamisch"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Weil du Abhängigkeiten pro Target angibst, kann CMake die Link-Zeile topologisch sortieren: `app` vor `grafik` vor `mathe`. Das ist ein Grund, warum Target-basiertes CMake so viel robuster ist als von Hand gepflegte Link-Befehle.",
+      "begruendungen": [
+        "Richtig. Die Abhängigkeiten stehen bei den Targets, CMake leitet die Reihenfolge ab.",
+        "CMake ruft denselben Linker auf wie du von Hand.",
+        "Ob statisch oder dynamisch, entscheidet `add_library` bzw. `BUILD_SHARED_LIBS`, nicht die Link-Reihenfolge."
+      ]
+    }
+  ],
+  "praxis": "Ein `undefined reference`, obwohl die Bibliothek das Symbol nachweislich enthält, ist der klassische Reihenfolge-Fehler. Prüfe dann, ob die Bibliothek rechts von den Dateien steht, die sie brauchen. Mit `-Wl,--trace-symbol=skalar` zeigt der Linker, wo er ein Symbol sieht. In CMake-Projekten tritt der Fehler meist auf, wenn jemand eine Abhängigkeit nicht beim richtigen Target eingetragen hat.",
+  "labor": {
+    "titel": "Den Reihenfolge-Fehler nachstellen",
+    "anleitung": "Baue `libmathe.a` aus der letzten Lektion und linke einmal mit der Bibliothek vor und einmal nach `main.o`.",
+    "befehle": [
+      "g++ -L. -lmathe main.o -o app",
+      "g++ main.o -L. -lmathe -o app",
+      "g++ main.o -L. -lmathe -Wl,--trace-symbol=_Z6skalarRK6VektorS1_ -o app"
+    ],
+    "beobachtung": "Die erste Variante scheitert, die zweite gelingt. `--trace-symbol` zeigt, in welcher Datei das Symbol referenziert und in welcher es definiert wird. Den gemangelten Namen findest du mit `nm main.o`."
+  },
+  "begriffe": [
+    { "begriff": "Link-Reihenfolge", "englisch": "link order", "erklaerung": "Reihenfolge der Eingaben im Link-Befehl. Bei statischen Bibliotheken muss jede Bibliothek rechts von ihren Nutzern stehen." },
+    { "begriff": "--as-needed", "englisch": "as-needed linking", "erklaerung": "Linker-Option: Eine Shared Library wird nur eingetragen, wenn sie an dieser Stelle offene Symbole liefert." }
+  ],
+  "weiterlesen": [
+    { "titel": "GNU ld: Command-line Options (--start-group, --as-needed)", "url": "https://sourceware.org/binutils/docs/ld/Options.html" }
+  ]
+}

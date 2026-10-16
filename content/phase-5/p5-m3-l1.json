@@ -1,0 +1,134 @@
+{
+  "id": "p5-m3-l1",
+  "phase": 5,
+  "modul": "5.3 Jenkins",
+  "titel": "Controller und Agents",
+  "lernziele": [
+    "Die Rollen von Controller, Agent und Executor unterscheiden",
+    "Builds über Labels auf passende Agents lenken",
+    "Pipeline-Jobs von Freestyle-Jobs unterscheiden"
+  ],
+  "dauerMinuten": 5,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Eine Firma baut Linux- und Windows-Software und Firmware für ARM-Mikrocontroller, die auf einem Hardware-Prüfstand getestet wird. Wo laufen in Jenkins die Builds?",
+      "optionen": [
+        "Auf **Agents** mit passender Ausstattung. Der Controller verteilt nur die Arbeit",
+        "Alle auf dem Jenkins-Server selbst",
+        "Auf den Rechnern der Entwickler, die den Build ausgelöst haben"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Jenkins trennt Steuerung und Ausführung. Der **Controller** verwaltet Jobs und verteilt sie. Die **Agents** führen die Builds aus: ein Linux-Agent mit GCC, ein Windows-Agent mit MSVC, ein Rechner, an dem der Prüfstand hängt.",
+      "begruendungen": [
+        "Richtig.",
+        "Das wäre langsam, unsicher und könnte die verschiedenen Plattformen gar nicht abdecken.",
+        "Dann hinge der Build von der Umgebung einzelner Personen ab."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Die Architektur von Jenkins",
+      "text": "- Der **Controller** (früher *Master*) bietet die Weboberfläche, speichert Konfiguration und Zugangsdaten, verwaltet Plugins und plant Builds.\n- **Agents** (früher *Slaves*, auch *Nodes*) führen Builds aus. Sie verbinden sich per SSH oder als *inbound agent* mit dem Controller oder werden bei Bedarf als Docker-Container oder Kubernetes-Pod gestartet und danach verworfen.\n- Jeder Agent hat eine Anzahl **Executors**: so viele Builds kann er gleichzeitig ausführen.\n- **Labels** beschreiben, was ein Agent kann, z. B. `linux`, `windows`, `arm-toolchain`, `hil-bench`."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Ordne die Begriffe zu.",
+      "paare": [
+        { "links": "Controller", "rechts": "Verwaltet Jobs, Plugins und Zugangsdaten und verteilt die Arbeit" },
+        { "links": "Agent", "rechts": "Rechner oder Container, auf dem Builds laufen" },
+        { "links": "Executor", "rechts": "Platz für einen gleichzeitig laufenden Build auf einem Agent" },
+        { "links": "Label", "rechts": "Merkmal eines Agents, z. B. `linux` oder `hil-bench`" },
+        { "links": "Workspace", "rechts": "Arbeitsverzeichnis eines Jobs auf dem Agent" }
+      ],
+      "erklaerung": "Kurzlebige Agents (Container, die nach jedem Build verworfen werden) haben einen grossen Vorteil: Jeder Build startet in einer sauberen, definierten Umgebung. Reste früherer Builds können das Ergebnis nicht verfälschen."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Warum sollte man auf dem Controller selbst keine Builds ausführen (Anzahl Executors dort: 0)?",
+      "optionen": [
+        "Builds führen beliebigen Code aus dem Repository aus. Auf dem Controller hätte dieser Zugriff auf alle Zugangsdaten und die gesamte Konfiguration",
+        "Weil der Controller keinen Compiler installieren kann",
+        "Weil Jenkins dann keine Weboberfläche mehr anzeigt"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Ein manipuliertes Build-Skript in einem Pull Request könnte auf dem Controller alle gespeicherten Passwörter auslesen. Ausserdem würde ein schwerer Build die Oberfläche und Planung für alle verlangsamen. Die Jenkins-Dokumentation empfiehlt deshalb ausdrücklich, auf dem Controller nicht zu bauen.",
+      "begruendungen": [
+        "Richtig. Sicherheit ist der Hauptgrund, Last der zweite.",
+        "Installieren könnte man ihn schon.",
+        "Die Oberfläche läuft unabhängig davon."
+      ]
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Wo läuft diese Pipeline?",
+      "code": {
+        "sprache": "groovy",
+        "datei": "Jenkinsfile",
+        "zeilen": [
+          "pipeline {",
+          "    agent { label 'linux && arm-toolchain' }",
+          "    stages {",
+          "        stage('Build') {",
+          "            steps { sh 'cmake --preset firmware && cmake --build --preset firmware' }",
+          "        }",
+          "    }",
+          "}"
+        ]
+      },
+      "optionen": [
+        "Auf einem Agent, der **beide** Labels `linux` und `arm-toolchain` hat",
+        "Auf irgendeinem Agent mit dem Label `linux` **oder** `arm-toolchain`",
+        "Auf dem Controller"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Label-Ausdrücke unterstützen `&&`, `||` und `!`. Ist kein passender Agent frei, wartet der Build in der Warteschlange. Mit `agent any` darf jeder Agent den Build übernehmen. Das ist für C++ mit speziellen Toolchains selten sinnvoll.",
+      "begruendungen": [
+        "Richtig.",
+        "Dafür müsste dort `||` stehen.",
+        "Der Controller sollte keine Executors haben."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Arten von Jobs",
+      "text": "- **Freestyle-Job**: in der Weboberfläche zusammengeklickt. Nicht versioniert, schwer zu reviewen, für neue Projekte nicht mehr empfohlen.\n- **Pipeline-Job**: Die Pipeline steht als Code in einem `Jenkinsfile` im Repository (*pipeline as code*). Sie wird versioniert, reviewt und ist reproduzierbar.\n- **Multibranch Pipeline**: Jenkins durchsucht ein Repository und legt für jeden Branch und Pull Request mit `Jenkinsfile` automatisch einen eigenen Pipeline-Job an. Das ist der Standard für moderne Projekte."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "In einer Multibranch Pipeline pusht jemand einen neuen Branch `feature/can-treiber` mit einem `Jenkinsfile`. Was passiert?",
+      "optionen": [
+        "Jenkins erkennt den Branch beim nächsten Scan oder per Webhook und legt automatisch einen Job dafür an, der sofort baut",
+        "Ein Admin muss den Job von Hand anlegen",
+        "Nichts, Jenkins baut nur `main`"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Damit Jenkins sofort reagiert, sendet der Git-Server bei jedem Push einen **Webhook**. Wird der Branch gelöscht, entfernt Jenkins auch den Job, je nach Einstellung nach einer Wartezeit.",
+      "begruendungen": [
+        "Richtig.",
+        "Genau diesen Aufwand nimmt die Multibranch Pipeline ab.",
+        "Gebaut wird jeder Branch mit `Jenkinsfile`, sofern kein Filter etwas anderes festlegt."
+      ]
+    }
+  ],
+  "praxis": "In vielen Firmen, besonders in Embedded und Industrie, ist Jenkins der Standard, weil sich eigene Hardware wie Prüfstände, Debugger und Flash-Programmer einfach als Agents anbinden lassen. Wenn du ein Jenkins-Setup übernimmst, fragst du zuerst: Laufen noch Freestyle-Jobs? Baut der Controller selbst? Sind die Agents reproduzierbar aufgesetzt, z. B. als Container-Image?",
+  "labor": {
+    "titel": "Jenkins lokal ausprobieren",
+    "anleitung": "Starte Jenkins in einem Container, richte einen Agent als zweiten Container ein und lege eine Multibranch Pipeline für ein eigenes Repository an.",
+    "befehle": [
+      "docker run -d --name jenkins -p 8080:8080 -v jenkins_home:/var/jenkins_home jenkins/jenkins:lts-jdk17",
+      "docker exec jenkins cat /var/jenkins_home/secrets/initialAdminPassword"
+    ],
+    "beobachtung": "Unter *Manage Jenkins → Nodes* siehst du den Controller (*Built-In Node*). Setze dessen Executors auf 0 und beobachte, dass Builds in der Warteschlange warten, bis ein Agent verbunden ist."
+  },
+  "begriffe": [
+    { "begriff": "Controller", "englisch": "Jenkins controller", "erklaerung": "Zentrale Jenkins-Instanz: Oberfläche, Konfiguration, Planung. Führt selbst keine Builds aus." },
+    { "begriff": "Agent", "englisch": "Jenkins agent", "erklaerung": "Rechner oder Container, auf dem Jenkins Builds ausführt." },
+    { "begriff": "Multibranch Pipeline", "englisch": "multibranch pipeline", "erklaerung": "Jenkins legt für jeden Branch und Pull Request mit Jenkinsfile automatisch einen Job an." },
+    { "begriff": "Webhook", "englisch": "webhook", "erklaerung": "Der Git-Server benachrichtigt Jenkins bei einem Push sofort per HTTP-Aufruf." }
+  ],
+  "weiterlesen": [
+    { "titel": "Jenkins: Managing Nodes", "url": "https://www.jenkins.io/doc/book/managing/nodes/" },
+    { "titel": "Jenkins: Branches and Pull Requests", "url": "https://www.jenkins.io/doc/book/pipeline/multibranch/" }
+  ]
+}

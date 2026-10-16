@@ -1,0 +1,153 @@
+{
+  "id": "p2-m7-l2",
+  "phase": 2,
+  "modul": "2.7 Fehlerbehandlung",
+  "titel": "Fehlercodes, std::optional und std::expected",
+  "lernziele": [
+    "Die Fehlerbehandlungs-Mechanismen von C++ vergleichen",
+    "`std::optional` und `std::expected` richtig einsetzen",
+    "Mit `[[nodiscard]]` verhindern, dass Fehler ignoriert werden"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "`int parseZahl(const std::string& s)` gibt bei einem Fehler `-1` zurück. Was ist das Problem?",
+      "optionen": [
+        "`-1` kann auch ein gültiges Ergebnis sein, und der Aufrufer kann die Prüfung einfach vergessen",
+        "`int` kann keine negativen Zahlen darstellen",
+        "Rückgabewerte sind in C++ langsamer als Exceptions"
+      ],
+      "korrekt": 0,
+      "erklaerung": "„Magische“ Fehlerwerte vermischen Ergebnis und Fehler im selben Typ. Bei `parseZahl(\"-1\")` ist nicht zu unterscheiden, ob es geklappt hat. Und nichts zwingt den Aufrufer, überhaupt nachzusehen. Moderne Alternativen trennen Wert und Fehler im Typ.",
+      "begruendungen": [
+        "Richtig. Beides sind klassische Fehlerquellen.",
+        "`int` ist vorzeichenbehaftet.",
+        "Rückgabewerte sind schnell. Das Problem ist die Bedeutung, nicht die Laufzeit."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Vier Werkzeuge",
+      "tabelle": {
+        "kopf": ["Mechanismus", "Stärke", "Schwäche"],
+        "zeilen": [
+          ["Exception", "kann nicht ignoriert werden, trennt Fehlerpfad", "unsichtbar in der Signatur, Werfen ist teuer"],
+          ["Fehlercode / `bool`", "einfach, C-kompatibel, ohne Exceptions", "leicht zu ignorieren, Ergebnis oft als Ausgabeparameter"],
+          ["`std::optional<T>`", "Wert oder nichts, im Typ sichtbar", "kein Grund für das Fehlen"],
+          ["`std::expected<T, E>` (C++23)", "Wert oder Fehlerbeschreibung, im Typ sichtbar", "etwas mehr Schreibarbeit"]
+        ]
+      },
+      "text": "Es gibt nicht *die* richtige Wahl. Entscheidend ist, wie erwartbar der Fehler ist und wer ihn behandeln kann."
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze die Suche, die entweder einen Index oder „nichts gefunden“ liefert.",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "std::{{?}}<std::size_t> findeIndex(const std::vector<int>& v, int gesucht) {",
+          "    for (std::size_t i = 0; i < v.size(); ++i)",
+          "        if (v[i] == gesucht) return i;",
+          "    return std::{{?}};",
+          "}"
+        ]
+      },
+      "luecken": [{ "loesungen": ["optional"] }, { "loesungen": ["nullopt"] }],
+      "auswahl": ["optional", "nullopt", "expected", "nullptr"],
+      "erklaerung": "`std::optional<std::size_t>` heisst: vielleicht ein Index. `std::nullopt` ist der leere Zustand. Für „nicht gefunden“ braucht es keinen Grund, deshalb reicht `optional`. `nullptr` ist für Zeiger gedacht."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Was gibt das Programm aus?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "#include <expected>",
+          "",
+          "std::expected<int, std::string> teile(int a, int b) {",
+          "    if (b == 0) return std::unexpected(\"Division durch null\");",
+          "    return a / b;",
+          "}",
+          "",
+          "int main() {",
+          "    auto r = teile(10, 0);",
+          "    if (r) std::cout << *r;",
+          "    else   std::cout << r.error();",
+          "}"
+        ]
+      },
+      "optionen": ["`Division durch null`", "`0`", "Eine Exception beendet das Programm"],
+      "korrekt": 0,
+      "fest": true,
+      "erklaerung": "`std::expected` enthält entweder einen Wert (`*r`, `r.value()`) oder einen Fehler (`r.error()`). `if (r)` prüft, was davon vorliegt. Mit `and_then` und `transform` lassen sich mehrere Schritte verketten, ohne nach jedem `if` zu schreiben.",
+      "begruendungen": [
+        "Richtig.",
+        "Es wird gar nicht dividiert.",
+        "`std::unexpected` ist ein Rückgabewert, keine Exception."
+      ]
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Welcher Mechanismus passt am besten?",
+      "paare": [
+        { "links": "Die Konfigurationsdatei fehlt beim Start eines Servers, er kann nicht laufen", "rechts": "Exception" },
+        { "links": "Eine Suche in einem Container findet nichts", "rechts": "`std::optional`" },
+        { "links": "Ein Parser soll mitteilen, was genau an der Eingabe falsch ist", "rechts": "`std::expected`" },
+        { "links": "Embedded-Code ohne Exceptions mit C-kompatibler Schnittstelle", "rechts": "Fehlercode mit `[[nodiscard]]`" }
+      ],
+      "erklaerung": "Faustregel: Ist der Fehler selten und kann nur weit oben sinnvoll behandelt werden, eignet sich eine Exception. Ist er erwartbar und wird direkt beim Aufrufer behandelt, ein Rückgabetyp. Wichtiger als die Wahl ist, dass ein Projekt einheitlich bleibt."
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Der Compiler warnt hier zu Recht. In welcher Zeile?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "[[nodiscard]] bool speichere(const Daten& d);",
+          "",
+          "void beenden(const Daten& d) {",
+          "    speichere(d);",
+          "    log(\"Daten gespeichert\");",
+          "}"
+        ]
+      },
+      "fehlerZeile": 4,
+      "erklaerung": "`[[nodiscard]]` sagt: Der Rückgabewert darf nicht ignoriert werden. Hier wird `false` still übergangen, und das Log behauptet trotzdem, alles sei gespeichert. Mit `-Werror` wird die Warnung zum Fehler. Auch Funktionen, die `std::optional` oder `std::expected` zurückgeben, sollte man mit `[[nodiscard]]` markieren."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Was passiert bei `*opt`, wenn `opt` ein leeres `std::optional<int>` ist?",
+      "optionen": [
+        "Undefined Behavior. Sicher ist nur `opt.value()` (wirft eine Exception) oder vorher prüfen",
+        "Es liefert 0",
+        "Es wirft immer `std::bad_optional_access`"
+      ],
+      "korrekt": 0,
+      "erklaerung": "`operator*` prüft aus Leistungsgründen nicht. `value()` prüft und wirft `std::bad_optional_access`. `value_or(standard)` liefert einen Ersatzwert. In der Regel prüft man mit `if (opt)` und benutzt dann `*opt`.",
+      "begruendungen": [
+        "Richtig.",
+        "Es gibt keinen Standardwert.",
+        "Das macht nur `value()`."
+      ]
+    }
+  ],
+  "praxis": "In gewachsenen Codebasen findest du alles gemischt: `bool`-Rückgaben mit Ausgabeparametern, Fehlercodes, Exceptions, `optional`. Als Senior entscheidest du für neue Schnittstellen eine Linie und dokumentierst sie, z. B. in einem ADR „Fehlerbehandlung“. Im Review markierst du ignorierte Rückgabewerte und Fehlerwerte, die mit gültigen Ergebnissen verwechselt werden können.",
+  "labor": {
+    "titel": "std::expected ausprobieren",
+    "anleitung": "Schreibe einen kleinen Parser für Zahlen mit `std::expected<int, std::string>` und verkette zwei Schritte mit `and_then`. Du brauchst GCC 12+ oder Clang 16+ mit `-std=c++23`.",
+    "befehle": [
+      "g++ -std=c++23 -Wall -Wextra expected.cpp -o expected && ./expected"
+    ],
+    "beobachtung": "`and_then` ruft den nächsten Schritt nur bei Erfolg auf und reicht einen Fehler sonst unverändert weiter. So entsteht ein Fehlerpfad ohne verschachtelte `if`-Abfragen."
+  },
+  "begriffe": [
+    { "begriff": "std::optional", "englisch": "optional", "erklaerung": "Enthält einen Wert oder nichts (`std::nullopt`)." },
+    { "begriff": "std::expected", "englisch": "expected", "erklaerung": "Seit C++23: enthält einen Wert oder eine Fehlerbeschreibung (`std::unexpected`)." },
+    { "begriff": "[[nodiscard]]", "englisch": "nodiscard attribute", "erklaerung": "Der Compiler warnt, wenn der Rückgabewert einer Funktion ignoriert wird." }
+  ],
+  "weiterlesen": [
+    { "titel": "cppreference: std::expected", "url": "https://en.cppreference.com/w/cpp/utility/expected" },
+    { "titel": "cppreference: std::optional", "url": "https://en.cppreference.com/w/cpp/utility/optional" }
+  ]
+}

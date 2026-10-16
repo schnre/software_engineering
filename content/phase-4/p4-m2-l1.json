@@ -1,0 +1,147 @@
+{
+  "id": "p4-m2-l1",
+  "phase": 4,
+  "modul": "4.2 Synchronisation",
+  "titel": "Condition Variables",
+  "lernziele": [
+    "Mit einer Condition Variable auf ein Ereignis warten, ohne CPU zu verschwenden",
+    "Eine thread-sichere Warteschlange verstehen und schreiben",
+    "Verlorene und falsche Aufwecksignale vermeiden"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Ein Verbraucher-Thread wartet so auf Daten: `while (warteschlange.empty()) {}`. Was ist das Problem?",
+      "optionen": [
+        "Er belegt einen CPU-Kern zu 100 % mit Nichtstun, und ohne Synchronisation ist der Zugriff ein Data Race",
+        "Kein Problem, so reagiert der Thread am schnellsten",
+        "Die Schleife wird vom Compiler entfernt, deshalb wartet er gar nicht"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Aktives Warten (*busy waiting*) verbrennt Energie und Rechenzeit, die anderen Threads fehlt. Und weil `empty()` ohne Sperre gelesen wird, darf der Compiler sogar annehmen, dass sich der Wert nie ändert. Das richtige Werkzeug ist eine **Condition Variable**: Der Thread schläft, bis ihn jemand weckt.",
+      "begruendungen": [
+        "Richtig.",
+        "Schnell vielleicht, aber teuer und fehlerhaft.",
+        "Das kann bei einem Data Race tatsächlich passieren. Das Hauptproblem bleibt aber das Data Race selbst."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Eine thread-sichere Warteschlange",
+      "text": "Eine `std::condition_variable` arbeitet immer mit einem Mutex und einer **Bedingung** (Prädikat) zusammen. `wait(lock, prädikat)` prüft die Bedingung. Ist sie falsch, gibt es den Mutex frei und schläft. Beim Aufwachen sperrt es wieder und prüft erneut.",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "template <typename T>",
+          "class Warteschlange {",
+          "public:",
+          "    void push(T wert) {",
+          "        { std::lock_guard lock(m_); daten_.push(std::move(wert)); }",
+          "        cv_.notify_one();",
+          "    }",
+          "    T pop() {",
+          "        std::unique_lock lock(m_);",
+          "        cv_.wait(lock, [&] { return !daten_.empty(); });",
+          "        T wert = std::move(daten_.front());",
+          "        daten_.pop();",
+          "        return wert;",
+          "    }",
+          "private:",
+          "    std::mutex m_;",
+          "    std::condition_variable cv_;",
+          "    std::queue<T> daten_;",
+          "};"
+        ],
+        "anmerkungen": [
+          { "zeile": 5, "text": "Die Änderung passiert unter der Sperre." },
+          { "zeile": 6, "text": "Wecken nach dem Freigeben: Der geweckte Thread muss nicht gleich wieder warten." },
+          { "zeile": 9, "text": "`unique_lock`, weil `wait` den Mutex zwischendurch freigeben muss." },
+          { "zeile": 10, "text": "Schläft, bis die Bedingung wahr ist. Prüft nach jedem Aufwachen erneut." }
+        ]
+      }
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze `pop()`.",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "T pop() {",
+          "    std::{{?}} lock(m_);",
+          "    cv_.wait(lock, [&] { return {{?}}; });",
+          "    T wert = std::move(daten_.front());",
+          "    daten_.pop();",
+          "    return wert;",
+          "}"
+        ]
+      },
+      "luecken": [{ "loesungen": ["unique_lock"] }, { "loesungen": ["!daten_.empty()"] }],
+      "auswahl": ["unique_lock", "lock_guard", "!daten_.empty()", "daten_.empty()"],
+      "erklaerung": "Die Bedingung beschreibt, **worauf** gewartet wird: dass Daten da sind. `lock_guard` geht nicht, weil `wait` den Mutex freigeben und wieder sperren können muss. Das kann nur `unique_lock`."
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Diese Version hängt manchmal für immer oder liest aus einer leeren Warteschlange. Welche Zeile ist schuld?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "T pop() {",
+          "    std::unique_lock lock(m_);",
+          "    cv_.wait(lock);",
+          "    T wert = std::move(daten_.front());",
+          "    daten_.pop();",
+          "    return wert;",
+          "}"
+        ]
+      },
+      "fehlerZeile": 3,
+      "erklaerung": "Ohne Bedingung gibt es zwei Fehler. Erstens: Wurde `notify_one` schon **vor** dem `wait` aufgerufen, ist das Signal verloren (*lost wakeup*), und der Thread schläft ewig, obwohl Daten da sind. Zweitens: `wait` darf auch ohne `notify` zurückkehren (*spurious wakeup*). Dann ist die Warteschlange womöglich leer. Mit Prädikat sind beide Fälle abgedeckt."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Warum muss `push` die Warteschlange unter dem Mutex ändern, obwohl `notify_one` ausserhalb der Sperre steht?",
+      "optionen": [
+        "Sonst könnte die Änderung genau zwischen der Prüfung der Bedingung und dem Einschlafen des Verbrauchers passieren, und das Signal ginge verloren",
+        "Weil `notify_one` sonst eine Exception wirft",
+        "Muss es gar nicht, die Condition Variable synchronisiert selbst"
+      ],
+      "korrekt": 0,
+      "erklaerung": "`wait` prüft die Bedingung und schläft ein, ohne den Mutex dazwischen freizugeben. Nur wenn auch der Erzeuger unter demselben Mutex ändert, kann seine Änderung nicht in diese Lücke fallen. Die Condition Variable selbst schützt keine Daten.",
+      "begruendungen": [
+        "Richtig.",
+        "`notify_one` wirft nicht.",
+        "Die Condition Variable weckt nur. Den Schutz der Daten übernimmt der Mutex."
+      ]
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Ordne zu.",
+      "paare": [
+        { "links": "`notify_one()`", "rechts": "Weckt einen wartenden Thread" },
+        { "links": "`notify_all()`", "rechts": "Weckt alle wartenden Threads, z. B. beim Herunterfahren" },
+        { "links": "Spurious wakeup", "rechts": "`wait` kehrt ohne `notify` zurück" },
+        { "links": "Prädikat", "rechts": "Bedingung, die nach jedem Aufwachen erneut geprüft wird" }
+      ],
+      "erklaerung": "Zum sauberen Herunterfahren setzt man unter der Sperre ein Flag `beenden_ = true`, ruft `notify_all()` auf und nimmt das Flag ins Prädikat auf: `return beenden_ || !daten_.empty();`. Sonst warten Verbraucher womöglich ewig auf Daten, die nie kommen."
+    }
+  ],
+  "praxis": "Thread-sichere Warteschlangen sind das Rückgrat vieler Systeme: Logger, Netzwerkempfang, Verarbeitungsketten. Im Review prüfst du bei jeder Condition Variable: Gibt es ein Prädikat? Wird die Bedingung unter demselben Mutex geändert? Wie wird beim Herunterfahren geweckt? Wer hier unsicher ist, nimmt besser eine bewährte Bibliothek als eine eigene Implementierung.",
+  "labor": {
+    "titel": "Erzeuger und Verbraucher",
+    "anleitung": "Baue die `Warteschlange` aus der Lektion mit einem Erzeuger, der 1 000 000 Zahlen schreibt, und drei Verbrauchern, die summieren. Prüfe das Ergebnis und lass das Programm mit TSan laufen. Ergänze dann ein sauberes Herunterfahren mit `notify_all`.",
+    "befehle": [
+      "g++ -std=c++20 -O2 -pthread queue.cpp -o queue && time ./queue",
+      "g++ -std=c++20 -g -fsanitize=thread queue.cpp -o queue_tsan && ./queue_tsan"
+    ],
+    "beobachtung": "Die Summe stimmt bei jedem Lauf, TSan bleibt still. Ersetzt du testweise `wait(lock, ...)` durch das aktive Warten vom Anfang, steigt die CPU-Last deutlich, obwohl die Arbeit gleich bleibt."
+  },
+  "begriffe": [
+    { "begriff": "Condition Variable", "englisch": "condition variable", "erklaerung": "Synchronisationsmittel, mit dem ein Thread schlafend auf eine Bedingung wartet, bis ihn ein anderer weckt." },
+    { "begriff": "Aktives Warten", "englisch": "busy waiting", "erklaerung": "Warten in einer Schleife, die ständig prüft. Verbraucht unnötig CPU." },
+    { "begriff": "Spurious Wakeup", "englisch": "spurious wakeup", "erklaerung": "Aufwachen aus `wait`, ohne dass jemand `notify` aufgerufen hat." }
+  ],
+  "weiterlesen": [
+    { "titel": "cppreference: std::condition_variable", "url": "https://en.cppreference.com/w/cpp/thread/condition_variable" }
+  ]
+}

@@ -1,0 +1,156 @@
+{
+  "id": "p7-m5-l1",
+  "phase": 7,
+  "modul": "7.5 Statische vs. dynamische Polymorphie",
+  "titel": "Virtuelle Funktionen, Templates und std::variant",
+  "lernziele": [
+    "Dynamische und statische Polymorphie vergleichen",
+    "Für eine Anforderung die passende Form wählen",
+    "Anforderungen an Template-Parameter mit Concepts ausdrücken"
+  ],
+  "dauerMinuten": 7,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Ein `Regler` soll mit verschiedenen Sensoren arbeiten. Variante A: Er bekommt ein `ISensor&` mit virtueller Funktion `lies()`. Variante B: `template <typename Sensor> class Regler`. Was ist der grundlegende Unterschied?",
+      "optionen": [
+        "In A wird der Sensortyp zur Laufzeit gewählt, in B beim Kompilieren",
+        "A ist korrekt, B ist Undefined Behavior",
+        "B funktioniert nur mit Sensoren aus der Standardbibliothek"
+      ],
+      "korrekt": 0,
+      "erklaerung": "**Dynamische Polymorphie** (virtuelle Funktionen) entscheidet über die vtable zur Laufzeit. **Statische Polymorphie** (Templates) erzeugt für jeden Sensortyp eigenen Code, und der Compiler weiss genau, welche Funktion aufgerufen wird. Beide lösen dasselbe Problem mit unterschiedlichen Kosten.",
+      "begruendungen": [
+        "Richtig.",
+        "Beide Varianten sind korrekt.",
+        "Jeder Typ mit passender Funktion `lies()` funktioniert."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Drei Formen der Polymorphie",
+      "tabelle": {
+        "kopf": ["", "virtuell", "Template", "`std::variant`"],
+        "zeilen": [
+          ["entschieden", "zur Laufzeit", "beim Kompilieren", "zur Laufzeit, aus fester Liste"],
+          ["Kosten pro Aufruf", "indirekt, kein Inlining", "keine, Inlining möglich", "Verzweigung, Inlining möglich"],
+          ["neue Typen", "jederzeit, auch in Plugins", "jederzeit", "nur durch Ändern der Liste"],
+          ["verschiedene Typen in einem Container", "ja, über Zeiger", "nein", "ja, als Werte"],
+          ["Code im Header", "nein", "ja", "ja"],
+          ["Code-Grösse", "klein", "pro Typ eigener Code", "mittel"]
+        ]
+      },
+      "text": "Es gibt keinen Sieger. Die Anforderung entscheidet."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Welche Form passt zu welcher Anforderung?",
+      "paare": [
+        { "links": "Plugins werden zur Laufzeit aus Shared Libraries geladen", "rechts": "Virtuelle Funktionen" },
+        { "links": "Innere Schleife eines Signalfilters, der Typ steht beim Kompilieren fest", "rechts": "Templates" },
+        { "links": "Eine feste Auswahl von Nachrichtentypen soll als Werte in einem Vektor liegen", "rechts": "`std::variant`" },
+        { "links": "Ein Unit-Test soll eine Abhängigkeit zur Laufzeit gegen einen Mock tauschen", "rechts": "Virtuelle Funktionen (oder ein Template-Parameter im Test-Build)" }
+      ],
+      "erklaerung": "Ein häufiger Mittelweg: virtuelle Schnittstellen an Modulgrenzen, wo Austauschbarkeit wichtig ist, und Templates im Inneren von performancekritischen Algorithmen."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Welche Anforderung stellt diese Funktion an `Sensor`?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "template <typename Sensor>",
+          "double mittel(Sensor& s, int n) {",
+          "    double summe = 0;",
+          "    for (int i = 0; i < n; ++i) summe += s.lies();",
+          "    return summe / n;",
+          "}"
+        ]
+      },
+      "optionen": [
+        "Eine Memberfunktion `lies()`, deren Ergebnis sich zu `double` addieren lässt. Geprüft wird erst beim Instanziieren",
+        "`Sensor` muss von einer Basisklasse `ISensor` erben",
+        "`Sensor` muss ein eingebauter Typ wie `double` sein"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Templates prüfen nach dem Prinzip „passt es, dann geht es“ (*duck typing*). Die Anforderung steht nirgends ausdrücklich. Wer einen falschen Typ übergibt, bekommt einen Fehler tief im Inneren der Funktion. Genau das lösen Concepts.",
+      "begruendungen": [
+        "Richtig.",
+        "Eine gemeinsame Basisklasse ist für Templates nicht nötig.",
+        "Eingebaute Typen haben keine Memberfunktionen."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Concepts als Schnittstelle",
+      "text": "Ein **Concept** (C++20) beschreibt die Anforderungen ausdrücklich. Es übernimmt für Templates die Rolle, die bei virtuellen Funktionen die abstrakte Basisklasse spielt: eine dokumentierte, vom Compiler geprüfte Schnittstelle.",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "template <typename T>",
+          "concept Sensor = requires(T s) {",
+          "    { s.lies() } -> std::convertible_to<double>;",
+          "};",
+          "",
+          "template <Sensor S>",
+          "double mittel(S& s, int n);"
+        ],
+        "anmerkungen": [
+          { "zeile": 3, "text": "Anforderung: `s.lies()` muss gültig sein und etwas liefern, das sich in `double` umwandeln lässt." },
+          { "zeile": 6, "text": "Statt `typename` steht das Concept. Ein falscher Typ wird direkt beim Aufruf abgelehnt." }
+        ]
+      }
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze das Concept.",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "template <typename T>",
+          "concept Sensor = {{?}}(T s) {",
+          "    { s.lies() } -> std::{{?}}<double>;",
+          "};"
+        ]
+      },
+      "luecken": [{ "loesungen": ["requires"] }, { "loesungen": ["convertible_to"] }],
+      "auswahl": ["requires", "convertible_to", "same_as", "concept"],
+      "erklaerung": "`std::same_as<double>` wäre strenger: `lies()` müsste genau `double` liefern, ein `float` würde abgelehnt. Welche Variante richtig ist, hängt davon ab, was die Funktion wirklich braucht."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Wann passt `std::variant<CanNachricht, LinNachricht, EthNachricht>` besser als eine Klassenhierarchie?",
+      "optionen": [
+        "Wenn die Menge der Typen fest und bekannt ist und man die Nachrichten als Werte ohne Heap-Allokation in Containern halten will",
+        "Wenn Dritte später eigene Nachrichtentypen hinzufügen sollen",
+        "Nie, `std::variant` ist nur für Zahlen gedacht"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Ein `std::variant` ist so gross wie sein grösster Typ plus eine Kennung und liegt direkt im Vektor, ohne Zeiger, ohne Heap, cache-freundlich. Mit `std::visit` behandelt man alle Typen, und der Compiler meldet, wenn einer fehlt. Der Preis: Ein neuer Typ erfordert eine Änderung an der Liste und an allen Besuchern. Für Plugins und offene Erweiterung sind virtuelle Funktionen besser.",
+      "begruendungen": [
+        "Richtig.",
+        "Für offene Erweiterung sind virtuelle Funktionen besser.",
+        "Ein `std::variant` kann beliebige Typen enthalten."
+      ]
+    }
+  ],
+  "praxis": "Die Wahl der Polymorphie-Form ist eine der häufigsten Design-Entscheidungen in C++-Projekten und eine typische Diskussion im Review. Ein Senior begründet sie mit den Anforderungen: Muss zur Laufzeit gewechselt werden? Gibt es Plugins? Liegt der Code in einer heissen Schleife? Wie wichtig ist Kompilierzeit? Im Zweifel ist die einfachste lesbare Variante richtig, bis eine Messung etwas anderes zeigt.",
+  "labor": {
+    "titel": "Virtuell gegen Template messen",
+    "anleitung": "Schreibe einen Filter, der eine Million Werte von einem Sensor liest, einmal über `ISensor&` und einmal als Template. Vergleiche Laufzeit und erzeugten Code.",
+    "befehle": [
+      "g++ -std=c++20 -O2 polymorphie.cpp -o polymorphie && ./polymorphie",
+      "g++ -std=c++20 -O2 -S polymorphie.cpp -o - | grep -c 'call.*\\*'"
+    ],
+    "beobachtung": "Die Template-Variante ist bei trivialen `lies()`-Funktionen deutlich schneller, weil der Compiler die Schleife vollständig optimiert. Der zweite Befehl zählt indirekte Aufrufe im Assembler: Bei der virtuellen Variante bleibt einer pro Schleifendurchlauf."
+  },
+  "begriffe": [
+    { "begriff": "Dynamische Polymorphie", "englisch": "dynamic polymorphism", "erklaerung": "Die aufgerufene Funktion wird zur Laufzeit über die vtable bestimmt." },
+    { "begriff": "Statische Polymorphie", "englisch": "static polymorphism", "erklaerung": "Die aufgerufene Funktion steht beim Kompilieren fest, z. B. über Templates." },
+    { "begriff": "Duck Typing", "englisch": "duck typing", "erklaerung": "Ein Typ ist geeignet, wenn er die benutzten Operationen hat, ohne dass das ausdrücklich erklärt wird." }
+  ],
+  "weiterlesen": [
+    { "titel": "cppreference: std::visit", "url": "https://en.cppreference.com/w/cpp/utility/variant/visit" },
+    { "titel": "cppreference: Requires expression", "url": "https://en.cppreference.com/w/cpp/language/requires" }
+  ]
+}
