@@ -1,0 +1,157 @@
+{
+  "id": "p1-m6-l2",
+  "phase": 1,
+  "modul": "1.6 Build-Systeme",
+  "titel": "CMake: Targets und Sichtbarkeit",
+  "lernziele": [
+    "Erklären, warum CMake ein Generator für Build-Systeme ist",
+    "`PUBLIC`, `PRIVATE` und `INTERFACE` korrekt einsetzen",
+    "Typische Anti-Patterns in CMake-Dateien erkennen"
+  ],
+  "dauerMinuten": 7,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Was macht CMake eigentlich?",
+      "optionen": [
+        "Es erzeugt aus `CMakeLists.txt` Dateien für ein anderes Build-System, z. B. Ninja, Make oder Visual Studio",
+        "Es ist ein Compiler, der `CMakeLists.txt` in Maschinencode übersetzt",
+        "Es ersetzt den Linker durch einen schnelleren"
+      ],
+      "korrekt": 0,
+      "erklaerung": "CMake ist ein **Build-System-Generator**. In der Konfigurationsphase liest es `CMakeLists.txt`, findet Compiler und Abhängigkeiten und erzeugt z. B. `build.ninja`. Kompilieren tut danach Ninja oder Make, und die rufen wiederum `g++` auf.",
+      "begruendungen": [
+        "Richtig. Deshalb gibt es `cmake -G Ninja` und ähnliche Optionen.",
+        "CMake kompiliert nichts selbst.",
+        "Gelinkt wird weiterhin mit dem Linker der Toolchain."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Modernes CMake denkt in Targets",
+      "text": "Ein **Target** ist etwas, das gebaut wird: eine Bibliothek oder ein Programm. Einstellungen wie Include-Pfade, Compiler-Optionen und Abhängigkeiten hängen am Target, nicht an globalen Variablen.",
+      "code": {
+        "sprache": "cmake",
+        "datei": "CMakeLists.txt",
+        "zeilen": [
+          "cmake_minimum_required(VERSION 3.20)",
+          "project(Rechner LANGUAGES CXX)",
+          "",
+          "add_library(mathe src/vektor.cpp src/matrix.cpp)",
+          "target_include_directories(mathe PUBLIC include)",
+          "target_compile_features(mathe PUBLIC cxx_std_20)",
+          "",
+          "add_executable(rechner src/main.cpp)",
+          "target_link_libraries(rechner PRIVATE mathe)"
+        ],
+        "anmerkungen": [
+          { "zeile": 4, "text": "Eine Bibliothek als Target. Statisch oder dynamisch steuert `BUILD_SHARED_LIBS`." },
+          { "zeile": 5, "text": "`include/` gilt für `mathe` selbst **und** für alle, die `mathe` verwenden." },
+          { "zeile": 9, "text": "`rechner` erbt Include-Pfad und C++-Standard von `mathe` automatisch." }
+        ]
+      }
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Was bedeuten die Schlüsselwörter bei `target_link_libraries` und `target_include_directories`?",
+      "paare": [
+        { "links": "`PRIVATE`", "rechts": "Gilt nur für das Target selbst" },
+        { "links": "`PUBLIC`", "rechts": "Gilt für das Target und für alle, die es verwenden" },
+        { "links": "`INTERFACE`", "rechts": "Gilt nur für die Nutzer, nicht für das Target selbst" }
+      ],
+      "erklaerung": "Die Frage lautet immer: Taucht die Abhängigkeit in **meinen öffentlichen Headern** auf? Wenn ja, `PUBLIC`. Wenn nur in meinen `.cpp`-Dateien, `PRIVATE`. `INTERFACE` braucht man für Header-only-Bibliotheken, die selbst nichts kompilieren."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "`mathe` verwendet die Formatierungsbibliothek `fmt` nur in `src/matrix.cpp`. Die Header in `include/` binden `fmt` nicht ein. Wie verlinkst du?",
+      "optionen": [
+        "`target_link_libraries(mathe PRIVATE fmt::fmt)`",
+        "`target_link_libraries(mathe PUBLIC fmt::fmt)`",
+        "`target_link_libraries(mathe INTERFACE fmt::fmt)`"
+      ],
+      "korrekt": 0,
+      "fest": true,
+      "erklaerung": "`fmt` ist ein Implementierungsdetail von `mathe`. Mit `PRIVATE` müssen Nutzer von `mathe` nichts davon wissen. Ihre Include-Pfade bleiben schlank, und ein späterer Wechsel auf `std::format` betrifft nur `mathe`. Ist `mathe` eine statische Bibliothek, sorgt CMake trotzdem dafür, dass `fmt` beim Linken des Programms mitkommt.",
+      "begruendungen": [
+        "Richtig.",
+        "Das würde `fmt` allen Nutzern aufzwingen, obwohl sie es nicht brauchen.",
+        "Dann hätte `mathe` selbst keinen Zugriff auf `fmt`, und `matrix.cpp` würde nicht kompilieren."
+      ]
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "`include/mathe/matrix.h` enthält `#include <Eigen/Dense>`. Beim Bauen von `rechner` kommt `fatal error: Eigen/Dense: No such file or directory`. Welche Zeile ist falsch?",
+      "code": {
+        "sprache": "cmake",
+        "zeilen": [
+          "add_library(mathe src/matrix.cpp)",
+          "target_include_directories(mathe PUBLIC include)",
+          "target_link_libraries(mathe PRIVATE Eigen3::Eigen)",
+          "",
+          "add_executable(rechner src/main.cpp)",
+          "target_link_libraries(rechner PRIVATE mathe)"
+        ]
+      },
+      "fehlerZeile": 3,
+      "erklaerung": "Weil ein öffentlicher Header von `mathe` Eigen einbindet, braucht jeder Nutzer von `mathe` die Eigen-Include-Pfade. Mit `PRIVATE` bekommt sie nur `mathe` selbst. Richtig wäre `PUBLIC`. Noch besser wäre oft, Eigen ganz aus dem öffentlichen Header herauszuhalten, z. B. mit PIMPL (Phase 7)."
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze die beiden Befehle: Konfigurieren mit dem Generator Ninja in den Ordner `build`, dann bauen.",
+      "code": {
+        "sprache": "bash",
+        "zeilen": [
+          "cmake -S . -B build -G {{?}} -DCMAKE_BUILD_TYPE=Release",
+          "cmake --build {{?}}"
+        ]
+      },
+      "luecken": [{ "loesungen": ["Ninja"] }, { "loesungen": ["build"] }],
+      "auswahl": ["Ninja", "build", "src", "CMakeLists.txt"],
+      "erklaerung": "`-S` ist das Quellverzeichnis, `-B` das Build-Verzeichnis. Gebaut wird **out of source**: Alle erzeugten Dateien landen in `build/`, der Quellbaum bleibt sauber. `cmake --build` ruft das passende Build-Werkzeug auf, egal welcher Generator gewählt wurde."
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Build-Typen",
+      "text": "`CMAKE_BUILD_TYPE` wählt einen Satz Compiler-Optionen:\n\n- `Debug`: `-g`, keine Optimierung, zum Debuggen\n- `Release`: `-O3 -DNDEBUG`, schnell, `assert` abgeschaltet\n- `RelWithDebInfo`: `-O2 -g -DNDEBUG`, optimiert mit Debug-Infos. Gut für Profiling und Analyse von Abstürzen\n- `MinSizeRel`: `-Os -DNDEBUG`, möglichst klein\n\nMulti-Config-Generatoren wie Visual Studio oder `Ninja Multi-Config` wählen den Typ erst beim Bauen: `cmake --build build --config Release`."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Welche Zeilen würdest du in einem Code-Review einer modernen `CMakeLists.txt` beanstanden?",
+      "optionen": [
+        "`include_directories(${PROJECT_SOURCE_DIR}/include)`",
+        "`set(CMAKE_CXX_FLAGS \"${CMAKE_CXX_FLAGS} -O2 -Wall\")`",
+        "`file(GLOB SOURCES src/*.cpp)`",
+        "`target_link_libraries(app PRIVATE mathe)`"
+      ],
+      "korrekt": [0, 1, 2],
+      "erklaerung": "Die ersten beiden wirken global auf alle Targets und verstecken, wer was braucht. Besser sind `target_include_directories` und `target_compile_options`. `file(GLOB)` für Quelldateien rät die CMake-Dokumentation ab: Neue Dateien werden erst bemerkt, wenn jemand CMake neu ausführt. Die letzte Zeile ist genau richtig.",
+      "begruendungen": [
+        "Global statt pro Target, gehört beanstandet.",
+        "Globale Flags überschreiben Build-Typen und gelten für alles, auch für Abhängigkeiten.",
+        "Die Quellen besser explizit auflisten. `CONFIGURE_DEPENDS` mildert das Problem, beseitigt es aber nicht für jeden Generator.",
+        "Vorbildlich: Target-basiert und mit passender Sichtbarkeit."
+      ]
+    }
+  ],
+  "praxis": "Grosse C++-Projekte haben hunderte `CMakeLists.txt`. Wenn ein Include-Pfad „irgendwie“ fehlt oder ein Modul zu viel sieht, liegt es fast immer an falsch gewählten `PUBLIC`/`PRIVATE`-Angaben. Im Review prüfst du: Taucht diese Abhängigkeit in einem öffentlichen Header auf? Saubere Sichtbarkeiten sind übrigens auch Architektur. Sie machen sichtbar, welches Modul wovon abhängt.",
+  "labor": {
+    "titel": "Ein CMake-Projekt aufsetzen",
+    "anleitung": "Baue das Beispiel aus der Lektion mit Ordnern `include/`, `src/` und schau dir an, was CMake erzeugt.",
+    "befehle": [
+      "cmake -S . -B build -G Ninja -DCMAKE_EXPORT_COMPILE_COMMANDS=ON",
+      "cmake --build build --verbose",
+      "head -20 build/compile_commands.json",
+      "cmake --build build --target help"
+    ],
+    "beobachtung": "Mit `--verbose` siehst du die echten `g++`-Aufrufe inklusive `-I` für `include/`. `compile_commands.json` brauchen Werkzeuge wie clang-tidy und die Code-Vervollständigung deiner IDE."
+  },
+  "begriffe": [
+    { "begriff": "Build-System-Generator", "englisch": "build system generator", "erklaerung": "Werkzeug wie CMake, das Dateien für ein anderes Build-System (Ninja, Make, Visual Studio) erzeugt." },
+    { "begriff": "Target", "englisch": "target", "erklaerung": "In CMake eine Bibliothek oder ein Programm, an dem Einstellungen und Abhängigkeiten hängen." },
+    { "begriff": "Out-of-Source-Build", "englisch": "out-of-source build", "erklaerung": "Alle erzeugten Dateien landen in einem eigenen Verzeichnis, getrennt vom Quellcode." }
+  ],
+  "weiterlesen": [
+    { "titel": "CMake: cmake-buildsystem(7)", "url": "https://cmake.org/cmake/help/latest/manual/cmake-buildsystem.7.html" },
+    { "titel": "CMake: target_link_libraries", "url": "https://cmake.org/cmake/help/latest/command/target_link_libraries.html" }
+  ]
+}

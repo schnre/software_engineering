@@ -1,0 +1,178 @@
+{
+  "id": "p4-m4-l1",
+  "phase": 4,
+  "modul": "4.4 Performance verstehen",
+  "titel": "Caches und Datenlayout",
+  "lernziele": [
+    "Die Speicherhierarchie und ihre Grössenordnungen kennen",
+    "Zugriffsmuster nach ihrer Cache-Freundlichkeit beurteilen",
+    "Padding und False Sharing erkennen"
+  ],
+  "dauerMinuten": 7,
+  "schritte": [
+    {
+      "typ": "code-lesen",
+      "frage": "Beide Varianten summieren dieselbe 4096 × 4096-Matrix. Welche ist schneller?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "constexpr int N = 4096;",
+          "static int m[N][N];",
+          "long summe = 0;",
+          "",
+          "// Variante A",
+          "for (int i = 0; i < N; ++i)",
+          "    for (int j = 0; j < N; ++j) summe += m[i][j];",
+          "",
+          "// Variante B",
+          "for (int j = 0; j < N; ++j)",
+          "    for (int i = 0; i < N; ++i) summe += m[i][j];"
+        ]
+      },
+      "optionen": [
+        "A, oft um ein Vielfaches",
+        "B, weil die äussere Schleife über die Spalten läuft",
+        "Beide gleich schnell, sie machen dieselbe Anzahl Additionen"
+      ],
+      "korrekt": 0,
+      "fest": true,
+      "erklaerung": "In C++ liegen Zeilen eines Arrays hintereinander im Speicher (*row-major*). A liest also fortlaufend, B springt bei jedem Zugriff 16 KB weiter. Bei A nutzt jede geladene Cache-Zeile 16 Werte, und der Prozessor kann vorausladen. Bei B wird pro Wert eine neue Zeile geladen. Gleich viele Rechenschritte, aber völlig unterschiedlich viele Speicherzugriffe.",
+      "begruendungen": [
+        "Richtig. Typisch sind Faktoren von 5 bis 10.",
+        "Genau umgekehrt: B springt im Speicher.",
+        "Die Rechenarbeit ist gleich, die Speicherzugriffe nicht."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Die Speicherhierarchie",
+      "text": "Die CPU rechnet viel schneller, als der Hauptspeicher liefern kann. Dazwischen liegen **Caches**, die Daten in Blöcken von meist 64 Byte laden, den **Cache-Zeilen** (cache lines). Wer fortlaufend auf Speicher zugreift, bekommt die Folgedaten gratis mit. Ausserdem erkennt der Prozessor das Muster und lädt voraus (*prefetching*).",
+      "tabelle": {
+        "kopf": ["Ebene", "typische Grösse", "Zugriffszeit"],
+        "zeilen": [
+          ["L1-Cache", "32–64 KB pro Kern", "~1 ns"],
+          ["L2-Cache", "0,5–2 MB pro Kern", "~4 ns"],
+          ["L3-Cache", "8–64 MB geteilt", "~10–20 ns"],
+          ["Hauptspeicher", "GB", "~80–100 ns"]
+        ]
+      }
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Ordne die Grössenordnungen zu. Die Werte sind gerundete Richtwerte.",
+      "paare": [
+        { "links": "Zugriff auf den L1-Cache", "rechts": "~1 ns" },
+        { "links": "Zugriff auf den Hauptspeicher", "rechts": "~100 ns" },
+        { "links": "Zufälliger Lesezugriff auf eine SSD", "rechts": "~10–100 µs" },
+        { "links": "Netzwerk-Roundtrip im selben Rechenzentrum", "rechts": "~0,5 ms" }
+      ],
+      "erklaerung": "Zwischen L1 und Hauptspeicher liegt Faktor 100, zwischen Hauptspeicher und SSD noch einmal Faktor 100 bis 1000. Wer diese Grössenordnungen im Kopf hat, kann schon im Design abschätzen, wo ein System Zeit verlieren wird."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Du iterierst über eine Million Objekte. Welcher Container ist dafür meist am schnellsten?",
+      "optionen": [
+        "`std::vector<Objekt>`",
+        "`std::list<Objekt>`",
+        "`std::vector<std::unique_ptr<Objekt>>`"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Nur im `std::vector<Objekt>` liegen die Objekte direkt hintereinander. Bei `std::list` und bei einem Vektor von Zeigern ist jedes Objekt einzeln auf dem Heap verstreut, und fast jeder Schritt kostet einen Cache-Miss. Darum ist `std::vector` in der Praxis oft selbst dann schneller, wenn eine Liste theoretisch die bessere Komplexität hätte, etwa beim Einfügen in der Mitte.",
+      "begruendungen": [
+        "Richtig.",
+        "Jeder Knoten liegt woanders im Speicher. Das ist für die CPU der schlechteste Fall.",
+        "Die Zeiger liegen hintereinander, die Objekte selbst nicht."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Datenlayout",
+      "text": "- **Padding**: Der Compiler richtet Member nach ihrer Grösse aus und füllt Lücken auf. Wer Member nach absteigender Grösse ordnet, spart oft Platz und damit Cache.\n- **AoS vs. SoA**: Ein Array von Strukturen (*array of structs*) ist bequem. Braucht eine Schleife aber nur ein Feld, lädt sie alle anderen unnötig mit. Eine Struktur von Arrays (*struct of arrays*) legt jedes Feld in einen eigenen Vektor.\n- **False Sharing**: Zwei Threads schreiben auf **verschiedene** Variablen, die zufällig in **derselben** Cache-Zeile liegen. Die Zeile wandert ständig zwischen den Kernen hin und her, obwohl logisch nichts geteilt wird."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Was gibt dieser Code auf einem typischen 64-Bit-System aus?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "struct A { char a; double b; char c; };",
+          "struct B { double b; char a; char c; };",
+          "",
+          "std::cout << sizeof(A) << ' ' << sizeof(B);"
+        ]
+      },
+      "optionen": ["`24 16`", "`10 10`", "`16 16`", "`24 24`"],
+      "korrekt": 0,
+      "fest": true,
+      "erklaerung": "In `A` muss `b` auf 8 Byte ausgerichtet sein: 1 Byte `a`, 7 Byte Lücke, 8 Byte `b`, 1 Byte `c`, 7 Byte Auffüllung bis zum nächsten Vielfachen von 8 = 24. In `B` stehen die beiden `char` direkt hinter `b`: 8 + 1 + 1 + 6 Auffüllung = 16. Gleiche Daten, ein Drittel weniger Speicher.",
+      "begruendungen": [
+        "Richtig.",
+        "Ohne Ausrichtung wären es 10, aber `double` muss ausgerichtet sein.",
+        "In `A` erzwingt die Lage von `b` eine Lücke vorne und eine hinten.",
+        "In `B` passen die beiden `char` in die Auffüllung nach `b`."
+      ]
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Thread 1 erhöht ständig `z.a`, Thread 2 ständig `z.b`. Das Programm ist mit zwei Threads langsamer als mit einem. Warum?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "struct Zaehler {",
+          "    std::atomic<long> a;",
+          "    std::atomic<long> b;",
+          "};"
+        ]
+      },
+      "optionen": [
+        "False Sharing: `a` und `b` liegen in derselben Cache-Zeile, die zwischen den Kernen hin- und herwandert",
+        "`std::atomic` ist grundsätzlich zu langsam für Zähler",
+        "Zwei Threads können nie schneller sein als einer"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Die beiden Zähler liegen 8 Byte auseinander, also in einer 64-Byte-Zeile. Jeder Schreibzugriff eines Kerns macht die Zeile im Cache des anderen ungültig. Logisch teilen die Threads nichts, physisch alles.",
+      "begruendungen": [
+        "Richtig.",
+        "Ohne gemeinsame Cache-Zeile wären die beiden Atomics nahezu so schnell wie normale Variablen.",
+        "Mit getrennten Cache-Zeilen skaliert dieser Code gut."
+      ]
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze die Lösung: Jeder Zähler bekommt eine eigene Cache-Zeile.",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "struct Zaehler {",
+          "    alignas({{?}}) std::atomic<long> a;",
+          "    alignas({{?}}) std::atomic<long> b;",
+          "};"
+        ]
+      },
+      "luecken": [{ "loesungen": ["64"] }, { "loesungen": ["64"] }],
+      "auswahl": ["64", "64", "8", "4096"],
+      "erklaerung": "64 Byte ist die Cache-Zeilengrösse der meisten x86- und ARM-Prozessoren. Portabler ist `std::hardware_destructive_interference_size` aus `<new>`, das allerdings nicht jede Standardbibliothek gleich gut unterstützt. Der Preis: Die Struktur wird 128 statt 16 Byte gross. Das lohnt sich nur bei stark umkämpften Variablen."
+    }
+  ],
+  "praxis": "Bei Performance-Problemen in Schleifen über grosse Datenmengen ist das Speicherlayout fast immer wichtiger als die Rechenoperationen selbst. Im Design fragst du: Welche Daten werden zusammen gelesen? Liegen sie zusammen? Im Review: Werden riesige Objekte mit `std::list` oder Vektoren von `unique_ptr` verwaltet, obwohl ein einfacher `std::vector` genügen würde?",
+  "labor": {
+    "titel": "Den Cache messen",
+    "anleitung": "Miss die beiden Varianten der Matrixsumme und zähle die Cache-Misses.",
+    "befehle": [
+      "g++ -O2 matrix.cpp -o matrix && ./matrix",
+      "perf stat -e cycles,instructions,cache-misses,L1-dcache-load-misses ./matrix A",
+      "perf stat -e cycles,instructions,cache-misses,L1-dcache-load-misses ./matrix B"
+    ],
+    "beobachtung": "Die Anzahl Instruktionen ist fast gleich, die Cache-Misses unterscheiden sich um Grössenordnungen, und mit ihnen die Laufzeit. `perf` gibt es unter Linux im Paket `linux-tools` bzw. `perf`."
+  },
+  "begriffe": [
+    { "begriff": "Cache-Zeile", "englisch": "cache line", "erklaerung": "Kleinste Einheit, die zwischen Hauptspeicher und Cache übertragen wird, meist 64 Byte." },
+    { "begriff": "Cache-Miss", "englisch": "cache miss", "erklaerung": "Die benötigten Daten liegen nicht im Cache und müssen aus einer langsameren Ebene geladen werden." },
+    { "begriff": "Padding", "englisch": "padding", "erklaerung": "Füllbytes, die der Compiler zur Ausrichtung von Membern einfügt." },
+    { "begriff": "False Sharing", "englisch": "false sharing", "erklaerung": "Verschiedene Threads schreiben auf verschiedene Variablen in derselben Cache-Zeile und bremsen sich gegenseitig." }
+  ],
+  "weiterlesen": [
+    { "titel": "Ulrich Drepper: What Every Programmer Should Know About Memory", "url": "https://people.freebsd.org/~lstewart/articles/cpumemory.pdf" },
+    { "titel": "cppreference: std::hardware_destructive_interference_size", "url": "https://en.cppreference.com/w/cpp/thread/hardware_destructive_interference_size" }
+  ]
+}

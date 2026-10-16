@@ -1,0 +1,144 @@
+{
+  "id": "p5-m2-l1",
+  "phase": 5,
+  "modul": "5.2 Pipeline-Stufen und Quality Gates",
+  "titel": "Build, Analyse, Tests, Packaging",
+  "lernziele": [
+    "Die Stufen einer C++-Pipeline und ihren Zweck kennen",
+    "Eine Build-Matrix lesen",
+    "Ein Artefakt eindeutig versionieren"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Warum laufen in einer Pipeline die schnellen Prüfungen wie Formatierung und Kompilieren zuerst?",
+      "optionen": [
+        "Damit offensichtliche Fehler nach Sekunden auffallen, statt erst nach einer halben Stunde Systemtests",
+        "Weil langsame Prüfungen sonst nicht starten können",
+        "Weil Jenkins die Stufen alphabetisch sortiert"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Das Prinzip heisst **fail fast**: billige Prüfungen zuerst, teure zuletzt. Ein Tippfehler soll nicht erst nach 30 Minuten Hardware-Test auffallen. Unabhängige Prüfungen laufen ausserdem **parallel**.",
+      "begruendungen": [
+        "Richtig.",
+        "Technisch könnten sie auch zuerst laufen, es wäre nur verschwenderisch.",
+        "Die Reihenfolge legst du selbst fest."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Typische Stufen einer C++-Pipeline",
+      "text": "- **Checkout**: genau den Commit holen, der geprüft wird.\n- **Build**, oft als **Matrix**: mehrere Compiler, Plattformen und Build-Typen.\n- **Statische Analyse**: Format (`clang-format`), `clang-tidy`, Warnungen als Fehler.\n- **Unit-Tests**, dazu Jobs mit Sanitizern (ASan/UBSan, TSan).\n- **Integrationstests**, z. B. auf Hardware-Prüfständen.\n- **Packaging**: ein versioniertes Artefakt mit Prüfsumme und Liste der enthaltenen Abhängigkeiten (SBOM), abgelegt in einem Artefakt-Speicher.\n\nCaches für Abhängigkeiten und `ccache` halten die Laufzeit kurz. Ziel für Pull Requests: unter zehn Minuten."
+    },
+    {
+      "typ": "reihenfolge",
+      "frage": "Bringe die Stufen in eine sinnvolle Reihenfolge.",
+      "elemente": [
+        "Checkout",
+        "Build",
+        "Statische Analyse und Unit-Tests",
+        "Integrationstests",
+        "Packaging und Ablage des Artefakts"
+      ],
+      "erklaerung": "Statische Analyse und Unit-Tests können parallel laufen. Integrationstests brauchen oft das gebaute Programm und teure Ressourcen wie Prüfstände. Gepackt wird erst, wenn alles grün ist."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Wofür ist welche Stufe da?",
+      "paare": [
+        { "links": "Build-Matrix", "rechts": "Baut mit mehreren Compilern und Plattformen, um Portabilitätsprobleme früh zu sehen" },
+        { "links": "Sanitizer-Job", "rechts": "Führt die Tests mit ASan und UBSan aus und findet Speicherfehler" },
+        { "links": "Packaging", "rechts": "Erzeugt ein versioniertes, auslieferbares Artefakt" },
+        { "links": "SBOM", "rechts": "Liste aller enthaltenen Abhängigkeiten mit Versionen" }
+      ],
+      "erklaerung": "Eine **Software Bill of Materials** (SBOM) wird zunehmend vorgeschrieben, z. B. durch den Cyber Resilience Act der EU. Wird in einer Bibliothek eine Sicherheitslücke bekannt, sieht man sofort, welche ausgelieferten Versionen betroffen sind."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Wie viele Jobs erzeugt diese Matrix in GitHub Actions?",
+      "code": {
+        "sprache": "yaml",
+        "zeilen": [
+          "strategy:",
+          "  matrix:",
+          "    compiler: [gcc-13, clang-17]",
+          "    build_type: [Debug, Release]",
+          "    include:",
+          "      - compiler: clang-17",
+          "        build_type: Debug",
+          "        sanitize: true"
+        ]
+      },
+      "optionen": ["4", "5", "2"],
+      "korrekt": 0,
+      "fest": true,
+      "erklaerung": "2 Compiler × 2 Build-Typen = 4 Kombinationen. Der `include`-Eintrag passt genau zu einer bestehenden Kombination (clang-17, Debug) und ergänzt dort nur das Feld `sanitize`. Er erzeugt keinen neuen Job. Erst ein `include`, das zu keiner Kombination passt, würde einen fünften Job anlegen.",
+      "begruendungen": [
+        "Richtig.",
+        "Das `include` passt zu einer bestehenden Kombination und ergänzt sie nur.",
+        "Die Werte der beiden Achsen werden miteinander kombiniert."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Schnell bleiben",
+      "text": "Eine Pipeline, die eine Stunde braucht, wird umgangen. Die wichtigsten Hebel:\n\n- **ccache** oder ein Remote-Cache für Compiler-Ergebnisse\n- Abhängigkeiten zwischenspeichern (Conan-/vcpkg-Cache, vorgebaute Docker-Images mit Toolchain)\n- Jobs **parallel** statt nacheinander\n- Artefakte zwischen Stufen weitergeben statt neu zu bauen\n- lange Tests (Hardware, Fuzzing, Langzeittests) nachts statt bei jedem Pull Request"
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Was muss ein ausgeliefertes Artefakt unbedingt haben?",
+      "optionen": [
+        "Eine eindeutige Version, die auf den Commit zurückführt, und eine Prüfsumme",
+        "Einen Dateinamen mit dem Datum des Builds",
+        "Eine möglichst kleine Dateigrösse"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Meldet ein Kunde einen Fehler in „Version 2.4.1“, muss eindeutig sein, aus welchem Commit diese Version gebaut wurde und welche Abhängigkeiten sie enthält. Die Prüfsumme (z. B. SHA-256) beweist, dass die Datei unterwegs nicht verändert wurde. Oft kommt eine digitale Signatur hinzu.",
+      "begruendungen": [
+        "Richtig.",
+        "Ein Datum sagt nicht, welcher Code enthalten ist, und zwei Builds am selben Tag wären nicht unterscheidbar.",
+        "Die Grösse ist zweitrangig."
+      ]
+    },
+    {
+      "typ": "terminal-deuten",
+      "frage": "Ein Build-Skript übernimmt diese Ausgabe als Versionsnummer. Was sagt sie?",
+      "terminal": {
+        "befehl": "git describe --tags --dirty",
+        "ausgabe": ["v2.4.0-17-g3f9c2ab-dirty"]
+      },
+      "optionen": [
+        "17 Commits nach dem Tag `v2.4.0`, aktueller Commit `3f9c2ab`, mit nicht committeten Änderungen im Arbeitsverzeichnis",
+        "Version 2.4.0, Build Nummer 17",
+        "Der Tag `v2.4.0` ist beschädigt"
+      ],
+      "korrekt": 0,
+      "erklaerung": "`git describe` beschreibt einen Commit relativ zum letzten Tag. `-dirty` heisst: Es gibt lokale Änderungen, die in keinem Commit stehen. Ein solches Artefakt ist nicht reproduzierbar. Release-Pipelines sollten bei `-dirty` deshalb abbrechen.",
+      "begruendungen": [
+        "Richtig. Das `g` vor dem Hash steht für Git.",
+        "17 ist die Anzahl Commits seit dem Tag, keine Build-Nummer.",
+        "Der Tag ist in Ordnung."
+      ]
+    }
+  ],
+  "praxis": "Eine gute Pipeline ist schnell, zuverlässig und lückenlos rückverfolgbar. Wenn du eine neue aufsetzt oder eine bestehende übernimmst, prüfe: Wird das Artefakt genau einmal gebaut? Trägt es eine eindeutige Version aus Git? Laufen Sanitizer und statische Analyse? Wie lange dauert ein Pull Request? Wo verschwindet die meiste Zeit?",
+  "labor": {
+    "titel": "Version aus Git ins Binary",
+    "anleitung": "Lass CMake beim Konfigurieren `git describe` ausführen und die Version als Makro an den Compiler geben. Gib sie im Programm mit `--version` aus.",
+    "befehle": [
+      "git tag v0.1.0 && git commit --allow-empty -m 'Test' && git describe --tags --dirty",
+      "cmake -S . -B build && cmake --build build && ./build/app --version"
+    ],
+    "beobachtung": "In CMake z. B.: `execute_process(COMMAND git describe --tags --dirty OUTPUT_VARIABLE VERSION OUTPUT_STRIP_TRAILING_WHITESPACE)` und `target_compile_definitions(app PRIVATE APP_VERSION=\"${VERSION}\")`. Achtung: Die Version wird nur beim Konfigurieren aktualisiert."
+  },
+  "begriffe": [
+    { "begriff": "Fail fast", "englisch": "fail fast", "erklaerung": "Schnelle Prüfungen zuerst, damit Fehler früh und günstig auffallen." },
+    { "begriff": "Build-Matrix", "englisch": "build matrix", "erklaerung": "Derselbe Build in mehreren Kombinationen aus Compiler, Plattform und Build-Typ." },
+    { "begriff": "SBOM", "englisch": "software bill of materials", "erklaerung": "Stückliste einer Software: alle enthaltenen Komponenten mit Versionen und Lizenzen." }
+  ],
+  "weiterlesen": [
+    { "titel": "GitHub Docs: Using a matrix for your jobs", "url": "https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs" },
+    { "titel": "Git: git-describe", "url": "https://git-scm.com/docs/git-describe" }
+  ]
+}

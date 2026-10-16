@@ -1,0 +1,148 @@
+{
+  "id": "p4-m4-l3",
+  "phase": 4,
+  "modul": "4.4 Performance verstehen",
+  "titel": "Kopien und Allokationen vermeiden",
+  "lernziele": [
+    "Teure Kopien und Allokationen im Code erkennen",
+    "`reserve`, `emplace_back` und `string_view` gezielt einsetzen",
+    "Abwägen, wann sich solche Optimierungen lohnen"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "code-lesen",
+      "frage": "Was beschleunigt diesen Code am einfachsten?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "std::vector<std::string> namen;",
+          "for (int i = 0; i < 100'000; ++i) {",
+          "    namen.push_back(erzeugeName(i));",
+          "}"
+        ]
+      },
+      "optionen": [
+        "Vor der Schleife `namen.reserve(100'000);` aufrufen",
+        "`std::list` statt `std::vector` verwenden",
+        "`std::shared_ptr<std::string>` speichern"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Ohne `reserve` wächst der Vektor schrittweise. Jedes Mal, wenn die Kapazität erschöpft ist, legt er einen grösseren Block an und verschiebt alle Elemente dorthin. Mit `reserve` gibt es genau eine Allokation für den Vektor selbst.",
+      "begruendungen": [
+        "Richtig.",
+        "Eine Liste braucht eine Allokation pro Element und ist beim Durchlaufen viel langsamer.",
+        "Das fügt pro Element eine weitere Allokation und einen Referenzzähler hinzu."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Was Allokationen kosten",
+      "text": "Jedes `new` und jedes Wachsen eines Containers fragt den Allokator. Das kostet Zeit (oft Dutzende bis Hunderte Nanosekunden, mit Sperren bei mehreren Threads), verstreut Daten im Speicher und erhöht die Fragmentierung.\n\nEin `std::vector` wächst geometrisch, meist um Faktor 1,5 oder 2. Dadurch bleibt `push_back` im Mittel schnell, aber bei bekannter Grösse spart `reserve` alle Umzüge. Kurze Strings verursachen dank **Small String Optimization** (SSO) oft gar keine Allokation: Sie werden direkt im `std::string`-Objekt gespeichert."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Welche Alternative vermeidet die unnötigen Kosten?",
+      "paare": [
+        { "links": "Parameter `std::string s`, der nur gelesen wird", "rechts": "`std::string_view` oder `const std::string&`" },
+        { "links": "`for (auto x : grosseObjekte)`", "rechts": "`for (const auto& x : grosseObjekte)`" },
+        { "links": "Ein Vektor wächst Element für Element auf bekannte Grösse", "rechts": "Vorher `reserve()` aufrufen" },
+        { "links": "`std::map` mit wenigen, häufig gelesenen Einträgen", "rechts": "Sortierter `std::vector` oder `std::flat_map` (C++23)" }
+      ],
+      "erklaerung": "`std::map` legt jeden Eintrag als eigenen Baumknoten auf dem Heap an. Bei wenigen hundert Einträgen ist eine Suche in einem sortierten, zusammenhängenden Vektor oft deutlich schneller, obwohl beide logarithmische Komplexität haben."
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Diese Funktion ist korrekt, kopiert aber unnötig viel. Welche Zeile?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "double summeMittelwerte(const std::vector<Messreihe>& reihen) {",
+          "    double s = 0;",
+          "    for (auto r : reihen) {",
+          "        s += r.mittelwert();",
+          "    }",
+          "    return s;",
+          "}"
+        ]
+      },
+      "fehlerZeile": 3,
+      "erklaerung": "`auto r` kopiert jede `Messreihe`, samt aller enthaltenen Messwerte. Mit `const auto& r` wird nur gelesen. clang-tidy erkennt das mit `performance-for-range-copy`. Bei `int` oder kleinen Strukturen ist die Kopie dagegen in Ordnung und manchmal sogar schneller."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Welche der beiden Variablen fordert typischerweise Heap-Speicher an?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "std::string a = \"kurz\";",
+          "std::string b = \"dieser Text ist deutlich länger als fünfzehn Zeichen\";"
+        ]
+      },
+      "optionen": ["Typischerweise nur `b`", "Beide", "Keine von beiden"],
+      "korrekt": 0,
+      "fest": true,
+      "erklaerung": "Mit SSO passen bei libstdc++ bis zu 15 Zeichen, bei libc++ bis zu 22 Zeichen direkt ins String-Objekt. Der Standard schreibt SSO nicht vor, aber alle verbreiteten Implementierungen nutzen sie. `a` braucht also keinen Heap, `b` schon.",
+      "begruendungen": [
+        "Richtig.",
+        "Kurze Strings kommen dank SSO ohne Heap aus.",
+        "Der lange Text passt in keine SSO-Implementierung."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Weitere Gewohnheiten",
+      "text": "- `emplace_back(args...)` baut das Element direkt im Container, statt erst ein Temporärobjekt zu erzeugen und zu verschieben.\n- Strings in Schleifen mit `+=` zusammensetzen und vorher `reserve` aufrufen, statt immer neue Strings mit `+` zu erzeugen.\n- `std::endl` erzwingt bei jeder Zeile ein Leeren des Puffers. `'\\n'` ist bei vielen Ausgaben deutlich schneller.\n- Parameter, die gespeichert werden (*sink parameters*), per Wert nehmen und dann mit `std::move` ablegen."
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze: Platz für 1000 Punkte vorab reservieren, dann einen Punkt direkt im Vektor erzeugen.",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "std::vector<Punkt> punkte;",
+          "punkte.{{?}}(1000);",
+          "punkte.{{?}}(1.0, 2.0);"
+        ]
+      },
+      "luecken": [{ "loesungen": ["reserve"] }, { "loesungen": ["emplace_back"] }],
+      "auswahl": ["reserve", "emplace_back", "resize", "push_back"],
+      "erklaerung": "`reserve` ändert nur die Kapazität, die Grösse bleibt 0. `resize(1000)` würde dagegen 1000 Punkte anlegen, und der neue Punkt käme an Position 1000. `push_back(1.0, 2.0)` kompiliert nicht: `push_back` nimmt ein fertiges Objekt, `emplace_back` die Argumente für dessen Konstruktor."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Wann solltest du solche Optimierungen anwenden?",
+      "optionen": [
+        "Günstige Gewohnheiten wie `const auto&` und `reserve` immer. Aufwendigere Umbauten nur dort, wo der Profiler einen Hotspot zeigt",
+        "Überall und sofort, jede gesparte Allokation zählt",
+        "Nie, der Compiler optimiert das ohnehin weg"
+      ],
+      "korrekt": 0,
+      "erklaerung": "„Premature optimization is the root of all evil“ heisst nicht, dass man achtlos sein darf. Es heisst: keine aufwendigen, schwer lesbaren Optimierungen ohne Messung. Einfache, idiomatische Varianten, die gleich gut lesbar sind, nimmt man dagegen immer.",
+      "begruendungen": [
+        "Richtig.",
+        "Aufwendige Optimierungen ohne Messung machen Code komplizierter und bringen oft nichts.",
+        "Der Compiler darf Kopien von Objekten mit Seiteneffekten (z. B. Allokationen) meist nicht entfernen."
+      ]
+    }
+  ],
+  "praxis": "Die Muster aus dieser Lektion gehören zu den häufigsten Review-Kommentaren in C++-Projekten, und clang-tidy findet viele davon automatisch (`performance-*`). Bei echten Performance-Problemen zeigt heaptrack oft überraschend viele kleine Allokationen in einer einzigen Schleife. Sie zu beseitigen, ist meist einfacher und wirksamer als jede Mikrooptimierung der Rechenschritte.",
+  "labor": {
+    "titel": "Allokationen zählen",
+    "anleitung": "Ersetze in einem Testprogramm den globalen `operator new` durch eine Version, die mitzählt, und vergleiche den Vektor mit und ohne `reserve`.",
+    "befehle": [
+      "g++ -std=c++20 -O2 allokationen.cpp -o allokationen && ./allokationen",
+      "heaptrack ./allokationen && heaptrack_print heaptrack.allokationen.*.zst | head -30"
+    ],
+    "beobachtung": "Ohne `reserve` siehst du für 100 000 Elemente etwa 18 Allokationen für den Vektor selbst (Faktor 2) plus eine pro langem String. Mit `reserve` bleibt für den Vektor genau eine übrig."
+  },
+  "begriffe": [
+    { "begriff": "Small String Optimization", "englisch": "small string optimization, SSO", "erklaerung": "Kurze Strings werden direkt im String-Objekt gespeichert, ohne Heap-Allokation." },
+    { "begriff": "Kapazität", "englisch": "capacity", "erklaerung": "Anzahl Elemente, für die ein Vektor bereits Speicher hat. Kann grösser sein als die Grösse (`size`)." },
+    { "begriff": "Sink-Parameter", "englisch": "sink parameter", "erklaerung": "Parameter, dessen Wert die Funktion übernimmt und speichert. Wird per Wert übergeben und dann verschoben." }
+  ],
+  "weiterlesen": [
+    { "titel": "cppreference: std::vector::reserve", "url": "https://en.cppreference.com/w/cpp/container/vector/reserve" },
+    { "titel": "C++ Core Guidelines: Per – Performance", "url": "https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#S-performance" }
+  ]
+}

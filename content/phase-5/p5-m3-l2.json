@@ -1,0 +1,191 @@
+{
+  "id": "p5-m3-l2",
+  "phase": 5,
+  "modul": "5.3 Jenkins",
+  "titel": "Das Jenkinsfile",
+  "lernziele": [
+    "Eine Declarative Pipeline lesen und schreiben",
+    "`post`, `when` und `parallel` einsetzen",
+    "Zugangsdaten sicher verwenden"
+  ],
+  "dauerMinuten": 7,
+  "schritte": [
+    {
+      "typ": "code-lesen",
+      "frage": "Die Stage `Build` schlägt fehl. Was passiert danach?",
+      "code": {
+        "sprache": "groovy",
+        "datei": "Jenkinsfile",
+        "zeilen": [
+          "pipeline {",
+          "    agent { label 'linux' }",
+          "    stages {",
+          "        stage('Build') {",
+          "            steps {",
+          "                sh 'cmake -S . -B build -G Ninja'",
+          "                sh 'cmake --build build'",
+          "            }",
+          "        }",
+          "        stage('Test') {",
+          "            steps { sh 'ctest --test-dir build --output-junit test-results.xml' }",
+          "        }",
+          "    }",
+          "    post {",
+          "        always  { junit allowEmptyResults: true, testResults: 'build/test-results.xml' }",
+          "        failure { echo 'Build fehlgeschlagen' }",
+          "    }",
+          "}"
+        ]
+      },
+      "optionen": [
+        "`Test` wird übersprungen, danach laufen `always` und `failure` aus dem `post`-Block",
+        "`Test` läuft trotzdem, danach `always`",
+        "Die Pipeline bricht sofort ab, `post` läuft nicht"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Schlägt ein `sh`-Schritt fehl (Exit-Code ungleich 0), bricht die Stage ab, und alle folgenden Stages werden übersprungen. Der `post`-Block läuft aber immer am Ende und wählt die passenden Bedingungen aus, hier `always` und `failure`.",
+      "begruendungen": [
+        "Richtig.",
+        "Nach einem Fehlschlag laufen die folgenden Stages nicht.",
+        "Genau dafür gibt es `post`: Es läuft auch nach Fehlern."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Aufbau einer Declarative Pipeline",
+      "text": "- `pipeline { }`: der äussere Rahmen\n- `agent`: wo die Pipeline läuft (oder pro Stage)\n- `environment { }`: Umgebungsvariablen\n- `options { }`: z. B. `timeout(time: 30, unit: 'MINUTES')`, `timestamps()`\n- `stages { stage('Name') { steps { … } } }`: die eigentliche Arbeit\n- `post { }`: Aufräumen und Melden nach Ergebnis\n- `when { }`: Bedingung, ob eine Stage läuft\n- `parallel { }`: Stages gleichzeitig ausführen\n\nDie feste Struktur erlaubt Jenkins, die Pipeline vor dem Start zu prüfen und die Stages übersichtlich anzuzeigen."
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze die Stage und den `post`-Block.",
+      "code": {
+        "sprache": "groovy",
+        "zeilen": [
+          "stage('Test') {",
+          "    {{?}} {",
+          "        sh 'ctest --test-dir build --output-junit test-results.xml'",
+          "    }",
+          "}",
+          "...",
+          "post {",
+          "    {{?}} { junit testResults: 'build/test-results.xml' }",
+          "}"
+        ]
+      },
+      "luecken": [{ "loesungen": ["steps"] }, { "loesungen": ["always"] }],
+      "auswahl": ["steps", "always", "success", "script"],
+      "erklaerung": "Testergebnisse sollen auch dann eingelesen werden, wenn Tests fehlschlagen. Gerade dann will man sie sehen. Deshalb `always` statt `success`. Der Schritt `junit` macht aus der XML-Datei eine Übersicht der Tests in Jenkins."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Wann laufen die `post`-Bedingungen?",
+      "paare": [
+        { "links": "`always`", "rechts": "Immer, unabhängig vom Ergebnis" },
+        { "links": "`success`", "rechts": "Nur, wenn alles erfolgreich war" },
+        { "links": "`failure`", "rechts": "Nur, wenn die Pipeline fehlgeschlagen ist" },
+        { "links": "`unstable`", "rechts": "Wenn der Build lief, aber z. B. Tests fehlgeschlagen sind (gelb)" },
+        { "links": "`cleanup`", "rechts": "Ganz am Schluss, nach allen anderen Bedingungen" }
+      ],
+      "erklaerung": "„Unstable“ setzt z. B. der `junit`-Schritt, wenn er fehlgeschlagene Tests findet. Die Pipeline läuft weiter, wird aber gelb markiert. `cleanup` eignet sich für `cleanWs()`, um den Workspace zu leeren."
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Parallel und bedingt",
+      "code": {
+        "sprache": "groovy",
+        "zeilen": [
+          "stage('Prüfungen') {",
+          "    parallel {",
+          "        stage('Unit-Tests') { steps { sh 'ctest --test-dir build' } }",
+          "        stage('clang-tidy') { steps { sh 'run-clang-tidy -p build' } }",
+          "    }",
+          "}",
+          "stage('Deploy') {",
+          "    when { branch 'main' }",
+          "    steps { sh './scripts/deploy.sh' }",
+          "}"
+        ],
+        "anmerkungen": [
+          { "zeile": 2, "text": "Beide Stages laufen gleichzeitig, auf Wunsch auf verschiedenen Agents." },
+          { "zeile": 8, "text": "Ausgeliefert wird nur vom Branch `main`." }
+        ]
+      },
+      "text": "`parallel` spart Zeit, `when` macht eine Stage von Branch, Umgebungsvariablen oder Parametern abhängig."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Die Pipeline von oben läuft für den Branch `feature/x`. Was passiert mit der Stage `Deploy`?",
+      "code": {
+        "sprache": "groovy",
+        "zeilen": [
+          "stage('Deploy') {",
+          "    when { branch 'main' }",
+          "    steps { sh './scripts/deploy.sh' }",
+          "}"
+        ]
+      },
+      "optionen": [
+        "Sie wird übersprungen und in der Übersicht als ausgelassen angezeigt",
+        "Sie läuft und schlägt fehl",
+        "Die ganze Pipeline bricht mit einem Fehler ab"
+      ],
+      "korrekt": 0,
+      "erklaerung": "`when` wertet die Bedingung vor der Stage aus. Ist sie falsch, wird die Stage übersprungen, und die Pipeline bleibt grün. So kann dieselbe Pipeline für Pull Requests und `main` dienen.",
+      "begruendungen": [
+        "Richtig.",
+        "Die Schritte werden gar nicht erst ausgeführt.",
+        "Eine falsche `when`-Bedingung ist kein Fehler."
+      ]
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Welche Zeile ist ein Sicherheitsproblem?",
+      "code": {
+        "sprache": "groovy",
+        "zeilen": [
+          "stage('Upload') {",
+          "    steps {",
+          "        sh 'curl -u ci:Geheim123 -T build/app.tar.gz https://artefakte.firma.ch/'",
+          "    }",
+          "}"
+        ]
+      },
+      "fehlerZeile": 3,
+      "erklaerung": "Das Passwort steht im Repository, in der Git-Historie und im Build-Log. Zugangsdaten gehören in den Credentials-Speicher von Jenkins und werden mit `withCredentials` eingebunden: `withCredentials([usernamePassword(credentialsId: 'artefakte', usernameVariable: 'U', passwordVariable: 'P')]) { sh 'curl -u \"$U:$P\" -T build/app.tar.gz https://artefakte.firma.ch/' }`. Jenkins maskiert die Werte dann im Log. Ein geleaktes Passwort muss sofort geändert werden, auch wenn der Commit rückgängig gemacht wird."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Wozu dient `options { timeout(time: 30, unit: 'MINUTES') }`?",
+      "optionen": [
+        "Ein hängender Build wird nach 30 Minuten abgebrochen, statt einen Agent unbegrenzt zu blockieren",
+        "Jede Stage darf höchstens 30 Minuten warten, bis ein Agent frei ist",
+        "Die Pipeline startet erst nach 30 Minuten"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Ein Test, der in einem Deadlock hängt, würde den Agent sonst für immer belegen. Bald stauen sich dann alle anderen Builds. Ein Timeout gehört deshalb in jede Pipeline, gewählt mit Puffer über der normalen Laufzeit.",
+      "begruendungen": [
+        "Richtig.",
+        "Ein Timeout auf Pipeline-Ebene umfasst die ganze Laufzeit, auch das Warten.",
+        "Für Verzögerungen gibt es andere Mittel, etwa `quietPeriod`."
+      ]
+    }
+  ],
+  "praxis": "Ein Jenkinsfile ist Code und wird genauso reviewt: Gibt es ein Timeout? Werden Testergebnisse auch bei Fehlern eingelesen? Liegen Zugangsdaten im Credentials-Speicher? Läuft das Deploy nur von `main`? Wird der Workspace aufgeräumt? Und: Steht die eigentliche Logik in Skripten, die man auch lokal ausführen kann, statt in langen Groovy-Blöcken?",
+  "labor": {
+    "titel": "Ein Jenkinsfile prüfen lassen",
+    "anleitung": "Jenkins kann ein Declarative Jenkinsfile prüfen, ohne es auszuführen. Schicke deine Datei an den Validator deiner Jenkins-Instanz.",
+    "befehle": [
+      "curl -X POST -u benutzer:apitoken -F \"jenkinsfile=<Jenkinsfile\" http://localhost:8080/pipeline-model-converter/validate"
+    ],
+    "beobachtung": "Bei einem Fehler, z. B. `step` statt `steps`, meldet Jenkins Zeile und Spalte. Das spart Durchläufe auf echten Agents. Viele Editoren bieten dafür eine Erweiterung an."
+  },
+  "begriffe": [
+    { "begriff": "Jenkinsfile", "englisch": "Jenkinsfile", "erklaerung": "Datei im Repository, die die Pipeline als Code beschreibt." },
+    { "begriff": "Declarative Pipeline", "englisch": "declarative pipeline", "erklaerung": "Pipeline mit fester Struktur (`pipeline`, `stages`, `steps`, `post`), die Jenkins prüfen und anzeigen kann." },
+    { "begriff": "Credentials", "englisch": "credentials", "erklaerung": "In Jenkins gespeicherte Zugangsdaten, die mit `withCredentials` maskiert in Builds eingebunden werden." }
+  ],
+  "weiterlesen": [
+    { "titel": "Jenkins: Pipeline Syntax", "url": "https://www.jenkins.io/doc/book/pipeline/syntax/" },
+    { "titel": "Jenkins: Using credentials", "url": "https://www.jenkins.io/doc/book/using/using-credentials/" }
+  ]
+}

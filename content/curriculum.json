@@ -1,0 +1,431 @@
+{
+  "titel": "Vom Junior zum Senior C++-Entwickler",
+  "phasen": [
+    {
+      "nummer": 1,
+      "titel": "Unter der Haube",
+      "beschreibung": "Was zwischen deinem Quellcode und dem laufenden Programm passiert: Präprozessor, Compiler, Linker, Bibliotheken und Build-Systeme.",
+      "module": [
+        {
+          "id": "1.1",
+          "titel": "Vom Quellcode zum Object-File",
+          "lektionen": [
+            "p1-m1-l1",
+            "p1-m1-l2",
+            "p1-m1-l3"
+          ]
+        },
+        {
+          "id": "1.2",
+          "titel": "Der Linker",
+          "lektionen": [
+            "p1-m2-l1",
+            "p1-m2-l2",
+            "p1-m2-l3",
+            "p1-m2-l4"
+          ]
+        },
+        {
+          "id": "1.3",
+          "titel": "Bibliotheken",
+          "lektionen": [
+            "p1-m3-l1",
+            "p1-m3-l2",
+            "p1-m3-l3"
+          ]
+        },
+        {
+          "id": "1.4",
+          "titel": "Speicherlayout des Binaries",
+          "lektionen": [
+            "p1-m4-l1",
+            "p1-m4-l2"
+          ]
+        },
+        {
+          "id": "1.5",
+          "titel": "Toolchains und Cross-Kompilierung",
+          "lektionen": [
+            "p1-m5-l1",
+            "p1-m5-l2"
+          ]
+        },
+        {
+          "id": "1.6",
+          "titel": "Build-Systeme",
+          "lektionen": [
+            "p1-m6-l1",
+            "p1-m6-l2",
+            "p1-m6-l3",
+            "p1-m6-l4"
+          ]
+        }
+      ]
+    },
+    {
+      "nummer": 2,
+      "titel": "C++-Fundamente",
+      "beschreibung": "Wie C++ Speicher, Lebenszeit und Polymorphie umsetzt – und wo Undefined Behavior lauert.",
+      "module": [
+        {
+          "id": "2.1",
+          "titel": "Speicherlayout zur Laufzeit",
+          "lektionen": [
+            "p2-m1-l1",
+            "p2-m1-l2"
+          ]
+        },
+        {
+          "id": "2.2",
+          "titel": "Lebenszeit und Ownership",
+          "lektionen": [
+            "p2-m2-l1",
+            "p2-m2-l2",
+            "p2-m2-l3"
+          ]
+        },
+        {
+          "id": "2.3",
+          "titel": "Wertkategorien und Move-Semantik",
+          "lektionen": [
+            "p2-m3-l1",
+            "p2-m3-l2",
+            "p2-m3-l3"
+          ]
+        },
+        {
+          "id": "2.4",
+          "titel": "Polymorphie unter der Haube",
+          "lektionen": [
+            "p2-m4-l1",
+            "p2-m4-l2"
+          ]
+        },
+        {
+          "id": "2.5",
+          "titel": "Templates, inline und constexpr im Binary",
+          "lektionen": [
+            "p2-m5-l1",
+            "p2-m5-l2"
+          ]
+        },
+        {
+          "id": "2.6",
+          "titel": "Undefined Behavior",
+          "lektionen": [
+            "p2-m6-l1",
+            "p2-m6-l2"
+          ]
+        },
+        {
+          "id": "2.7",
+          "titel": "Fehlerbehandlung",
+          "lektionen": [
+            "p2-m7-l1",
+            "p2-m7-l2"
+          ]
+        },
+        {
+          "id": "2.8",
+          "titel": "Eine fremde Codebase lesen",
+          "lektionen": [
+            "p2-m8-l1",
+            "p2-m8-l2"
+          ]
+        }
+      ]
+    },
+    {
+      "nummer": 3,
+      "titel": "Testen, Debuggen, Analysieren",
+      "beschreibung": "Fehler finden, bevor sie beim Kunden landen: Unit-Tests, Debugger, Sanitizer und statische Analyse.",
+      "module": [
+        {
+          "id": "3.1",
+          "titel": "Unit-Tests mit GoogleTest",
+          "lektionen": [
+            "p3-m1-l1",
+            "p3-m1-l2",
+            "p3-m1-l3"
+          ]
+        },
+        {
+          "id": "3.2",
+          "titel": "Teststrategie",
+          "lektionen": [
+            "p3-m2-l1",
+            "p3-m2-l2"
+          ]
+        },
+        {
+          "id": "3.3",
+          "titel": "Debugging",
+          "lektionen": [
+            "p3-m3-l1",
+            "p3-m3-l2",
+            "p3-m3-l3"
+          ]
+        },
+        {
+          "id": "3.4",
+          "titel": "Sanitizer und Valgrind",
+          "lektionen": [
+            "p3-m4-l1",
+            "p3-m4-l2"
+          ]
+        },
+        {
+          "id": "3.5",
+          "titel": "Statische Analyse",
+          "lektionen": [
+            "p3-m5-l1",
+            "p3-m5-l2"
+          ]
+        }
+      ]
+    },
+    {
+      "nummer": 4,
+      "titel": "Nebenläufigkeit und Performance",
+      "beschreibung": "Threads, Data Races, Atomics und das Speichermodell – und wie man Performance misst statt rät.",
+      "module": [
+        {
+          "id": "4.1",
+          "titel": "Threads und Data Races",
+          "lektionen": [
+            "p4-m1-l1",
+            "p4-m1-l2",
+            "p4-m1-l3"
+          ]
+        },
+        {
+          "id": "4.2",
+          "titel": "Synchronisation",
+          "lektionen": [
+            "p4-m2-l1",
+            "p4-m2-l2"
+          ]
+        },
+        {
+          "id": "4.3",
+          "titel": "Atomics und Speichermodell",
+          "lektionen": [
+            "p4-m3-l1",
+            "p4-m3-l2"
+          ]
+        },
+        {
+          "id": "4.4",
+          "titel": "Performance verstehen",
+          "lektionen": [
+            "p4-m4-l1",
+            "p4-m4-l2",
+            "p4-m4-l3"
+          ]
+        }
+      ]
+    },
+    {
+      "nummer": 5,
+      "titel": "CI/CD",
+      "beschreibung": "Wie Code automatisch gebaut, geprüft und ausgeliefert wird – mit Jenkins und GitHub Actions.",
+      "module": [
+        {
+          "id": "5.1",
+          "titel": "Continuous Integration und Deployment",
+          "lektionen": [
+            "p5-m1-l1",
+            "p5-m1-l2"
+          ]
+        },
+        {
+          "id": "5.2",
+          "titel": "Pipeline-Stufen und Quality Gates",
+          "lektionen": [
+            "p5-m2-l1",
+            "p5-m2-l2"
+          ]
+        },
+        {
+          "id": "5.3",
+          "titel": "Jenkins",
+          "lektionen": [
+            "p5-m3-l1",
+            "p5-m3-l2",
+            "p5-m3-l3"
+          ]
+        },
+        {
+          "id": "5.4",
+          "titel": "Jenkins Shared Libraries",
+          "lektionen": [
+            "p5-m4-l1",
+            "p5-m4-l2"
+          ]
+        },
+        {
+          "id": "5.5",
+          "titel": "GitHub Actions im Vergleich",
+          "lektionen": [
+            "p5-m5-l1",
+            "p5-m5-l2"
+          ]
+        },
+        {
+          "id": "5.6",
+          "titel": "Git im Team",
+          "lektionen": [
+            "p5-m6-l1",
+            "p5-m6-l2"
+          ]
+        }
+      ]
+    },
+    {
+      "nummer": 6,
+      "titel": "Architektur in grossen Projekten",
+      "beschreibung": "Wie man grosse Codebasen in Module schneidet, Schnittstellen stabil hält und Abhängigkeiten im Griff behält.",
+      "module": [
+        {
+          "id": "6.1",
+          "titel": "Modularisierung und Separation of Concerns",
+          "lektionen": [
+            "p6-m1-l1",
+            "p6-m1-l2"
+          ]
+        },
+        {
+          "id": "6.2",
+          "titel": "Interfaces und Header als Verträge",
+          "lektionen": [
+            "p6-m2-l1",
+            "p6-m2-l2",
+            "p6-m2-l3"
+          ]
+        },
+        {
+          "id": "6.3",
+          "titel": "Abhängigkeiten managen",
+          "lektionen": [
+            "p6-m3-l1",
+            "p6-m3-l2",
+            "p6-m3-l3"
+          ]
+        },
+        {
+          "id": "6.4",
+          "titel": "Code-Reviews",
+          "lektionen": [
+            "p6-m4-l1",
+            "p6-m4-l2"
+          ]
+        }
+      ]
+    },
+    {
+      "nummer": 7,
+      "titel": "Architektur-Konzepte in C++",
+      "beschreibung": "Prinzipien und Muster, die du als Senior kennen, anwenden und begründen musst.",
+      "module": [
+        {
+          "id": "7.1",
+          "titel": "Prinzipien",
+          "lektionen": [
+            "p7-m1-l1",
+            "p7-m1-l2",
+            "p7-m1-l3"
+          ]
+        },
+        {
+          "id": "7.2",
+          "titel": "Schichten und Hardware Abstraction Layer",
+          "lektionen": [
+            "p7-m2-l1",
+            "p7-m2-l2"
+          ]
+        },
+        {
+          "id": "7.3",
+          "titel": "Ports & Adapters",
+          "lektionen": [
+            "p7-m3-l1",
+            "p7-m3-l2"
+          ]
+        },
+        {
+          "id": "7.4",
+          "titel": "Entwurfsmuster",
+          "lektionen": [
+            "p7-m4-l1",
+            "p7-m4-l2",
+            "p7-m4-l3",
+            "p7-m4-l4"
+          ]
+        },
+        {
+          "id": "7.5",
+          "titel": "Statische vs. dynamische Polymorphie",
+          "lektionen": [
+            "p7-m5-l1",
+            "p7-m5-l2"
+          ]
+        },
+        {
+          "id": "7.6",
+          "titel": "PIMPL, starke Typen und enum class",
+          "lektionen": [
+            "p7-m6-l1",
+            "p7-m6-l2"
+          ]
+        },
+        {
+          "id": "7.7",
+          "titel": "Coding-Standards und ADRs",
+          "lektionen": [
+            "p7-m7-l1",
+            "p7-m7-l2"
+          ]
+        }
+      ]
+    },
+    {
+      "nummer": 8,
+      "titel": "Senior-Kompetenzen",
+      "beschreibung": "Was Seniors über Technik hinaus ausmacht: Trade-offs abwägen, technische Schulden steuern, schätzen und andere weiterbringen.",
+      "module": [
+        {
+          "id": "8.1",
+          "titel": "Technische Schulden und Refactoring",
+          "lektionen": [
+            "p8-m1-l1",
+            "p8-m1-l2"
+          ]
+        },
+        {
+          "id": "8.2",
+          "titel": "Entscheidungen und Trade-offs",
+          "lektionen": [
+            "p8-m2-l1",
+            "p8-m2-l2"
+          ]
+        },
+        {
+          "id": "8.3",
+          "titel": "Schätzen und Planen",
+          "lektionen": [
+            "p8-m3-l1",
+            "p8-m3-l2"
+          ]
+        },
+        {
+          "id": "8.4",
+          "titel": "Kommunikation und Mentoring",
+          "lektionen": [
+            "p8-m4-l1",
+            "p8-m4-l2"
+          ]
+        }
+      ]
+    }
+  ]
+}

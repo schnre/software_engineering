@@ -1,0 +1,168 @@
+{
+  "id": "p7-m4-l4",
+  "phase": 7,
+  "modul": "7.4 Entwurfsmuster",
+  "titel": "Singleton und seine Probleme",
+  "lernziele": [
+    "Ein Meyers-Singleton lesen und seine Garantien kennen",
+    "Die Probleme globaler Zustände benennen",
+    "Singletons durch Dependency Injection ersetzen"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Was ist das grösste Problem eines Singletons wie `Konfig::instanz()` in einer grossen Codebasis?",
+      "optionen": [
+        "Es ist globaler Zustand mit versteckten Abhängigkeiten: Niemand sieht an einer Schnittstelle, wer die Konfiguration benutzt, und Tests beeinflussen sich darüber",
+        "Es braucht zu viel Speicher",
+        "Man kann es nicht thread-sicher initialisieren"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Ein **Singleton** garantiert genau eine Instanz und globalen Zugriff. Der globale Zugriff ist das Problem: Jede Klasse kann sich die Konfiguration holen, ohne dass es in ihrer Schnittstelle steht. Das ist die versteckte Abhängigkeit aus Modul 6.3.",
+      "begruendungen": [
+        "Richtig.",
+        "Der Speicher ist nicht das Problem.",
+        "Seit C++11 ist die Initialisierung eines lokalen `static` thread-sicher."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Das Meyers-Singleton",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "class Konfig {",
+          "public:",
+          "    static Konfig& instanz() {",
+          "        static Konfig k;",
+          "        return k;",
+          "    }",
+          "    Konfig(const Konfig&) = delete;",
+          "    Konfig& operator=(const Konfig&) = delete;",
+          "private:",
+          "    Konfig() = default;",
+          "};"
+        ],
+        "anmerkungen": [
+          { "zeile": 4, "text": "Wird beim ersten Aufruf erzeugt, genau einmal, auch wenn mehrere Threads gleichzeitig kommen." },
+          { "zeile": 10, "text": "Privater Konstruktor: Niemand sonst kann eine `Konfig` anlegen." }
+        ]
+      },
+      "text": "Diese Form (nach Scott Meyers) ist die übliche in C++. Sie löst die Erzeugung elegant, aber nicht die grundsätzlichen Probleme."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Zwei Threads rufen gleichzeitig zum ersten Mal `Konfig::instanz()` auf. Was passiert?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "static Konfig& instanz() {",
+          "    static Konfig k;",
+          "    return k;",
+          "}"
+        ]
+      },
+      "optionen": [
+        "Seit C++11 garantiert: `k` wird genau einmal erzeugt, der zweite Thread wartet, bis die Erzeugung fertig ist",
+        "Data Race: `k` kann zweimal erzeugt werden",
+        "Compilerfehler, statische lokale Variablen sind in Memberfunktionen verboten"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Der Standard garantiert die thread-sichere Initialisierung lokaler statischer Variablen (*magic statics*). Der Compiler baut dafür eine kleine Prüfung mit Sperre ein. Danach kostet jeder weitere Aufruf nur noch eine Abfrage. Nach der Erzeugung schützt das natürlich nicht die **Benutzung**: Ändern mehrere Threads die Konfiguration, braucht sie selbst einen Mutex.",
+      "begruendungen": [
+        "Richtig.",
+        "Vor C++11 war das ein Problem, heute nicht mehr.",
+        "Statische lokale Variablen sind überall erlaubt."
+      ]
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Der Test `Standard` schlägt fehl, aber nur, wenn er nach `EnglischerBericht` läuft. Warum?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "TEST(BerichtTest, EnglischerBericht) {",
+          "    Konfig::instanz().setze(\"sprache\", \"en\");",
+          "    EXPECT_EQ(Bericht().sprache(), \"en\");",
+          "}",
+          "",
+          "TEST(BerichtTest, Standard) {",
+          "    EXPECT_EQ(Bericht().sprache(), \"de\");",
+          "}"
+        ]
+      },
+      "optionen": [
+        "Das Singleton behält seinen Zustand über Tests hinweg. Was ein Test setzt, sieht der nächste",
+        "GoogleTest führt Tests immer in zufälliger Reihenfolge aus",
+        "`Bericht` hat einen Fehler bei der Standardsprache"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Das Singleton lebt so lange wie das Testprogramm. Jeder Test, der es verändert, beeinflusst alle folgenden. Mit Dependency Injection bekäme jeder Test seine eigene `Konfig`: `Bericht b(konfig);`, und die Tests wären unabhängig.",
+      "begruendungen": [
+        "Richtig.",
+        "Standardmässig nicht, mit `--gtest_shuffle` schon. Das würde den Fehler nur sichtbarer machen.",
+        "`Bericht` funktioniert korrekt. Es liest nur eine veränderte Konfiguration."
+      ]
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Ordne die Probleme zu.",
+      "paare": [
+        { "links": "Versteckte Abhängigkeit", "rechts": "An keiner Schnittstelle ist sichtbar, wer die Konfiguration braucht" },
+        { "links": "Geteilter Zustand in Tests", "rechts": "Tests beeinflussen sich über das Singleton gegenseitig" },
+        { "links": "Static Initialization Order Fiasco", "rechts": "Globale Objekte in verschiedenen Dateien werden in unbestimmter Reihenfolge erzeugt" },
+        { "links": "Problem der Zerstörungsreihenfolge", "rechts": "Ein Singleton wird beim Programmende zerstört, während ein anderes es noch benutzt" }
+      ],
+      "erklaerung": "Das Meyers-Singleton löst das Initialisierungsproblem, weil es erst beim ersten Aufruf entsteht. Die Zerstörungsreihenfolge am Programmende bleibt aber heikel, besonders wenn Singletons einander benutzen, etwa ein Logger in Destruktoren anderer Singletons."
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Die Alternative",
+      "text": "Dass es nur **eine** Konfiguration gibt, ist meist richtig. Aber das ist eine Entscheidung der **Composition Root**, nicht der Klasse selbst. Erzeuge das Objekt einmal in `main` und reiche es per Referenz an alle weiter, die es brauchen. Dann ist sichtbar, wer was benutzt, und jeder Test kann eine eigene Instanz anlegen.\n\nWo wirklich globaler Zugriff gebraucht wird, z. B. beim Logging tief in Hilfsfunktionen, hält man das globale Objekt möglichst zustandslos oder bietet zumindest eine Möglichkeit, es für Tests zu ersetzen."
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze die Regel.",
+      "text": "Eine Variable, die innerhalb einer Funktion als {{?}} angelegt wird, entsteht beim ersten Aufruf genau einmal, auch wenn mehrere Threads gleichzeitig kommen.",
+      "luecken": [{ "loesungen": ["static"] }],
+      "auswahl": ["static", "inline", "extern", "const"],
+      "erklaerung": "Diese Garantie gilt seit C++11 und ist ein bequemer Weg, globale Objekte bei Bedarf und in definierter Reihenfolge zu erzeugen, auch ohne Singleton-Klasse: `Logger& logger() { static Logger l; return l; }`."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Wann ist es vertretbar, dass es von einer Klasse im ganzen Programm nur ein Objekt gibt?",
+      "optionen": [
+        "Oft. Aber besser wird dieses eine Objekt in `main` erzeugt und weitergereicht, statt dass die Klasse es selbst global anbietet",
+        "Nie, jede Klasse muss beliebig oft instanziierbar sein",
+        "Immer, wenn die Klasse eine Konfiguration oder einen Treiber darstellt, dann ist ein Singleton Pflicht"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Ein Hardware-Treiber für den einzigen UART gibt es naturgemäss nur einmal. Daraus folgt aber nicht, dass jede Klasse ihn sich global holen sollte. Die Unterscheidung lautet: *eine* Instanz ist oft gut, *globaler Zugriff* fast nie.",
+      "begruendungen": [
+        "Richtig.",
+        "Viele Dinge gibt es wirklich nur einmal.",
+        "Gerade bei Treibern hilft Weiterreichen, sie im Test zu ersetzen."
+      ]
+    }
+  ],
+  "praxis": "In gewachsenen Projekten sind Singletons häufig, und sie alle auf einmal zu entfernen, ist selten realistisch. Bewährt hat sich ein schrittweises Vorgehen: Neue Klassen bekommen ihre Abhängigkeiten per Konstruktor. Bestehende Klassen erhalten einen zusätzlichen Konstruktor mit Parameter, während der alte vorerst `instanz()` übergibt. So werden die Klassen eine nach der anderen testbar.",
+  "labor": {
+    "titel": "Singletons zählen",
+    "anleitung": "Finde heraus, wie viele Singletons ein Projekt hat und wie oft sie benutzt werden.",
+    "befehle": [
+      "rg -n 'static \\w+& instanz\\(\\)|static \\w+& instance\\(\\)' src/ | head",
+      "rg -c '::instanz\\(\\)|::instance\\(\\)' src/ | sort -t: -k2 -rn | head"
+    ],
+    "beobachtung": "Die zweite Liste zeigt, welche Dateien am stärksten von globalen Objekten abhängen. Das sind meist auch die Dateien, für die es die wenigsten Tests gibt."
+  },
+  "begriffe": [
+    { "begriff": "Singleton", "englisch": "singleton pattern", "erklaerung": "Muster, das genau eine Instanz einer Klasse und globalen Zugriff darauf bereitstellt." },
+    { "begriff": "Meyers-Singleton", "englisch": "Meyers singleton", "erklaerung": "Singleton über eine statische lokale Variable. Thread-sicher initialisiert seit C++11." },
+    { "begriff": "Static Initialization Order Fiasco", "englisch": "static initialization order fiasco", "erklaerung": "Globale Objekte verschiedener Übersetzungseinheiten werden in unbestimmter Reihenfolge initialisiert." }
+  ],
+  "weiterlesen": [
+    { "titel": "C++ Core Guidelines: I.3 – Avoid singletons", "url": "https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#Ri-singleton" },
+    { "titel": "cppreference: Static local variables", "url": "https://en.cppreference.com/w/cpp/language/storage_duration#Static_block_variables" }
+  ]
+}

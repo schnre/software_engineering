@@ -1,0 +1,134 @@
+{
+  "id": "p7-m7-l2",
+  "phase": 7,
+  "modul": "7.7 Coding-Standards und ADRs",
+  "titel": "Architecture Decision Records",
+  "lernziele": [
+    "Den Aufbau eines ADR kennen",
+    "Entscheiden, welche Entscheidungen ein ADR verdienen",
+    "Mit geänderten Entscheidungen richtig umgehen"
+  ],
+  "dauerMinuten": 5,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Zwei Jahre nach dem Projektstart fragt eine neue Kollegin, warum der interne Nachrichtenbus UDP statt TCP verwendet. Niemand erinnert sich. Was hätte geholfen?",
+      "optionen": [
+        "Ein kurzes Dokument zur Entscheidung, mit Kontext, Begründung und Konsequenzen, abgelegt im Repository",
+        "Ein Kommentar `// UDP` im Code",
+        "Die Entscheidung im Chat zu besprechen"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Code zeigt, **was** entschieden wurde, aber selten **warum**. Ohne das Warum wird eine gute Entscheidung später rückgängig gemacht, oder eine schlechte nicht, weil niemand sich traut. Ein **Architecture Decision Record** (ADR) hält genau das fest.",
+      "begruendungen": [
+        "Richtig.",
+        "Der Kommentar sagt, was passiert, nicht warum, und nichts über verworfene Alternativen.",
+        "Chats sind nach kurzer Zeit nicht mehr auffindbar."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Aufbau eines ADR",
+      "text": "Ein ADR ist kurz, meist eine Seite, und folgt einer festen Struktur (nach Michael Nygard):\n\n- **Titel und Nummer**, z. B. „0007 – UDP für den internen Nachrichtenbus“\n- **Status**: vorgeschlagen, angenommen, ersetzt durch …\n- **Kontext**: Welches Problem gibt es, welche Randbedingungen?\n- **Entscheidung**: Was tun wir?\n- **Konsequenzen**: Was wird leichter, was schwerer? Welche Alternativen wurden verworfen und warum?\n\nADRs liegen im Repository, z. B. unter `docs/adr/`, und werden wie Code per Pull Request besprochen. Diese App selbst hat ADRs, schau sie dir im Repository an."
+    },
+    {
+      "typ": "reihenfolge",
+      "frage": "Bringe die Abschnitte eines ADR in die übliche Reihenfolge.",
+      "elemente": ["Titel und Nummer", "Status und Datum", "Kontext", "Entscheidung", "Konsequenzen"],
+      "erklaerung": "Der Kontext steht vor der Entscheidung, weil man eine Entscheidung nur im Licht ihres Kontexts beurteilen kann. Wer das ADR später liest, prüft zuerst, ob der Kontext noch gilt. Hat er sich geändert, ist es Zeit für eine neue Entscheidung."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Was gehört in welchen Abschnitt?",
+      "paare": [
+        { "links": "Kontext", "rechts": "Das Problem, die Randbedingungen und die wirkenden Kräfte" },
+        { "links": "Entscheidung", "rechts": "Was wir tun, klar und knapp formuliert" },
+        { "links": "Konsequenzen", "rechts": "Was leichter und was schwerer wird, verworfene Alternativen" },
+        { "links": "Status", "rechts": "Vorgeschlagen, angenommen oder ersetzt durch ein anderes ADR" }
+      ],
+      "erklaerung": "Der wertvollste Teil ist oft die Liste der verworfenen Alternativen. Sie verhindert, dass dieselbe Diskussion in einem Jahr von vorne beginnt."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Eine Entscheidung aus ADR 0007 wird zwei Jahre später geändert. Was passiert mit ADR 0007?",
+      "optionen": [
+        "Es bleibt unverändert, bekommt aber den Status „Ersetzt durch 0023“. Das neue ADR 0023 erklärt die neue Entscheidung",
+        "Es wird überschrieben, damit nur der aktuelle Stand dokumentiert ist",
+        "Es wird gelöscht"
+      ],
+      "korrekt": 0,
+      "erklaerung": "ADRs sind ein **Logbuch**: Sie zeigen, was zu welchem Zeitpunkt mit welchem Wissen entschieden wurde. Diese Geschichte ist wertvoll, etwa wenn man verstehen will, warum ein Teil des Codes noch nach der alten Entscheidung gebaut ist.",
+      "begruendungen": [
+        "Richtig.",
+        "Dann geht verloren, warum es früher anders war.",
+        "Auch Löschen zerstört die Nachvollziehbarkeit."
+      ]
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Welche Entscheidungen verdienen ein ADR?",
+      "optionen": [
+        "Die Wahl des Build-Systems oder Paketmanagers",
+        "Die Strategie zur Fehlerbehandlung (Exceptions oder `std::expected`)",
+        "Die Aufnahme einer neuen, grossen externen Abhängigkeit",
+        "Der Name einer lokalen Variable"
+      ],
+      "korrekt": [0, 1, 2],
+      "erklaerung": "Ein ADR lohnt sich für Entscheidungen, die schwer rückgängig zu machen sind, viele betreffen oder später Fragen aufwerfen werden. Eine gute Faustregel: Wenn die Diskussion im Team länger als eine halbe Stunde dauerte, sollte das Ergebnis aufgeschrieben werden.",
+      "begruendungen": [
+        "Richtig. Betrifft alle und ist teuer zu ändern.",
+        "Richtig. Eine Querschnittsentscheidung für die ganze Codebasis.",
+        "Richtig. Lizenz, Pflege und Kopplung sind langfristige Fragen.",
+        "Das klärt ein Review in einem Satz."
+      ]
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze die Grundregel.",
+      "text": "ADRs werden nicht nachträglich {{?}}, sondern durch ein neues ADR {{?}}.",
+      "luecken": [{ "loesungen": ["umgeschrieben"] }, { "loesungen": ["ersetzt"] }],
+      "auswahl": ["umgeschrieben", "ersetzt", "gelöscht", "archiviert"],
+      "erklaerung": "Kleine Korrekturen wie Tippfehler oder ein fehlender Link sind natürlich erlaubt. Inhaltlich bleibt ein angenommenes ADR aber, wie es ist."
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Ein Beispiel",
+      "code": {
+        "sprache": "text",
+        "datei": "docs/adr/0002-inhalte-als-json.md (gekürzt)",
+        "zeilen": [
+          "# 0002 – Inhalte als JSON, App als Engine",
+          "Status: Angenommen · Datum: 2026-10-16",
+          "",
+          "Kontext: Über hundert Lektionen, die laufend wachsen.",
+          "Neue Lektionen dürfen keine Code-Änderung erfordern.",
+          "",
+          "Entscheidung: Jede Lektion ist eine JSON-Datei, geprüft gegen ein Schema.",
+          "",
+          "Konsequenzen: Inhalte lassen sich per Pull Request ergänzen.",
+          "Mehrzeiliger Code in JSON ist umständlich, deshalb Arrays von Zeilen.",
+          "Verworfen: Markdown mit Frontmatter, schwer zu validieren."
+        ]
+      },
+      "text": "Ein ADR muss nicht lang sein. Wichtig ist, dass jemand ohne Vorwissen versteht, was entschieden wurde und warum."
+    }
+  ],
+  "praxis": "ADRs sind eines der einfachsten Werkzeuge, mit denen ein Senior einem Team langfristig hilft. Ein guter Start: Bei der nächsten wichtigen Diskussion das Ergebnis als ADR vorschlagen, per Pull Request, damit alle es kommentieren können. Nach einigen Monaten hat das Projekt ein nachvollziehbares Gedächtnis, und neue Teammitglieder lesen sich in einer Stunde ein, statt wochenlang zu fragen.",
+  "labor": {
+    "titel": "Das erste ADR schreiben",
+    "anleitung": "Wähle eine Entscheidung aus deinem Projekt, die bisher nirgends begründet ist, und schreibe ein ADR dazu. Nutze die Vorlage aus `docs/adr/README.md` dieser App.",
+    "befehle": [
+      "mkdir -p docs/adr && cp vorlage.md docs/adr/0001-titel-der-entscheidung.md",
+      "git switch -c adr/0001 && git add docs/adr && git commit -m 'Füge ADR 0001 hinzu' && gh pr create --fill"
+    ],
+    "beobachtung": "Der Pull Request ist die eigentliche Diskussion: Oft merken Kolleginnen und Kollegen erst beim Lesen des Kontexts, dass sie von unterschiedlichen Annahmen ausgegangen sind."
+  },
+  "begriffe": [
+    { "begriff": "Architecture Decision Record", "englisch": "architecture decision record, ADR", "erklaerung": "Kurzes Dokument zu einer Architekturentscheidung mit Kontext, Entscheidung und Konsequenzen." },
+    { "begriff": "Ersetzt", "englisch": "superseded", "erklaerung": "Status eines ADR, dessen Entscheidung durch ein späteres ADR abgelöst wurde." }
+  ],
+  "weiterlesen": [
+    { "titel": "Michael Nygard: Documenting Architecture Decisions", "url": "https://cognitect.com/blog/2011/11/15/documenting-architecture-decisions" },
+    { "titel": "adr.github.io", "url": "https://adr.github.io/" }
+  ]
+}

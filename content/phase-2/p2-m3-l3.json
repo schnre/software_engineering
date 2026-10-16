@@ -1,0 +1,150 @@
+{
+  "id": "p2-m3-l3",
+  "phase": 2,
+  "modul": "2.3 Wertkategorien und Move-Semantik",
+  "titel": "Rule of Zero, Three und Five",
+  "lernziele": [
+    "Die fünf speziellen Memberfunktionen aufzählen",
+    "Erklären, wann man sie selbst schreiben muss",
+    "Klassen nach der Rule of Zero entwerfen"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "code-lesen",
+      "frage": "Was passiert am Ende von `main`?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "class Puffer {",
+          "public:",
+          "    explicit Puffer(std::size_t n) : daten_(new int[n]), n_(n) {}",
+          "    ~Puffer() { delete[] daten_; }",
+          "private:",
+          "    int* daten_;",
+          "    std::size_t n_;",
+          "};",
+          "",
+          "int main() {",
+          "    Puffer a(10);",
+          "    Puffer b = a;",
+          "}"
+        ]
+      },
+      "optionen": [
+        "Doppeltes `delete[]`: Beide Objekte geben denselben Block frei (Undefined Behavior)",
+        "Alles in Ordnung: `b` hat eine eigene Kopie der Daten",
+        "Compilerfehler, weil kein Kopierkonstruktor definiert ist"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Der vom Compiler erzeugte Kopierkonstruktor kopiert jedes Member, also auch den Zeiger. `a` und `b` zeigen auf denselben Block, und beide Destruktoren rufen `delete[]` auf. Sobald eine Klasse eine Ressource selbst verwaltet, reicht das automatisch erzeugte Kopieren nicht.",
+      "begruendungen": [
+        "Richtig. Oft stürzt das Programm mit `double free detected` ab.",
+        "Kopiert wird nur der Zeiger, nicht der Speicher dahinter.",
+        "Der Compiler erzeugt einen Kopierkonstruktor automatisch, er ist hier nur falsch."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Die speziellen Memberfunktionen",
+      "text": "Diese fünf Funktionen erzeugt der Compiler bei Bedarf selbst: **Destruktor**, **Kopierkonstruktor**, **Kopierzuweisung**, **Move-Konstruktor** und **Move-Zuweisung**.\n\n- **Rule of Three** (vor C++11): Braucht eine Klasse einen eigenen Destruktor, Kopierkonstruktor oder Kopierzuweisungsoperator, braucht sie alle drei.\n- **Rule of Five**: Seit C++11 gehören die beiden Move-Operationen dazu.\n- **Rule of Zero**: Am besten schreibt man keine davon. Man baut Klassen aus Membern, die ihre Ressourcen selbst verwalten (`std::vector`, `std::string`, `std::unique_ptr`). Dann sind die automatisch erzeugten Versionen richtig."
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze die Klasse nach der Rule of Zero: Kopieren und Verschieben sollen funktionieren, ohne eine einzige spezielle Memberfunktion zu schreiben.",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "class Puffer {",
+          "public:",
+          "    explicit Puffer(std::size_t n) : daten_(n) {}",
+          "private:",
+          "    std::{{?}}<int> daten_;",
+          "};"
+        ]
+      },
+      "luecken": [{ "loesungen": ["vector"] }],
+      "auswahl": ["vector", "unique_ptr", "shared_ptr", "array"],
+      "erklaerung": "`std::vector` kopiert tief, verschiebt effizient und gibt im Destruktor frei. `Puffer` erbt dieses Verhalten automatisch. `std::unique_ptr<int[]>` wäre nicht kopierbar, `std::shared_ptr` würde beim Kopieren die Daten teilen statt sie zu kopieren, und `std::array` braucht die Grösse schon beim Kompilieren."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Ordne zu.",
+      "paare": [
+        { "links": "Rule of Zero", "rechts": "Keine eigenen Spezialfunktionen, die Member verwalten sich selbst" },
+        { "links": "Rule of Three", "rechts": "Destruktor, Kopierkonstruktor und Kopierzuweisung gehören zusammen" },
+        { "links": "Rule of Five", "rechts": "Zusätzlich Move-Konstruktor und Move-Zuweisung" },
+        { "links": "`= delete`", "rechts": "Eine Spezialfunktion ausdrücklich verbieten" },
+        { "links": "`= default`", "rechts": "Die vom Compiler erzeugte Version ausdrücklich anfordern" }
+      ],
+      "erklaerung": "`= default` und `= delete` dokumentieren eine Absicht. `X(X&&) noexcept = default;` sagt dem Leser: Verschieben ist gewollt und wirft nicht."
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Die versteckte Falle",
+      "text": "Deklariert man **irgendeinen** Destruktor, auch `~X() = default;` oder einen nur für Logging, erzeugt der Compiler **keine Move-Operationen** mehr. Die Kopieroperationen erzeugt er weiterhin. Die Folge: Jeder Versuch zu verschieben kopiert still. Das Programm bleibt korrekt, wird aber langsamer, und niemand merkt es.\n\nAbhilfe: Entweder keinen Destruktor deklarieren (Rule of Zero), oder alle fünf ausdrücklich mit `= default` angeben."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Was passiert in Zeile 7 mit `werte`?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "struct Messung {",
+          "    std::vector<double> werte;",
+          "    ~Messung() { log(\"Messung beendet\"); }",
+          "};",
+          "",
+          "Messung a = erzeuge();",
+          "Messung b = std::move(a);"
+        ]
+      },
+      "optionen": [
+        "`werte` wird kopiert, weil der eigene Destruktor den Move-Konstruktor unterdrückt",
+        "`werte` wird verschoben",
+        "Compilerfehler: `Messung` ist nicht verschiebbar"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Wegen des Destruktors gibt es keinen impliziten Move-Konstruktor. `std::move(a)` ist zwar ein rvalue, bindet aber an den Kopierkonstruktor (`const Messung&` nimmt auch rvalues). Ergebnis: eine vollständige Kopie des Vektors. clang-tidy erkennt das mit `cppcoreguidelines-special-member-functions`.",
+      "begruendungen": [
+        "Richtig. Still und teuer.",
+        "Das wäre nur ohne den eigenen Destruktor so (oder mit `Messung(Messung&&) = default;`).",
+        "Es kompiliert, es wird nur kopiert statt verschoben."
+      ]
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Was ist für eine neue Klasse die beste Strategie?",
+      "optionen": [
+        "Rule of Zero, wo immer möglich. Ressourcen in eigene kleine RAII-Klassen auslagern",
+        "Immer alle fünf Funktionen selbst schreiben, damit nichts dem Compiler überlassen bleibt",
+        "Immer alle fünf mit `= delete` verbieten und nur über Zeiger arbeiten"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Code, den man nicht schreibt, hat keine Fehler. Eine einzelne RAII-Klasse pro Ressourcenart (z. B. `Datei`, `Socket`) folgt der Rule of Five, alles andere wird aus solchen Bausteinen zusammengesetzt und folgt der Rule of Zero. So steht die schwierige Logik an genau einer Stelle.",
+      "begruendungen": [
+        "Richtig.",
+        "Handgeschriebene Spezialfunktionen sind fehleranfällig und müssen bei jedem neuen Member angepasst werden.",
+        "Das schränkt die Klasse unnötig ein und zwingt zu Heap-Allokationen."
+      ]
+    }
+  ],
+  "praxis": "Ein eigener Destruktor in einer Klasse ohne eigene Ressource ist im Review ein Warnsignal, oft wegen Logging oder „Aufräumen“, das gar nicht nötig ist. Die Frage lautet: Welcher Member verwaltet hier etwas, das der Compiler nicht kennt? Gibt es keinen, gehört der Destruktor weg. Gibt es einen, gehört er in eine eigene RAII-Klasse.",
+  "labor": {
+    "titel": "Fehlende Moves finden",
+    "anleitung": "Baue die `Messung` aus der Übung und lass clang-tidy darüber laufen.",
+    "befehle": [
+      "clang-tidy messung.cpp --checks='cppcoreguidelines-special-member-functions,performance-*' -- -std=c++20"
+    ],
+    "beobachtung": "clang-tidy meldet, dass die Klasse einen Destruktor, aber keine Kopier- und Move-Operationen definiert. Mit `-fsanitize=address` und dem `Puffer` aus der ersten Übung bekommst du die Meldung `attempting double-free`."
+  },
+  "begriffe": [
+    { "begriff": "Spezielle Memberfunktionen", "englisch": "special member functions", "erklaerung": "Konstruktor ohne Argumente, Destruktor, Kopier- und Move-Konstruktor, Kopier- und Move-Zuweisung. Der Compiler kann sie erzeugen." },
+    { "begriff": "Rule of Zero", "englisch": "rule of zero", "erklaerung": "Klassen so entwerfen, dass keine Spezialfunktion selbst geschrieben werden muss." },
+    { "begriff": "Rule of Five", "englisch": "rule of five", "erklaerung": "Wer eine der fünf Spezialfunktionen selbst schreibt, sollte alle fünf bedenken." }
+  ],
+  "weiterlesen": [
+    { "titel": "cppreference: The rule of three/five/zero", "url": "https://en.cppreference.com/w/cpp/language/rule_of_three" },
+    { "titel": "C++ Core Guidelines: C.20 – If you can avoid defining default operations, do", "url": "https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#Rc-zero" }
+  ]
+}

@@ -1,0 +1,146 @@
+{
+  "id": "p6-m3-l2",
+  "phase": 6,
+  "modul": "6.3 Abhängigkeiten managen",
+  "titel": "Zyklische Abhängigkeiten erkennen und auflösen",
+  "lernziele": [
+    "Erklären, warum zyklische Abhängigkeiten schaden",
+    "Zyklen im Abhängigkeitsgraphen finden",
+    "Zyklen mit Dependency Inversion und anderen Mitteln auflösen"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Modul `netz` benutzt `protokoll`, und `protokoll` benutzt `netz`. Was ist das Hauptproblem?",
+      "optionen": [
+        "Keines der beiden lässt sich allein bauen, testen oder verstehen. Faktisch sind sie ein einziges Modul",
+        "Der Code wird langsamer",
+        "Es gibt keines, solange beide gut getestet sind"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Ein Zyklus verklebt Module. Jede Änderung kann in beide Richtungen wirken, Tests brauchen immer beide, und die Link-Reihenfolge wird zum Problem (Modul 1.3). In grossen Systemen wachsen Zyklen oft auf zehn oder mehr Module, bis alles von allem abhängt.",
+      "begruendungen": [
+        "Richtig.",
+        "Die Laufzeit ist nicht betroffen, die Struktur schon.",
+        "Auch gut getestete Module bleiben dadurch untrennbar."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Zyklen finden",
+      "text": "Abhängigkeiten zwischen Modulen sollten einen **gerichteten Graphen ohne Kreise** bilden (DAG, *directed acyclic graph*). Zyklen findet man:\n\n- im Abhängigkeitsgraphen der Targets: `cmake --graphviz`\n- über Includes zwischen Modulen\n- am Linker: Braucht der Link `--start-group` oder Bibliotheken doppelt, gibt es einen Zyklus\n\nCMake erlaubt Zyklen zwischen statischen Bibliotheken übrigens stillschweigend. Ein sauberer Graph muss deshalb bewusst geprüft werden, z. B. mit einem Skript in der CI."
+    },
+    {
+      "typ": "terminal-deuten",
+      "frage": "Ein Ausschnitt aus der von CMake erzeugten Graphviz-Datei. Was zeigt er?",
+      "terminal": {
+        "befehl": "grep -- '->' build/deps.dot",
+        "ausgabe": [
+          "    \"netz\" -> \"protokoll\"",
+          "    \"protokoll\" -> \"logging\"",
+          "    \"logging\" -> \"netz\""
+        ]
+      },
+      "optionen": [
+        "Einen Zyklus über drei Module: netz → protokoll → logging → netz",
+        "Eine saubere Schichtung von netz über protokoll zu logging",
+        "Dass `logging` nicht gebaut wird"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Die dritte Kante schliesst den Kreis. Typische Ursache: Das Logging verschickt Meldungen über das Netz und hängt deshalb von `netz` ab. Ein Basis-Modul wie `logging` sollte aber von gar nichts Höherem abhängen.",
+      "begruendungen": [
+        "Richtig.",
+        "Ohne die letzte Kante wäre es eine saubere Kette.",
+        "Der Graph sagt nichts darüber, ob gebaut wird."
+      ]
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Welche Strategie passt zu welcher Situation?",
+      "paare": [
+        { "links": "Interface im unteren Modul, Implementierung im oberen (Dependency Inversion)", "rechts": "Ein unteres Modul muss etwas im oberen auslösen" },
+        { "links": "Gemeinsamen Teil in ein neues Modul auslagern", "rechts": "Beide brauchen dieselben Typen oder Funktionen" },
+        { "links": "Callback oder Ereignis statt direktem Aufruf", "rechts": "Das untere Modul soll obere nur benachrichtigen" },
+        { "links": "Funktion in das andere Modul verschieben", "rechts": "Die Funktion gehört fachlich eigentlich dorthin" }
+      ],
+      "erklaerung": "Dependency Inversion ist das wichtigste Werkzeug: Die Richtung der **Abhängigkeit** wird umgedreht, während die Richtung des **Aufrufs** gleich bleibt. Das untere Modul ruft weiterhin oben auf, aber nur über eine Schnittstelle, die es selbst definiert."
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Dependency Inversion an einem Beispiel",
+      "text": "`protokoll` soll bei ungültigen Paketen einen Fehler in der Oberfläche anzeigen. Statt `ui` einzubinden, definiert `protokoll` selbst eine kleine Schnittstelle. `ui` implementiert sie, und `main` verbindet beides. Jetzt hängt `ui` von `protokoll` ab, aber nicht mehr umgekehrt.",
+      "code": {
+        "sprache": "cpp",
+        "datei": "protokoll/include/protokoll/fehler_melder.h",
+        "zeilen": [
+          "#pragma once",
+          "#include <string_view>",
+          "",
+          "class IFehlerMelder {",
+          "public:",
+          "    virtual ~IFehlerMelder() = default;",
+          "    virtual void melde(std::string_view text) = 0;",
+          "};"
+        ]
+      }
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Welche Zeile erzeugt die zyklische Abhängigkeit zwischen `protokoll` und `ui`?",
+      "code": {
+        "sprache": "cpp",
+        "datei": "src/protokoll/protokoll.cpp",
+        "zeilen": [
+          "#include \"protokoll/protokoll.h\"",
+          "#include \"protokoll/paket.h\"",
+          "#include \"ui/hauptfenster.h\"",
+          "",
+          "void Protokoll::verarbeite(const Paket& p) {",
+          "    if (!p.gueltig()) {",
+          "        Hauptfenster::instanz().zeigeFehler(\"Ungültiges Paket\");",
+          "        return;",
+          "    }",
+          "    ...",
+          "}"
+        ]
+      },
+      "fehlerZeile": 3,
+      "erklaerung": "Mit dem Include in Zeile 3 hängt das Protokoll-Modul von der Oberfläche ab, während die Oberfläche das Protokoll benutzt. Zeile 7 ist die Folge davon. Mit einem injizierten `IFehlerMelder& melder_` würde daraus `melder_.melde(\"Ungültiges Paket\");`, und das Include verschwindet."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Warum sind Zyklen in grossen Projekten schlimmer als in kleinen?",
+      "optionen": [
+        "Sie verbinden immer mehr Module zu einem Klumpen, den man nur noch als Ganzes bauen, testen und ausliefern kann",
+        "Grosse Projekte haben langsamere Compiler",
+        "In kleinen Projekten sind Zyklen verboten"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Ein Zyklus zieht neue Abhängigkeiten an: Wer eines der Module braucht, bekommt alle. Irgendwann gibt es keine sinnvollen Modulgrenzen mehr, und jedes Team blockiert jedes andere. Zyklen früh zu verhindern ist viel billiger, als sie später aufzulösen.",
+      "begruendungen": [
+        "Richtig.",
+        "Der Compiler ist nicht das Problem.",
+        "Verboten sind sie nirgends, schädlich sind sie überall."
+      ]
+    }
+  ],
+  "praxis": "Ein Abhängigkeitsgraph ohne Zyklen ist eines der wenigen Architekturziele, die sich vollständig automatisch prüfen lassen. Viele Teams lassen in der CI ein Skript laufen, das den Graphen aus CMake erzeugt und bei Zyklen oder verbotenen Richtungen (z. B. `drivers` → `ui`) fehlschlägt. Damit wird Architektur von einer Empfehlung zu einer Regel.",
+  "labor": {
+    "titel": "Einen Zyklus aufspüren",
+    "anleitung": "Erzeuge den Abhängigkeitsgraphen eines Projekts und suche mit einem kleinen Skript nach Kreisen.",
+    "befehle": [
+      "cmake -S . -B build --graphviz=build/deps.dot",
+      "python3 -c \"import networkx as nx; g=nx.DiGraph(nx.nx_pydot.read_dot('build/deps.dot')); print(list(nx.simple_cycles(g)))\""
+    ],
+    "beobachtung": "Eine leere Liste heisst: keine Zyklen. Findest du welche, beginne mit dem kürzesten Kreis und prüfe, welche einzelne Kante sich am einfachsten umdrehen lässt."
+  },
+  "begriffe": [
+    { "begriff": "Zyklische Abhängigkeit", "englisch": "cyclic dependency", "erklaerung": "Module hängen über einen Kreis voneinander ab, z. B. A → B → A." },
+    { "begriff": "DAG", "englisch": "directed acyclic graph", "erklaerung": "Gerichteter Graph ohne Kreise. Die gewünschte Form des Abhängigkeitsgraphen." },
+    { "begriff": "Dependency Inversion", "englisch": "dependency inversion principle", "erklaerung": "Module hängen von Abstraktionen ab. Das untere Modul definiert eine Schnittstelle, das obere implementiert sie." }
+  ],
+  "weiterlesen": [
+    { "titel": "Robert C. Martin: The Dependency Inversion Principle", "url": "https://web.archive.org/web/20110714224327/http://www.objectmentor.com/resources/articles/dip.pdf" }
+  ]
+}

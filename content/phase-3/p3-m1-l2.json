@@ -1,0 +1,187 @@
+{
+  "id": "p3-m1-l2",
+  "phase": 3,
+  "modul": "3.1 Unit-Tests mit GoogleTest",
+  "titel": "Fixtures und parametrisierte Tests",
+  "lernziele": [
+    "Gemeinsame Vorbereitung mit einer Test-Fixture lösen",
+    "Viele Eingaben mit parametrisierten Tests prüfen",
+    "Testfälle nach Äquivalenzklassen und Grenzwerten auswählen"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Fünf Tests brauchen alle ein `Lager` mit denselben drei Artikeln. Wie löst du das am besten?",
+      "optionen": [
+        "Mit einer Test-Fixture, die das Lager vor jedem Test frisch aufbaut",
+        "Mit einem globalen `Lager`, das alle Tests gemeinsam benutzen",
+        "Die Vorbereitung in jeden Test kopieren"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Eine **Fixture** ist eine Klasse, die die gemeinsame Vorbereitung enthält. GoogleTest erzeugt für **jeden** Test ein neues Fixture-Objekt. So ist die Vorbereitung an einer Stelle, und trotzdem beeinflussen sich die Tests nicht.",
+      "begruendungen": [
+        "Richtig.",
+        "Dann hängt das Ergebnis eines Tests davon ab, was andere Tests vorher verändert haben.",
+        "Funktioniert, aber jede Änderung muss fünfmal gemacht werden."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Eine Fixture",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "class LagerTest : public ::testing::Test {",
+          "protected:",
+          "    void SetUp() override {",
+          "        lager.hinzufuegen(\"Schraube\", 100);",
+          "        lager.hinzufuegen(\"Mutter\", 50);",
+          "    }",
+          "    Lager lager;",
+          "};",
+          "",
+          "TEST_F(LagerTest, EntnahmeVerringertBestand) {",
+          "    lager.entnehmen(\"Schraube\", 30);",
+          "    EXPECT_EQ(lager.bestand(\"Schraube\"), 70);",
+          "}"
+        ],
+        "anmerkungen": [
+          { "zeile": 3, "text": "`SetUp` läuft vor jedem Test, `TearDown` danach (falls nötig)." },
+          { "zeile": 10, "text": "`TEST_F` statt `TEST`: Der erste Parameter ist die Fixture-Klasse." }
+        ]
+      },
+      "text": "Die Member der Fixture stehen in jedem `TEST_F` direkt zur Verfügung."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Test `A` läuft vor Test `B`. Welchen Bestand an Schrauben sieht `B`?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "TEST_F(LagerTest, A) {",
+          "    lager.entnehmen(\"Schraube\", 30);",
+          "}",
+          "",
+          "TEST_F(LagerTest, B) {",
+          "    std::cout << lager.bestand(\"Schraube\");",
+          "}"
+        ]
+      },
+      "optionen": ["`100`", "`70`", "Das hängt von der Reihenfolge ab"],
+      "korrekt": 0,
+      "fest": true,
+      "erklaerung": "Jeder Test bekommt ein eigenes, frisch aufgebautes `LagerTest`-Objekt. Was `A` verändert, verschwindet mit dessen Fixture. Genau diese Isolation macht Tests reproduzierbar.",
+      "begruendungen": [
+        "Richtig.",
+        "Das wäre bei geteiltem Zustand so.",
+        "Gerade nicht. Die Fixture macht die Reihenfolge egal."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Parametrisierte Tests",
+      "text": "Wenn dieselbe Prüfung für viele Eingaben laufen soll, schreibt man sie einmal mit `TEST_P` und liefert die Daten mit `INSTANTIATE_TEST_SUITE_P`. Jeder Datensatz erscheint als eigener Test.",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "class SchaltjahrTest : public ::testing::TestWithParam<std::pair<int, bool>> {};",
+          "",
+          "TEST_P(SchaltjahrTest, ErkenntSchaltjahre) {",
+          "    auto [jahr, erwartet] = GetParam();",
+          "    EXPECT_EQ(istSchaltjahr(jahr), erwartet) << \"Jahr \" << jahr;",
+          "}",
+          "",
+          "INSTANTIATE_TEST_SUITE_P(Jahre, SchaltjahrTest, ::testing::Values(",
+          "    std::pair{2024, true}, std::pair{1900, false},",
+          "    std::pair{2000, true}, std::pair{2023, false}));"
+        ],
+        "anmerkungen": [
+          { "zeile": 5, "text": "Mit `<<` hängt man eine Erklärung an, die bei einem Fehlschlag erscheint." }
+        ]
+      }
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Ein Jahr ist ein Schaltjahr, wenn es durch 4 teilbar ist, ausser es ist durch 100 teilbar, es sei denn, es ist auch durch 400 teilbar. Welche drei Jahre prüfen je einen **anderen** Fall der Regel?",
+      "optionen": ["2024", "1900", "2000", "2028"],
+      "korrekt": [0, 1, 2],
+      "erklaerung": "Gute Testfälle wählt man nach **Äquivalenzklassen**: Alle Werte einer Klasse verhalten sich gleich, einer pro Klasse genügt. 2024 und 2028 fallen in dieselbe Klasse („durch 4, nicht durch 100“). Ergänzend lohnen sich **Grenzwerte** wie 0, negative Werte oder `INT_MAX`, denn an Grenzen passieren die meisten Fehler.",
+      "begruendungen": [
+        "Richtig: durch 4, nicht durch 100.",
+        "Richtig: durch 100, nicht durch 400, also kein Schaltjahr.",
+        "Richtig: durch 400, also doch ein Schaltjahr.",
+        "Gleicher Fall wie 2024, bringt keine neue Information."
+      ]
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze die Makros für einen parametrisierten Test.",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "{{?}}(CrcTest, BerechnetPruefsumme) {",
+          "    auto [eingabe, erwartet] = GetParam();",
+          "    EXPECT_EQ(crc8(eingabe), erwartet);",
+          "}",
+          "",
+          "{{?}}(Bekannt, CrcTest, ::testing::Values(",
+          "    std::pair{std::string(\"\"), 0x00}, std::pair{std::string(\"123456789\"), 0xF4}));"
+        ]
+      },
+      "luecken": [{ "loesungen": ["TEST_P"] }, { "loesungen": ["INSTANTIATE_TEST_SUITE_P"] }],
+      "auswahl": ["TEST_P", "TEST_F", "INSTANTIATE_TEST_SUITE_P", "TEST"],
+      "erklaerung": "`TEST_P` definiert das Muster, `INSTANTIATE_TEST_SUITE_P` die Daten. `0xF4` ist der Prüfwert der Standard-CRC-8 für den Text \"123456789\". Solche bekannten Werte aus Normen oder Datenblättern sind ideale Testfälle."
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Einzeln laufen beide Tests grün, zusammen schlägt `LeeresLager` fehl. Welche Zeile ist die Ursache?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "static Lager gLager;",
+          "",
+          "TEST(LagerTest, Hinzufuegen) {",
+          "    gLager.hinzufuegen(\"Mutter\", 10);",
+          "    EXPECT_EQ(gLager.bestand(\"Mutter\"), 10);",
+          "}",
+          "",
+          "TEST(LagerTest, LeeresLager) {",
+          "    EXPECT_EQ(gLager.anzahlArtikel(), 0);",
+          "}"
+        ]
+      },
+      "fehlerZeile": 1,
+      "erklaerung": "Ein globales Objekt teilt Zustand zwischen Tests. Das Ergebnis hängt dann von der Reihenfolge ab. Mit `--gtest_shuffle` würde der Fehler mal auftreten, mal nicht. Abhilfe: das Lager in eine Fixture oder lokal in jeden Test verschieben."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Wofür sind diese Optionen des Testprogramms?",
+      "paare": [
+        { "links": "`--gtest_filter=Lager*`", "rechts": "Nur passende Tests ausführen" },
+        { "links": "`--gtest_shuffle`", "rechts": "Zufällige Reihenfolge, deckt Abhängigkeiten auf" },
+        { "links": "`--gtest_repeat=200`", "rechts": "Wiederholen, um sporadische Fehlschläge zu finden" },
+        { "links": "`--gtest_break_on_failure`", "rechts": "Beim ersten Fehlschlag im Debugger anhalten" }
+      ],
+      "erklaerung": "`--gtest_repeat` zusammen mit `--gtest_shuffle` ist ein schneller Weg, um *flaky* Tests zu entlarven, also Tests, die ohne Code-Änderung mal grün und mal rot sind."
+    }
+  ],
+  "praxis": "Im Review sind globale Objekte und `static`-Variablen in Testdateien ein Warnsignal. Ebenso Tests mit fünf fast identischen Kopien: Das schreit nach einem parametrisierten Test. Bei Testdaten fragst du: Deckt jede Klasse von Eingaben genau ein Fall ab? Sind die Grenzen dabei, also leer, eins, maximal, negativ?",
+  "labor": {
+    "titel": "Reihenfolgeabhängigkeit aufdecken",
+    "anleitung": "Baue die beiden Tests mit `gLager` und lass sie mehrfach in zufälliger Reihenfolge laufen.",
+    "befehle": [
+      "./lager_test --gtest_repeat=20 --gtest_shuffle | grep -E 'PASSED|FAILED' | sort | uniq -c"
+    ],
+    "beobachtung": "In manchen Durchläufen scheitert `LeeresLager`, in anderen nicht. Nach der Umstellung auf eine Fixture laufen alle Durchläufe grün."
+  },
+  "begriffe": [
+    { "begriff": "Test-Fixture", "englisch": "test fixture", "erklaerung": "Gemeinsame Vorbereitung mehrerer Tests. Jeder Test bekommt ein frisches Exemplar." },
+    { "begriff": "Parametrisierter Test", "englisch": "parameterized test", "erklaerung": "Ein Test, der mit vielen Datensätzen ausgeführt wird (`TEST_P`)." },
+    { "begriff": "Äquivalenzklasse", "englisch": "equivalence class", "erklaerung": "Menge von Eingaben, für die sich das Programm gleich verhält. Ein Testfall pro Klasse genügt." },
+    { "begriff": "Grenzwertanalyse", "englisch": "boundary value analysis", "erklaerung": "Gezieltes Testen an den Rändern der Äquivalenzklassen, wo Fehler am häufigsten sind." }
+  ],
+  "weiterlesen": [
+    { "titel": "GoogleTest: Value-Parameterized Tests", "url": "https://google.github.io/googletest/advanced.html#value-parameterized-tests" }
+  ]
+}

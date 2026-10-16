@@ -1,0 +1,175 @@
+{
+  "id": "p2-m3-l2",
+  "phase": 2,
+  "modul": "2.3 Wertkategorien und Move-Semantik",
+  "titel": "Move-Konstruktor und std::move",
+  "lernziele": [
+    "Erklären, was Verschieben gegenüber Kopieren spart",
+    "Einen Move-Konstruktor mit `noexcept` schreiben",
+    "Wissen, was mit einem verschobenen Objekt noch erlaubt ist"
+  ],
+  "dauerMinuten": 7,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "`std::vector<std::string> a` enthält eine Million Texte. `a` wird danach nicht mehr gebraucht, sein Inhalt soll in `b` landen. Was ist die Idee hinter **Verschieben** statt Kopieren?",
+      "optionen": [
+        "`b` übernimmt den internen Speicherblock von `a`, statt alle Texte zu duplizieren. `a` bleibt leer zurück",
+        "Die Texte werden komprimiert und dann kopiert",
+        "`b` wird zu einer Referenz auf `a`"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Ein Vektor ist intern im Wesentlichen ein Zeiger auf einen Heap-Block plus Grösse und Kapazität. Verschieben kopiert diese drei Werte und setzt sie in `a` zurück. Das kostet konstante Zeit statt einer Million Allokationen.",
+      "begruendungen": [
+        "Richtig. Ressourcen werden übernommen, nicht dupliziert.",
+        "Es wird nichts komprimiert, nur der Besitz übergeben.",
+        "`b` ist ein eigenständiges Objekt. Nach dem Verschieben sind `a` und `b` unabhängig."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Ein Move-Konstruktor",
+      "text": "Der **Move-Konstruktor** nimmt eine rvalue-Referenz entgegen, übernimmt die Ressourcen des anderen Objekts und hinterlässt es in einem gültigen, leeren Zustand. So kann dessen Destruktor gefahrlos laufen.",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "class Puffer {",
+          "public:",
+          "    Puffer(Puffer&& anderer) noexcept",
+          "        : daten_(anderer.daten_), groesse_(anderer.groesse_) {",
+          "        anderer.daten_ = nullptr;",
+          "        anderer.groesse_ = 0;",
+          "    }",
+          "    ~Puffer() { delete[] daten_; }",
+          "private:",
+          "    int* daten_;",
+          "    std::size_t groesse_;",
+          "};"
+        ],
+        "anmerkungen": [
+          { "zeile": 3, "text": "`noexcept`: Verschieben wirft nie. Warum das wichtig ist, folgt gleich." },
+          { "zeile": 4, "text": "Den Zeiger übernehmen, die Daten bleiben, wo sie sind." },
+          { "zeile": 5, "text": "Das alte Objekt loslassen, sonst würden beide Destruktoren denselben Block freigeben." }
+        ]
+      }
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Was macht `std::move(x)` selbst?",
+      "optionen": [
+        "Nichts zur Laufzeit: Es ist nur ein Cast, der `x` als rvalue (xvalue) markiert",
+        "Es kopiert `x` an eine neue Adresse",
+        "Es ruft den Destruktor von `x` auf"
+      ],
+      "korrekt": 0,
+      "erklaerung": "`std::move` ist ein `static_cast<T&&>`. Verschoben wird erst, wenn das Ergebnis an einen Move-Konstruktor oder Move-Zuweisungsoperator geht. Hat die Klasse keinen, wird stillschweigend kopiert. Ein besserer Name wäre `std::darf_verschoben_werden` gewesen.",
+      "begruendungen": [
+        "Richtig.",
+        "Es entsteht kein neues Objekt.",
+        "Der Destruktor läuft erst am Ende der Lebenszeit von `x`."
+      ]
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze den Move-Konstruktor.",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "Puffer(Puffer&& anderer) {{?}}",
+          "    : daten_(anderer.daten_), groesse_(anderer.groesse_) {",
+          "    anderer.daten_ = {{?}};",
+          "    anderer.groesse_ = 0;",
+          "}"
+        ]
+      },
+      "luecken": [{ "loesungen": ["noexcept"] }, { "loesungen": ["nullptr"] }],
+      "auswahl": ["noexcept", "nullptr", "const", "delete"],
+      "erklaerung": "`const` wäre falsch: Ein `const Puffer&&` könnte man nicht ausräumen. `delete` an dieser Stelle würde den Speicher freigeben, den gerade das neue Objekt übernommen hat."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Was ist nach Zeile 2 garantiert?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "std::string a = \"ein Text, zu lang für die Small String Optimization\";",
+          "std::string b = std::move(a);"
+        ]
+      },
+      "optionen": [
+        "`b` enthält den Text. `a` ist gültig, aber in einem nicht festgelegten Zustand (in der Praxis leer)",
+        "`a` und `b` enthalten beide den Text",
+        "`a` ist zerstört, jeder Zugriff auf `a` ist Undefined Behavior"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Die Standardbibliothek garantiert für verschobene Objekte nur: **gültig, aber unspezifiziert** (valid but unspecified). Erlaubt sind Operationen ohne Vorbedingung: zuweisen, `clear()`, zerstören, `size()` abfragen. Sich auf einen bestimmten Inhalt zu verlassen, ist falsch.",
+      "begruendungen": [
+        "Richtig.",
+        "Das wäre eine Kopie.",
+        "`a` lebt weiter bis zum Ende seines Blocks. Zuweisen und Zerstören sind ausdrücklich erlaubt."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Warum `noexcept` so wichtig ist",
+      "text": "Wenn ein `std::vector` wächst, muss er seine Elemente in einen neuen Speicherblock bringen. Er verspricht dabei die **starke Garantie**: Wirft etwas, bleibt der alte Zustand erhalten. Verschieben kann diese Garantie nur einhalten, wenn es nicht wirft. Deshalb verschiebt `std::vector` nur, wenn der Move-Konstruktor `noexcept` ist, und kopiert sonst. Ein fehlendes `noexcept` kann also ein Programm stark verlangsamen, ohne dass sich am Ergebnis etwas ändert."
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Diese Funktion ist korrekt, aber eine Zeile macht sie unnötig langsamer. Welche?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "std::vector<int> erzeugeWerte() {",
+          "    std::vector<int> werte;",
+          "    werte.reserve(1000);",
+          "    for (int i = 0; i < 1000; ++i) werte.push_back(i);",
+          "    return std::move(werte);",
+          "}"
+        ]
+      },
+      "fehlerZeile": 5,
+      "erklaerung": "Bei `return werte;` darf der Compiler das Objekt direkt im Speicher des Aufrufers anlegen. Diese **Named Return Value Optimization** (NRVO) kopiert und verschiebt nichts. `std::move` verhindert die Optimierung, weil der Ausdruck kein einfacher Name mehr ist. Übrig bleibt ein Move. GCC warnt mit `-Wpessimizing-move`. Lokale Variablen gibt man deshalb ohne `std::move` zurück."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Was gibt dieser Code aus?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "std::vector<int> a = {1, 2, 3};",
+          "std::vector<int> b = std::move(a);",
+          "a.push_back(4);",
+          "std::cout << a.size();"
+        ]
+      },
+      "optionen": ["`1`", "`4`", "Undefined Behavior"],
+      "korrekt": 0,
+      "fest": true,
+      "erklaerung": "`push_back` hat keine Vorbedingung, darf also auf einem verschobenen Vektor aufgerufen werden. Für den **Move-Konstruktor** von `std::vector` garantiert der Standard sogar, dass das Quellobjekt danach leer ist. Also ist die Ausgabe `1`. Nach einer Move-*Zuweisung* gibt es diese Garantie nicht.",
+      "begruendungen": [
+        "Richtig.",
+        "Die drei Elemente gehören jetzt `b`.",
+        "Verschobene Objekte bleiben gültig. Operationen ohne Vorbedingung sind erlaubt."
+      ]
+    }
+  ],
+  "praxis": "Im Review siehst du typische Move-Fehler: `return std::move(lokal);` (verhindert NRVO), `std::move` auf `const`-Objekte (kopiert trotzdem), Benutzung eines Objekts nach `std::move` (clang-tidy: `bugprone-use-after-move`) und Move-Konstruktoren ohne `noexcept`. In Klassen mit Ressourcen ist ein `noexcept`-Move oft der grösste einzelne Performance-Gewinn bei Containern.",
+  "labor": {
+    "titel": "Kopieren und Verschieben zählen",
+    "anleitung": "Schreibe eine Klasse, die in Kopier- und Move-Konstruktor jeweils eine Meldung ausgibt. Füge 10 Objekte per `push_back` in einen `std::vector` ein, einmal mit und einmal ohne `noexcept` am Move-Konstruktor.",
+    "befehle": [
+      "g++ -std=c++20 -O2 move.cpp -o move && ./move | sort | uniq -c"
+    ],
+    "beobachtung": "Ohne `noexcept` siehst du beim Wachsen des Vektors Kopien, mit `noexcept` nur Moves. Mit `v.reserve(10)` vorab verschwinden die Umzüge ganz."
+  },
+  "begriffe": [
+    { "begriff": "Move-Semantik", "englisch": "move semantics", "erklaerung": "Ressourcen eines Objekts, das nicht mehr gebraucht wird, übernehmen statt sie zu kopieren." },
+    { "begriff": "Gültig, aber unspezifiziert", "englisch": "valid but unspecified", "erklaerung": "Zustand eines verschobenen Objekts: Es darf zerstört und neu zugewiesen werden, sein Inhalt ist offen." },
+    { "begriff": "NRVO", "englisch": "named return value optimization", "erklaerung": "Der Compiler legt eine zurückgegebene lokale Variable direkt beim Aufrufer an und spart Kopie und Move." }
+  ],
+  "weiterlesen": [
+    { "titel": "cppreference: Move constructors", "url": "https://en.cppreference.com/w/cpp/language/move_constructor" },
+    { "titel": "cppreference: Copy elision", "url": "https://en.cppreference.com/w/cpp/language/copy_elision" }
+  ]
+}

@@ -1,0 +1,149 @@
+{
+  "id": "p2-m6-l2",
+  "phase": 2,
+  "modul": "2.6 Undefined Behavior",
+  "titel": "Typische UB-Fallen",
+  "lernziele": [
+    "Die häufigsten Ursachen von UB im Code erkennen",
+    "Ungültig gewordene Iteratoren vermeiden",
+    "Für jede UB-Art das passende Werkzeug wählen"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "fehler-finden",
+      "frage": "Diese Summe ist manchmal falsch, manchmal stürzt das Programm ab. Welche Zeile ist schuld?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "std::array<int, 4> werte{1, 2, 3, 4};",
+          "int summe = 0;",
+          "for (std::size_t i = 0; i <= werte.size(); ++i) {",
+          "    summe += werte[i];",
+          "}"
+        ]
+      },
+      "fehlerZeile": 3,
+      "erklaerung": "`<=` lässt die Schleife bis `i == 4` laufen, und `werte[4]` liegt hinter dem Array. `operator[]` prüft nicht, das ist UB. Besser: `for (int w : werte)` oder `std::accumulate`. Wer Indizes braucht, kann während der Entwicklung `werte.at(i)` nehmen (wirft eine Exception) oder die Prüfungen der Standardbibliothek einschalten (`-D_GLIBCXX_ASSERTIONS`)."
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Die üblichen Verdächtigen",
+      "text": "- Zugriff **ausserhalb** von Arrays, Vektoren oder Strings\n- **Use after free**: Zugriff auf freigegebenen Speicher, hängende Zeiger und Referenzen\n- Lesen **nicht initialisierter** Variablen\n- Überlauf **vorzeichenbehafteter** Ganzzahlen\n- **Data Races**: gleichzeitiger Zugriff mehrerer Threads, mindestens einer schreibt, ohne Synchronisation\n- **Ungültige Iteratoren** nach Änderungen am Container\n- Fehlendes `return` in einer Funktion mit Rückgabetyp\n- Verstösse gegen **Strict Aliasing**: ein Objekt über einen Zeiger eines fremden Typs lesen, z. B. `float` als `int`. Richtig geht das mit `std::memcpy` oder `std::bit_cast`."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Alle geraden Zahlen sollen entfernt werden. Was ist das Problem?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "std::vector<int> v = {1, 2, 3, 4};",
+          "for (auto it = v.begin(); it != v.end(); ++it) {",
+          "    if (*it % 2 == 0) v.erase(it);",
+          "}"
+        ]
+      },
+      "optionen": [
+        "`erase` macht `it` ungültig. Das anschliessende `++it` ist Undefined Behavior",
+        "Es entfernt korrekt alle geraden Zahlen",
+        "Compilerfehler: Man darf in einer Schleife nicht löschen"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Nach `erase` sind alle Iteratoren ab der gelöschten Position ungültig. Die Schleife bewegt einen ungültigen Iterator weiter und kann über `end()` hinauslaufen. Korrekt wäre `it = v.erase(it);` ohne `++it` in diesem Fall, oder einfacher die Lösung aus der nächsten Übung.",
+      "begruendungen": [
+        "Richtig.",
+        "Der Code sieht plausibel aus. Bei `{2, 4}` überspringt er aber Elemente oder stürzt ab.",
+        "Der Code ist gültig, nur das Verhalten ist undefiniert."
+      ]
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze die C++20-Lösung, die alle geraden Zahlen sicher entfernt.",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": ["std::{{?}}(v, [](int x) { return x % 2 == 0; });"]
+      },
+      "luecken": [{ "loesungen": ["erase_if"] }],
+      "auswahl": ["erase_if", "remove_if", "erase", "filter"],
+      "erklaerung": "`std::erase_if` gibt es seit C++20 für alle Standardcontainer. `std::remove_if` allein verschiebt die zu behaltenden Elemente nur nach vorne und gibt einen Iterator auf das neue Ende zurück. Gelöscht wird erst mit dem anschliessenden `v.erase(...)`. Das ist das bekannte *erase-remove idiom* aus älterem Code."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Was liefert `berechne(false)`?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "int berechne(bool flag) {",
+          "    int ergebnis;",
+          "    if (flag) ergebnis = 42;",
+          "    return ergebnis;",
+          "}"
+        ]
+      },
+      "optionen": [
+        "Kein verlässliches Ergebnis: `ergebnis` wird nicht initialisiert gelesen",
+        "Immer `0`",
+        "Immer `42`"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Lokale Variablen fundamentaler Typen haben ohne Initialisierung einen unbestimmten Wert. Ihn zu lesen ist bis C++23 Undefined Behavior. C++26 macht daraus *erroneous behavior*: weiterhin ein Fehler, aber mit begrenzten Folgen. Die einfache Regel: Jede Variable bei der Deklaration initialisieren, z. B. `int ergebnis = 0;`.",
+      "begruendungen": [
+        "Richtig.",
+        "Nur globale und statische Variablen starten mit 0.",
+        "Der Zweig mit 42 läuft bei `false` nicht."
+      ]
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Welches Werkzeug findet welchen Fehler zur Laufzeit?",
+      "paare": [
+        { "links": "Zugriff ausserhalb eines Arrays, use after free", "rechts": "AddressSanitizer (`-fsanitize=address`)" },
+        { "links": "Überlauf eines `int`, ungültige Shift-Weite", "rechts": "UndefinedBehaviorSanitizer (`-fsanitize=undefined`)" },
+        { "links": "Data Race zwischen Threads", "rechts": "ThreadSanitizer (`-fsanitize=thread`)" },
+        { "links": "Lesen nicht initialisierten Speichers", "rechts": "MemorySanitizer (Clang) oder Valgrind" }
+      ],
+      "erklaerung": "Sanitizer bauen Prüfcode in das Programm ein und melden Fehler mit Stacktrace. Sie kosten Laufzeit (ASan etwa Faktor 2) und gehören in die CI für Tests, nicht in Release-Builds. ASan und TSan lassen sich nicht gleichzeitig verwenden. Mehr dazu in Phase 3."
+    },
+    {
+      "typ": "terminal-deuten",
+      "frage": "Was meldet der Sanitizer?",
+      "terminal": {
+        "befehl": "./rechner_tests",
+        "ausgabe": [
+          "rechner.cpp:12:18: runtime error: signed integer overflow: 2147483647 + 1 cannot be represented in type 'int'"
+        ]
+      },
+      "optionen": [
+        "In Zeile 12 läuft eine `int`-Addition über. Die Rechnung braucht einen grösseren Typ oder eine Prüfung",
+        "Der Compiler hat Zeile 12 falsch übersetzt",
+        "In Zeile 12 gibt es ein Speicherleck"
+      ],
+      "korrekt": 0,
+      "erklaerung": "UBSan nennt Datei, Zeile, Spalte und die konkreten Werte. Lösungen: einen breiteren Typ verwenden (`std::int64_t`), vor der Rechnung prüfen oder in C++26 `std::add_sat` für sättigende Arithmetik nutzen.",
+      "begruendungen": [
+        "Richtig.",
+        "Der Compiler hat korrekt übersetzt. Der Fehler liegt im Programm.",
+        "Lecks meldet der LeakSanitizer mit `detected memory leaks`."
+      ]
+    }
+  ],
+  "praxis": "Diese Liste ist eine gute Checkliste für Code-Reviews: Schleifengrenzen (`<=` vs. `<`), Änderungen an Containern während einer Iteration, nicht initialisierte Variablen und Arithmetik mit Grenzwerten. In der CI sollte mindestens ein Testlauf mit ASan und UBSan stattfinden. Er findet in bestehendem Code fast immer etwas.",
+  "labor": {
+    "titel": "Sanitizer auf eigenem Code",
+    "anleitung": "Baue die Beispiele dieser Lektion zusammen in ein Programm und lass es mit Sanitizern laufen.",
+    "befehle": [
+      "g++ -std=c++20 -g -fsanitize=address,undefined fallen.cpp -o fallen && ./fallen",
+      "g++ -std=c++20 -O2 -Wall -Wextra -Wuninitialized fallen.cpp"
+    ],
+    "beobachtung": "ASan meldet `stack-buffer-overflow` beim Array und `heap-buffer-overflow` beim Iterator, sobald dieser über den reservierten Speicher des Vektors hinausläuft. Der Compiler warnt mit `-O2` vor `ergebnis`, weil er für diese Warnung den Datenfluss analysieren muss, und das tut er erst mit Optimierung."
+  },
+  "begriffe": [
+    { "begriff": "Ungültiger Iterator", "englisch": "invalidated iterator", "erklaerung": "Iterator, der nach einer Änderung des Containers nicht mehr verwendet werden darf." },
+    { "begriff": "Strict Aliasing", "englisch": "strict aliasing rule", "erklaerung": "Regel, nach der ein Objekt nur über passende Typen gelesen werden darf. Verstösse sind UB." },
+    { "begriff": "Sanitizer", "englisch": "sanitizer", "erklaerung": "Compiler-Option, die Prüfcode einbaut und Fehler wie UB oder Speicherfehler zur Laufzeit meldet." }
+  ],
+  "weiterlesen": [
+    { "titel": "cppreference: Iterator invalidation", "url": "https://en.cppreference.com/w/cpp/container#Iterator_invalidation" },
+    { "titel": "Clang: UndefinedBehaviorSanitizer", "url": "https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html" }
+  ]
+}

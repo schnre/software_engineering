@@ -1,0 +1,129 @@
+{
+  "id": "p2-m6-l1",
+  "phase": 2,
+  "modul": "2.6 Undefined Behavior",
+  "titel": "Was Undefined Behavior bedeutet",
+  "lernziele": [
+    "Undefined, implementierungsdefiniertes und unspezifiziertes Verhalten unterscheiden",
+    "Erklären, warum der Optimierer UB ausnutzt",
+    "Begründen, warum „funktioniert bei mir“ bei UB nichts beweist"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "code-lesen",
+      "frage": "Was macht GCC mit `-O2` aus dieser Funktion?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "bool passtNoch(int x) {",
+          "    return x + 1 > x;",
+          "}"
+        ]
+      },
+      "optionen": [
+        "`return true;` – ein Überlauf von `int` ist Undefined Behavior, also nimmt der Compiler an, dass er nie passiert",
+        "Eine korrekte Prüfung, die bei `INT_MAX` `false` liefert",
+        "Einen Compilerfehler"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Für `signed int` legt der Standard das Verhalten bei Überlauf nicht fest. Der Compiler darf annehmen, dass dein Programm so etwas nie tut. Unter dieser Annahme ist `x + 1 > x` immer wahr, und die ganze Prüfung fällt weg. Bei `unsigned` wäre das anders, dort ist der Überlauf definiert (modulo 2ⁿ).",
+      "begruendungen": [
+        "Richtig. Der Optimierer nutzt die Regeln konsequent aus.",
+        "Das wäre das Verhalten, wenn Überlauf definiert wäre (z. B. mit `-fwrapv`).",
+        "Der Code ist gültig. Das Problem entsteht erst bei bestimmten Werten zur Laufzeit."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Keine Anforderungen",
+      "text": "**Undefined Behavior** (UB) heisst: Der C++-Standard stellt **keinerlei** Anforderungen an das Verhalten. Das Programm kann abstürzen, falsche Ergebnisse liefern, korrekt aussehen oder sich bei jedem Build anders verhalten.\n\nDas ist kein Versehen: Weil der Compiler annehmen darf, dass UB nie vorkommt, kann er Prüfungen weglassen, Schleifen umbauen und schnelleren Code erzeugen. Die Verantwortung liegt beim Programmierer. Davon zu unterscheiden:\n- **implementierungsdefiniert**: Der Compiler muss dokumentieren, was passiert (z. B. `sizeof(long)`).\n- **unspezifiziert**: Eine von mehreren erlaubten Möglichkeiten, ohne Dokumentationspflicht (z. B. die Auswertungsreihenfolge von Funktionsargumenten)."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Ordne zu.",
+      "paare": [
+        { "links": "Überlauf eines `int`", "rechts": "Undefined Behavior" },
+        { "links": "`sizeof(long)`", "rechts": "Implementierungsdefiniert: vom Compiler dokumentiert" },
+        { "links": "Reihenfolge, in der `f(a(), b())` die Argumente auswertet", "rechts": "Unspezifiziert: eine von mehreren erlaubten Möglichkeiten" },
+        { "links": "Überlauf eines `unsigned int`", "rechts": "Wohldefiniert: rechnet modulo 2ⁿ" }
+      ],
+      "erklaerung": "`sizeof(long)` ist unter 64-Bit-Linux 8, unter 64-Bit-Windows 4. Beides ist korrekt und dokumentiert. Wer portablen Code schreibt, verwendet für feste Breiten `std::int64_t` aus `<cstdint>`."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Was darf der Optimierer mit der `if`-Abfrage in Zeile 3 machen?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "int lies(int* p) {",
+          "    int wert = *p;",
+          "    if (p == nullptr) return -1;",
+          "    return wert;",
+          "}"
+        ]
+      },
+      "optionen": [
+        "Sie entfernen: Nach `*p` in Zeile 2 kann `p` nicht null sein, sonst wäre das Programm schon in UB",
+        "Nichts, die Prüfung muss bleiben",
+        "Sie vor Zeile 2 verschieben, um den Absturz zu verhindern"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Das Dereferenzieren eines Nullzeigers ist UB. Also schliesst der Compiler: Wer bis Zeile 3 kommt, hat ein gültiges `p`. Die Prüfung ist dann überflüssig. So ein Fall hat schon reale Sicherheitslücken im Linux-Kernel verursacht. Die Prüfung gehört **vor** den Zugriff.",
+      "begruendungen": [
+        "Richtig.",
+        "Für den Compiler ist sie unter den Sprachregeln bedeutungslos.",
+        "Der Compiler repariert keine Programmfehler, er nutzt sie höchstens aus."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Warum das im Alltag zählt",
+      "text": "UB-Fehler sind tückisch, weil sie oft lange unentdeckt bleiben: Im Debug-Build läuft alles, im Release-Build nicht. Nach einem Compiler-Update geht etwas kaputt, das jahrelang funktioniert hat. Auf einer anderen Plattform verhält sich das Programm anders.\n\nWerkzeuge dagegen: Compiler-Warnungen (`-Wall -Wextra`), Sanitizer zur Laufzeit (`-fsanitize=undefined,address`, Phase 3), statische Analyse (clang-tidy) und Kompilierzeit-Auswertung mit `constexpr`, die UB erkennt."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Ein Programm mit bekanntem UB läuft seit Jahren fehlerfrei in Produktion. Ist es damit korrekt?",
+      "optionen": [
+        "Nein. Ein neuer Compiler, andere Optimierungsstufen, eine andere Plattform oder schon eine kleine Code-Änderung können das Verhalten ändern",
+        "Ja, die Praxis zeigt, dass es funktioniert",
+        "Ja, solange man den Compiler nie aktualisiert"
+      ],
+      "korrekt": 0,
+      "erklaerung": "„Funktioniert“ heisst bei UB nur: Mit genau diesem Compiler, diesen Flags und diesen Eingaben ist bisher nichts aufgefallen. Selbst ohne Compiler-Update kann eine Änderung an einer ganz anderen Stelle die Inlining-Entscheidungen ändern und den Fehler sichtbar machen.",
+      "begruendungen": [
+        "Richtig.",
+        "Beobachtetes Verhalten ist bei UB keine Garantie.",
+        "Auch dann können andere Eingaben oder Code-Änderungen das Verhalten ändern."
+      ]
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze die Fachbegriffe.",
+      "text": "Bei {{?}} Behavior stellt der Standard keinerlei Anforderungen. Bei {{?}} Behavior muss der Compiler dokumentieren, was passiert.",
+      "luecken": [{ "loesungen": ["undefined"] }, { "loesungen": ["implementation-defined"] }],
+      "auswahl": ["undefined", "implementation-defined", "unspecified", "well-defined"],
+      "erklaerung": "Die englischen Begriffe stehen so im Standard und in Fehlermeldungen. Im Deutschen sagt man meist einfach „UB“."
+    }
+  ],
+  "praxis": "Wenn ein Fehler nur im Release-Build auftritt, nur mit einem bestimmten Compiler oder verschwindet, sobald man eine `printf`-Zeile einfügt, ist UB der Hauptverdächtige. Der erste Schritt ist dann, mit `-fsanitize=undefined,address` zu bauen und die Tests laufen zu lassen. Ein Senior erkennt diese Muster und sucht nicht stundenlang nach einem „Compilerfehler“.",
+  "labor": {
+    "titel": "Den Optimierer bei der Arbeit sehen",
+    "anleitung": "Vergleiche den erzeugten Code von `passtNoch` mit und ohne Optimierung. Noch bequemer geht das mit dem Compiler Explorer (godbolt.org).",
+    "befehle": [
+      "g++ -O0 -S -o - ub.cpp | grep -A8 passtNoch",
+      "g++ -O2 -S -o - ub.cpp | grep -A4 passtNoch",
+      "g++ -O2 -fsanitize=undefined ub.cpp -o ub && ./ub"
+    ],
+    "beobachtung": "Mit `-O2` besteht die Funktion nur noch aus `mov $1, %eax` und `ret`. Mit UBSan und dem Aufruf `passtNoch(INT_MAX)` meldet das Programm `signed integer overflow`."
+  },
+  "begriffe": [
+    { "begriff": "Undefined Behavior", "englisch": "undefined behavior, UB", "erklaerung": "Verhalten, für das der Standard keine Anforderungen stellt. Der Compiler darf annehmen, dass es nie auftritt." },
+    { "begriff": "Implementierungsdefiniert", "englisch": "implementation-defined", "erklaerung": "Verhalten, das der Compiler festlegen und dokumentieren muss, z. B. die Grösse von `long`." },
+    { "begriff": "Unspezifiziert", "englisch": "unspecified", "erklaerung": "Eine von mehreren erlaubten Möglichkeiten, ohne Pflicht zur Dokumentation." }
+  ],
+  "weiterlesen": [
+    { "titel": "cppreference: Undefined behavior", "url": "https://en.cppreference.com/w/cpp/language/ub" },
+    { "titel": "Chris Lattner: What Every C Programmer Should Know About Undefined Behavior", "url": "https://blog.llvm.org/2011/05/what-every-c-programmer-should-know.html" }
+  ]
+}

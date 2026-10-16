@@ -1,0 +1,169 @@
+{
+  "id": "p7-m6-l1",
+  "phase": 7,
+  "modul": "7.6 PIMPL, starke Typen und enum class",
+  "titel": "PIMPL",
+  "lernziele": [
+    "Das PIMPL-Idiom korrekt umsetzen",
+    "Den typischen Fehler mit `unique_ptr` und unvollständigem Typ vermeiden",
+    "Nutzen und Kosten von PIMPL abwägen"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Was macht das **PIMPL**-Idiom?",
+      "optionen": [
+        "Es verschiebt alle privaten Member in eine Klasse, die nur in der `.cpp` definiert ist. Der Header enthält nur einen Zeiger darauf",
+        "Es macht alle Memberfunktionen `inline`",
+        "Es ersetzt Vererbung durch Templates"
+      ],
+      "korrekt": 0,
+      "erklaerung": "PIMPL steht für *pointer to implementation*. Weil Nutzer die privaten Member nicht mehr sehen, ändern sich Grösse und Layout der Klasse nie, und der Header bindet die Abhängigkeiten der Implementierung nicht ein. Erinnere dich an die ABI-Lektion in Modul 6.2.",
+      "begruendungen": [
+        "Richtig.",
+        "Im Gegenteil, mit PIMPL steht weniger im Header.",
+        "Mit Vererbung hat PIMPL nichts zu tun."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "PIMPL im Code",
+      "code": {
+        "sprache": "cpp",
+        "datei": "sensor.h",
+        "zeilen": [
+          "#pragma once",
+          "#include <memory>",
+          "",
+          "class Sensor {",
+          "public:",
+          "    Sensor();",
+          "    ~Sensor();",
+          "    Sensor(Sensor&&) noexcept;",
+          "    Sensor& operator=(Sensor&&) noexcept;",
+          "    double lies();",
+          "private:",
+          "    struct Impl;",
+          "    std::unique_ptr<Impl> impl_;",
+          "};"
+        ],
+        "anmerkungen": [
+          { "zeile": 7, "text": "Der Destruktor wird nur **deklariert** und in der `.cpp` definiert. Warum, zeigt die nächste Übung." },
+          { "zeile": 12, "text": "Nur eine Vorwärtsdeklaration. Wie `Impl` aussieht, weiss nur `sensor.cpp`." }
+        ]
+      },
+      "text": "In `sensor.cpp` steht `struct Sensor::Impl { … };` mit allen Membern und allen Includes, die dafür nötig sind."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Jemand entfernt die Zeile `~Sensor();` aus dem Header, damit der Compiler den Destruktor selbst erzeugt. Was passiert?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "class Sensor {",
+          "public:",
+          "    Sensor();",
+          "    double lies();",
+          "private:",
+          "    struct Impl;",
+          "    std::unique_ptr<Impl> impl_;",
+          "};",
+          "",
+          "// main.cpp",
+          "int main() { Sensor s; }"
+        ]
+      },
+      "optionen": [
+        "Compilerfehler in `main.cpp`: Der automatisch erzeugte Destruktor muss `Impl` löschen, kennt aber dessen Definition nicht",
+        "Alles funktioniert wie vorher",
+        "Speicherleck, weil `Impl` nie gelöscht wird"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Der automatisch erzeugte Destruktor ist `inline` und entsteht dort, wo er gebraucht wird, also in `main.cpp`. Dort ist `Impl` unvollständig, und `std::unique_ptr` verweigert das Löschen eines unvollständigen Typs mit einem Fehler wie `invalid application of 'sizeof' to incomplete type`. Abhilfe: Destruktor im Header deklarieren und in der `.cpp` nach der Definition von `Impl` mit `= default` definieren. Dasselbe gilt für die Move-Operationen.",
+      "begruendungen": [
+        "Richtig. Ein Klassiker.",
+        "Das ist genau der Fehler, den die Deklaration verhindert.",
+        "`unique_ptr` verhindert das Leck, indem es gar nicht erst kompiliert."
+      ]
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze die Implementierungsdatei.",
+      "code": {
+        "sprache": "cpp",
+        "datei": "sensor.cpp",
+        "zeilen": [
+          "#include \"sensor.h\"",
+          "#include \"i2c_bus.h\"     // nur hier nötig",
+          "",
+          "struct Sensor::Impl {",
+          "    I2cBus bus{0x48};",
+          "    double letzter = 0.0;",
+          "};",
+          "",
+          "Sensor::Sensor() : impl_(std::make_unique<{{?}}>()) {}",
+          "Sensor::~Sensor() = {{?}};",
+          "Sensor::Sensor(Sensor&&) noexcept = default;",
+          "Sensor& Sensor::operator=(Sensor&&) noexcept = default;",
+          "",
+          "double Sensor::lies() { return impl_->letzter = impl_->bus.lies16() * 0.1; }"
+        ]
+      },
+      "luecken": [{ "loesungen": ["Impl"] }, { "loesungen": ["default"] }],
+      "auswahl": ["Impl", "default", "delete", "Sensor"],
+      "erklaerung": "Hier, nach der Definition von `Impl`, kann der Compiler den Destruktor korrekt erzeugen. `i2c_bus.h` steht nur in der `.cpp`. Nutzer von `sensor.h` hängen also nicht davon ab."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Ordne Vor- und Nachteile zu.",
+      "paare": [
+        { "links": "Vorteil für die ABI", "rechts": "Neue private Member ändern Grösse und Layout der Klasse nicht" },
+        { "links": "Vorteil für die Kompilierzeit", "rechts": "Der Header bindet die Abhängigkeiten der Implementierung nicht ein" },
+        { "links": "Nachteil zur Laufzeit", "rechts": "Eine Heap-Allokation pro Objekt und eine Indirektion pro Zugriff" },
+        { "links": "Nachteil beim Aufwand", "rechts": "Konstruktoren, Destruktor und Moves müssen in der `.cpp` definiert werden" }
+      ],
+      "erklaerung": "Es gibt Varianten ohne Heap (*fast PIMPL*), bei denen ein ausreichend grosser, ausgerichteter Speicherblock im Objekt liegt. Sie sind aber fehleranfällig und lohnen sich nur, wenn die Allokation nachweislich stört."
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Wann PIMPL sinnvoll ist",
+      "text": "PIMPL lohnt sich an Stellen, wo Stabilität wichtiger ist als die letzte Nanosekunde:\n\n- öffentliche Klassen in Bibliotheken mit stabiler ABI (SDKs, Shared Libraries)\n- Klassen, deren Implementierung schwere Header braucht (Hersteller-SDKs, Boost, Windows-Header)\n- Klassen an Modulgrenzen, die sich intern oft ändern\n\nFür kleine Werttypen, die millionenfach in Schleifen benutzt werden, ist PIMPL dagegen die falsche Wahl."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Was passiert bei `Sensor b = a;` mit der PIMPL-Klasse aus dieser Lektion?",
+      "optionen": [
+        "Compilerfehler: Der Kopierkonstruktor ist gelöscht, weil `std::unique_ptr` nicht kopierbar ist. Für Kopien braucht es einen eigenen Kopierkonstruktor, der `Impl` dupliziert",
+        "`b` und `a` teilen sich dieselbe Implementierung",
+        "`a` wird automatisch nach `b` verschoben"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Das ist meist sogar gewollt, denn ein Sensor sollte nicht kopiert werden. Soll eine PIMPL-Klasse Wertsemantik haben, schreibt man einen Kopierkonstruktor wie `Sensor::Sensor(const Sensor& o) : impl_(std::make_unique<Impl>(*o.impl_)) {}`. Mit `std::shared_ptr<Impl>` würden sich Kopien unbemerkt eine Implementierung teilen, und das ist fast nie gewollt.",
+      "begruendungen": [
+        "Richtig.",
+        "Das wäre mit `shared_ptr` so, aber gefährlich.",
+        "Verschieben passiert nur mit `std::move(a)`."
+      ]
+    }
+  ],
+  "praxis": "Im Alltag begegnet dir PIMPL in Bibliotheken wie Qt (dort *d-pointer* genannt) und in Firmen-SDKs. Beim Review einer PIMPL-Klasse prüfst du: Sind Destruktor und Moves in der `.cpp` definiert? Ist geklärt, ob die Klasse kopierbar sein soll? Und lohnt sich PIMPL hier überhaupt, oder würde eine schlanke Klasse ohne Indirektion genügen?",
+  "labor": {
+    "titel": "Kompilierzeit-Gewinn messen",
+    "anleitung": "Baue eine Klasse, deren Implementierung einen grossen Header (z. B. `<regex>` oder `<boost/asio.hpp>`) braucht, einmal normal und einmal mit PIMPL. Lass 50 Dateien den Header der Klasse einbinden und miss die Build-Zeit.",
+    "befehle": [
+      "cmake -S . -B build -G Ninja && time cmake --build build",
+      "touch src/sensor_impl_detail.h && time cmake --build build"
+    ],
+    "beobachtung": "Mit PIMPL wird nach einer Änderung an der Implementierung nur noch eine Datei neu übersetzt statt 50. Auch der vollständige Build ist schneller, weil der grosse Header nur einmal geparst wird."
+  },
+  "begriffe": [
+    { "begriff": "PIMPL", "englisch": "pointer to implementation", "erklaerung": "Private Member liegen in einer Klasse, die nur in der `.cpp` definiert ist. Der Header enthält nur einen Zeiger darauf." },
+    { "begriff": "Unvollständiger Typ", "englisch": "incomplete type", "erklaerung": "Deklarierter, aber noch nicht definierter Typ. Man darf Zeiger darauf haben, ihn aber nicht anlegen oder löschen." },
+    { "begriff": "d-pointer", "englisch": "d-pointer", "erklaerung": "Bezeichnung für das PIMPL-Idiom in Qt." }
+  ],
+  "weiterlesen": [
+    { "titel": "cppreference: PImpl", "url": "https://en.cppreference.com/w/cpp/language/pimpl" },
+    { "titel": "C++ Core Guidelines: I.27 – For stable library ABI, consider the Pimpl idiom", "url": "https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#Ri-pimpl" }
+  ]
+}

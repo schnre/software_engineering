@@ -1,0 +1,140 @@
+{
+  "id": "p1-m5-l2",
+  "phase": 1,
+  "modul": "1.5 Toolchains und Cross-Kompilierung",
+  "titel": "Cross-Kompilierung",
+  "lernziele": [
+    "Build- und Host-System unterscheiden",
+    "Eine Sysroot und einen Cross-Compiler verwenden",
+    "Eine CMake-Toolchain-Datei lesen und anpassen"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "terminal-deuten",
+      "frage": "Du hast auf deinem PC `g++ main.cpp -o app` gebaut und `app` auf einen Raspberry Pi mit 64-Bit-ARM kopiert. Warum startet es dort nicht?",
+      "terminal": {
+        "befehl": "./app",
+        "ausgabe": [
+          "-bash: ./app: cannot execute binary file: Exec format error"
+        ]
+      },
+      "optionen": [
+        "Das Programm enthält x86-64-Maschinencode, den die ARM-CPU nicht ausführen kann",
+        "Die Datei hat beim Kopieren ihre Ausführungsrechte verloren",
+        "Auf dem Pi fehlt die passende `libstdc++.so`"
+      ],
+      "korrekt": 0,
+      "erklaerung": "`Exec format error` meldet der Kernel, wenn das Format oder die Architektur nicht passen. Maschinencode ist CPU-spezifisch. Du brauchst einen Compiler, der auf dem PC läuft, aber ARM-Code erzeugt: einen **Cross-Compiler**.",
+      "begruendungen": [
+        "Richtig. `file app` würde `x86-64` anzeigen.",
+        "Fehlende Rechte ergeben `Permission denied`.",
+        "Eine fehlende Bibliothek meldet der Loader mit `error while loading shared libraries`. So weit kommt es hier gar nicht."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Build, Host und Sysroot",
+      "text": "Beim Cross-Kompilieren sind zwei Systeme beteiligt (GNU-Begriffe):\n\n- **Build**: der Rechner, auf dem kompiliert wird, z. B. dein x86-64-PC oder ein CI-Server\n- **Host**: der Rechner, auf dem das fertige Programm läuft, z. B. ein ARM-Gerät\n\nDer Cross-Compiler heisst meist wie das Ziel: `aarch64-linux-gnu-g++`. Er braucht die Header und Bibliotheken des Zielsystems, nicht die deines PCs. Die liegen in einer **Sysroot**: einem Verzeichnis, das wie das Wurzelverzeichnis des Zielsystems aufgebaut ist (`usr/include`, `usr/lib` …)."
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze den Befehl, um für einen Raspberry Pi mit 64-Bit-Linux zu bauen.",
+      "code": {
+        "sprache": "bash",
+        "zeilen": ["{{?}}-g++ --sysroot=/opt/pi-sysroot main.cpp -o app"]
+      },
+      "luecken": [{ "loesungen": ["aarch64-linux-gnu"] }],
+      "auswahl": ["aarch64-linux-gnu", "x86_64-linux-gnu", "arm-none-eabi"],
+      "erklaerung": "Der Pi mit 64-Bit-OS ist `aarch64` mit Linux und glibc. `arm-none-eabi` erzeugt Code für Mikrocontroller ohne Betriebssystem. Damit liesse sich kein Linux-Programm bauen. `--sysroot` sorgt dafür, dass `#include` und `-l` im Zielsystem suchen."
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Cross-Kompilieren mit CMake",
+      "text": "CMake bekommt die Toolchain über eine **Toolchain-Datei**. Sie wird beim Konfigurieren angegeben: `cmake -S . -B build-pi -DCMAKE_TOOLCHAIN_FILE=pi.cmake`.",
+      "code": {
+        "sprache": "cmake",
+        "datei": "pi.cmake",
+        "zeilen": [
+          "set(CMAKE_SYSTEM_NAME Linux)",
+          "set(CMAKE_SYSTEM_PROCESSOR aarch64)",
+          "set(CMAKE_SYSROOT /opt/pi-sysroot)",
+          "set(CMAKE_C_COMPILER aarch64-linux-gnu-gcc)",
+          "set(CMAKE_CXX_COMPILER aarch64-linux-gnu-g++)",
+          "set(CMAKE_FIND_ROOT_PATH_MODE_PROGRAM NEVER)",
+          "set(CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY)",
+          "set(CMAKE_FIND_ROOT_PATH_MODE_INCLUDE ONLY)",
+          "set(CMAKE_FIND_ROOT_PATH_MODE_PACKAGE ONLY)"
+        ],
+        "anmerkungen": [
+          { "zeile": 1, "text": "Setzt man `CMAKE_SYSTEM_NAME`, weiss CMake, dass cross-kompiliert wird." },
+          { "zeile": 6, "text": "Programme wie Code-Generatoren laufen auf dem Build-Rechner, also dort suchen." },
+          { "zeile": 7, "text": "Bibliotheken, Header und Pakete nur in der Sysroot suchen." }
+        ]
+      }
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Warum steht in der Toolchain-Datei `CMAKE_FIND_ROOT_PATH_MODE_LIBRARY ONLY`?",
+      "optionen": [
+        "Damit `find_library` und `find_package` keine x86-Bibliotheken des Build-Rechners finden",
+        "Damit CMake schneller sucht",
+        "Damit nur statische Bibliotheken verwendet werden"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Findet CMake versehentlich `/usr/lib/x86_64-linux-gnu/libssl.so` deines PCs, scheitert der Link mit kryptischen Meldungen wie `file in wrong format` oder `incompatible target`. `ONLY` beschränkt die Suche auf die Sysroot.",
+      "begruendungen": [
+        "Richtig. Gemischte Architekturen sind der häufigste Cross-Build-Fehler.",
+        "Es geht um richtige Ergebnisse, nicht um Geschwindigkeit.",
+        "Die Einstellung betrifft den Suchort, nicht die Art der Bibliothek."
+      ]
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Ordne die Begriffe zu.",
+      "paare": [
+        { "links": "Build-Rechner", "rechts": "Hier wird kompiliert" },
+        { "links": "Host", "rechts": "Hier läuft das fertige Programm" },
+        { "links": "Sysroot", "rechts": "Header und Bibliotheken des Zielsystems" },
+        { "links": "Toolchain-Datei", "rechts": "Legt für CMake Compiler und Zielsystem fest" }
+      ],
+      "erklaerung": "Verwechslungsgefahr: In der GNU-Welt heisst das Zielsystem eines Programms *host*. *Target* gibt es nur bei Compilern selbst: Ein Compiler, der auf x86 gebaut wird (build), auf x86 läuft (host) und ARM-Code erzeugt, hat das *target* ARM."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Wie führst du in der CI Unit-Tests für cross-kompilierten ARM-Code aus?",
+      "optionen": [
+        "In einem Emulator wie QEMU oder auf echter Ziel-Hardware, oft zusätzlich zu einem nativen Test-Build für den Build-Rechner",
+        "Gar nicht: Cross-kompilierter Code ist nicht testbar",
+        "Direkt auf dem x86-CI-Server, die Tests brauchen keine passende CPU"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Bewährt hat sich eine Kombination: Die plattformunabhängige Logik wird zusätzlich nativ gebaut und schnell getestet. Der Cross-Build läuft in QEMU (`qemu-aarch64 -L /opt/pi-sysroot ./tests`) oder auf einem Hardware-Testplatz. Dafür muss der Code gut von der Hardware getrennt sein. Darum geht es in Phase 7 (Hardware Abstraction Layer).",
+      "begruendungen": [
+        "Richtig. So bekommt man schnelle und realistische Tests.",
+        "Mit Emulator oder Hardware ist er sehr wohl testbar.",
+        "Das scheitert mit `Exec format error`, wie am Anfang dieser Lektion."
+      ]
+    }
+  ],
+  "praxis": "Cross-Builds begegnen dir überall dort, wo Code nicht auf einem PC läuft: Embedded-Linux, Mikrocontroller, Fahrzeuge, Industrie-PCs mit ARM. Typische Fehler im Alltag: `file in wrong format` oder `skipping incompatible ... when searching for -lfoo`. Beides heisst: Eine Bibliothek der falschen Architektur wurde gefunden. Prüfe dann mit `file`, welche Architektur die Bibliothek hat, und kontrolliere Sysroot und Suchpfade.",
+  "labor": {
+    "titel": "Einen Cross-Compiler ausprobieren",
+    "anleitung": "Unter Debian/Ubuntu (auch in WSL) kannst du einen ARM-Cross-Compiler und QEMU installieren und ein Hello-World für ARM bauen und ausführen.",
+    "befehle": [
+      "sudo apt install g++-aarch64-linux-gnu qemu-user",
+      "aarch64-linux-gnu-g++ -static main.cpp -o app-arm",
+      "file app-arm",
+      "qemu-aarch64 ./app-arm"
+    ],
+    "beobachtung": "`file` meldet `ARM aarch64`. QEMU führt das Programm auf dem x86-PC aus, indem es die ARM-Instruktionen emuliert. `-static` erspart hier die Sysroot zur Laufzeit."
+  },
+  "begriffe": [
+    { "begriff": "Cross-Compiler", "englisch": "cross compiler", "erklaerung": "Compiler, der auf einem System läuft und Code für ein anderes erzeugt, z. B. `aarch64-linux-gnu-g++` auf x86." },
+    { "begriff": "Sysroot", "englisch": "sysroot", "erklaerung": "Verzeichnis mit Headern und Bibliotheken des Zielsystems, in dem der Cross-Compiler sucht." },
+    { "begriff": "Toolchain-Datei", "englisch": "CMake toolchain file", "erklaerung": "CMake-Datei, die Compiler, Zielsystem und Suchregeln für einen Cross-Build festlegt." }
+  ],
+  "weiterlesen": [
+    { "titel": "CMake: cmake-toolchains(7)", "url": "https://cmake.org/cmake/help/latest/manual/cmake-toolchains.7.html" }
+  ]
+}

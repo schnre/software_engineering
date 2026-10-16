@@ -1,0 +1,121 @@
+{
+  "id": "p6-m1-l1",
+  "phase": 6,
+  "modul": "6.1 Modularisierung und Separation of Concerns",
+  "titel": "Kohäsion und Kopplung",
+  "lernziele": [
+    "Kohäsion und Kopplung an Beispielen beurteilen",
+    "Separation of Concerns in einer Funktion oder Klasse umsetzen",
+    "Warnzeichen für Klassen mit zu vielen Aufgaben erkennen"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Eine Klasse `SensorManager` liest CAN-Nachrichten, rechnet Rohwerte in °C um, speichert sie in einer Datenbank, zeichnet ein Diagramm in der Oberfläche und verschickt Warn-E-Mails. Was ist das Hauptproblem?",
+      "optionen": [
+        "Sie hat viele unabhängige Gründe, sich zu ändern, und vermischt Hardware, Fachlogik, Speicherung und Darstellung",
+        "Sie hat zu wenige Memberfunktionen",
+        "Der Name ist zu lang"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Ändert sich das CAN-Protokoll, die Umrechnungsformel, die Datenbank, das Diagramm oder der Mail-Server, muss immer dieselbe Klasse angefasst werden. Jede Änderung riskiert, etwas anderes kaputt zu machen, und keiner der Teile lässt sich allein testen.",
+      "begruendungen": [
+        "Richtig. Man spricht von geringer Kohäsion.",
+        "Die Anzahl der Funktionen ist nicht das Problem, sondern ihre Unterschiedlichkeit.",
+        "Der Name ist eher ein Symptom: „Manager“ verrät oft, dass die Aufgabe unklar ist."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Zwei Masse für gute Struktur",
+      "text": "- **Kohäsion** (cohesion): Wie stark gehören die Teile **innerhalb** eines Moduls zusammen? Hoch ist gut: Alles dient einer klar umrissenen Aufgabe.\n- **Kopplung** (coupling): Wie stark hängen **verschiedene** Module voneinander ab? Lose ist gut: Ein Modul kennt vom anderen nur eine kleine, stabile Schnittstelle.\n\nDas Ziel lautet: **hohe Kohäsion, lose Kopplung**. Dahinter steht das Prinzip **Separation of Concerns**: Jeder Belang (Hardware-Zugriff, Fachlogik, Speicherung, Darstellung) gehört an eine eigene Stelle."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Ordne die Beispiele zu.",
+      "paare": [
+        { "links": "Modul A greift über `friend` oder Zeiger-Tricks auf private Member von Modul B zu", "rechts": "Starke Kopplung über Interna" },
+        { "links": "Modul A ruft eine kleine, dokumentierte Schnittstelle von Modul B auf", "rechts": "Lose Kopplung" },
+        { "links": "Eine Klasse enthält nur Funktionen rund um die CRC-Berechnung", "rechts": "Hohe Kohäsion" },
+        { "links": "`utils.cpp` mit Zeitformatierung, CRC, Logging und Dateizugriff", "rechts": "Niedrige Kohäsion" }
+      ],
+      "erklaerung": "Eine Datei `utils.cpp` wächst fast immer weiter, weil „irgendwo muss es ja hin“. Besser sind mehrere kleine Module mit klaren Namen: `crc`, `zeitformat`, `dateizugriff`."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Um ein Feld im Datenformat von Modul A zu ändern, musst du fünf andere Module anpassen. Was zeigt das?",
+      "optionen": [
+        "Starke Kopplung: Die anderen Module hängen von Interna von A ab statt von einer stabilen Schnittstelle",
+        "Hohe Kohäsion von Modul A",
+        "Dass Modul A zu klein ist"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Bei loser Kopplung bleibt eine Änderung lokal. Wenn sich Änderungen dagegen durch das ganze System ziehen (*Schrotflinten-Chirurgie*, shotgun surgery), kennen zu viele Module Details, die sie nicht kennen sollten.",
+      "begruendungen": [
+        "Richtig.",
+        "Kohäsion beschreibt das Innere eines Moduls, nicht seine Wirkung auf andere.",
+        "Die Grösse ist nicht das Problem, sondern wie viel A von sich preisgibt."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Belange trennen",
+      "text": "Eine hilfreiche Frage lautet: **Wer oder was könnte eine Änderung an diesem Code verlangen?** Die Hardware-Abteilung, die Fachabteilung, die Datenbank-Leute, das UI-Team? Jede dieser Quellen ist ein eigener Belang und sollte ihr eigenes Modul haben.\n\nIn der Praxis heisst das oft: Fachlogik als reine Berechnung ohne Ein- und Ausgabe. Hardware, Dateien, Netzwerk und Oberfläche am Rand. Dann lässt sich die Fachlogik mit einfachen Unit-Tests prüfen, und der Rand bleibt dünn."
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Welche Zeile gehört am wenigsten in eine Funktion namens `durchschnittsTemperatur`?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "double Messung::durchschnittsTemperatur() {",
+          "    auto rohwerte = can_.lese(0x120, 100);",
+          "    std::vector<double> celsius;",
+          "    for (auto r : rohwerte) celsius.push_back(r * 0.1 - 40.0);",
+          "    double mittel = std::accumulate(celsius.begin(), celsius.end(), 0.0) / celsius.size();",
+          "    db_.speichere(\"temperatur\", mittel);",
+          "    return mittel;",
+          "}"
+        ]
+      },
+      "fehlerZeile": 6,
+      "erklaerung": "Der Name verspricht eine Berechnung. Zeile 6 hat aber einen versteckten **Seiteneffekt**: Sie schreibt in die Datenbank. Wer die Funktion nur zum Anzeigen aufruft, erzeugt unbeabsichtigt Datensätze. Auch das Lesen vom CAN-Bus in Zeile 2 ist ein eigener Belang. Gut wäre: lesen, umrechnen und mitteln, speichern als drei getrennte Funktionen."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Im Code findest du `DatenManager`, `ProtokollHelper` und `SystemUtils`. Was verraten solche Namen oft?",
+      "optionen": [
+        "Dass die Verantwortung unklar ist und sich dort sehr Verschiedenes sammelt",
+        "Dass es sich um besonders gut entworfene Hilfsklassen handelt",
+        "Nichts, Namen sind Geschmackssache"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Ein guter Name sagt, **was** eine Klasse tut: `CrcRechner`, `MesswertSpeicher`, `CanEmpfaenger`. Wer keinen präzisen Namen findet, hat oft noch keine präzise Aufgabe. Das ist ein guter Anlass, die Klasse aufzuteilen.",
+      "begruendungen": [
+        "Richtig.",
+        "Meist ist das Gegenteil der Fall.",
+        "Namen sind die wichtigste Dokumentation im Code."
+      ]
+    }
+  ],
+  "praxis": "Kohäsion und Kopplung sind die Grundbegriffe jeder Architektur-Diskussion. Im Review fragst du: Wofür ist diese Klasse da, in einem Satz? Wie viele andere Module müssten sich bei einer Änderung mitändern? Im eigenen Code hilft ein einfacher Test: Kannst du die Fachlogik ohne Hardware, Datei oder Netzwerk aufrufen? Wenn nicht, sind die Belange vermischt.",
+  "labor": {
+    "titel": "Eine Klasse zerlegen",
+    "anleitung": "Suche in einem eigenen oder einem Open-Source-Projekt die grösste Klasse. Liste ihre Memberfunktionen auf und gruppiere sie nach Belang. Wie viele Gruppen findest du?",
+    "befehle": [
+      "find src -name '*.cpp' | xargs wc -l | sort -rn | head",
+      "rg -c '^\\w.*::\\w+\\(' src/grosse_klasse.cpp"
+    ],
+    "beobachtung": "Findest du drei oder mehr unabhängige Gruppen, ist die Klasse ein Kandidat zum Aufteilen. Jede Gruppe wird eine eigene Klasse, und die ursprüngliche setzt sie nur noch zusammen."
+  },
+  "begriffe": [
+    { "begriff": "Kohäsion", "englisch": "cohesion", "erklaerung": "Wie stark die Teile eines Moduls zu einer gemeinsamen Aufgabe gehören. Hoch ist gut." },
+    { "begriff": "Kopplung", "englisch": "coupling", "erklaerung": "Wie stark Module voneinander abhängen. Lose ist gut." },
+    { "begriff": "Separation of Concerns", "englisch": "separation of concerns", "erklaerung": "Jeder Belang, z. B. Hardware, Fachlogik, Speicherung, Darstellung, gehört an eine eigene Stelle." },
+    { "begriff": "Seiteneffekt", "englisch": "side effect", "erklaerung": "Wirkung einer Funktion über ihr Ergebnis hinaus, z. B. Schreiben in eine Datei oder Datenbank." }
+  ],
+  "weiterlesen": [
+    { "titel": "Martin Fowler: Coupling and Cohesion (Code Smells)", "url": "https://martinfowler.com/bliki/CodeSmell.html" }
+  ]
+}

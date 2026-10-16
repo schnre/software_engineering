@@ -1,0 +1,169 @@
+{
+  "id": "p1-m2-l3",
+  "phase": 1,
+  "modul": "1.2 Der Linker",
+  "titel": "Name Mangling und extern \"C\"",
+  "lernziele": [
+    "Erklären, warum C++ Symbolnamen verändert",
+    "Gemangelte Namen mit `c++filt` oder `nm -C` lesen",
+    "C-Bibliotheken mit `extern \"C\"` korrekt einbinden"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "C++ erlaubt `int addiere(int, int)` und `double addiere(double, double)` im selben Programm. Der Linker kennt aber nur Namen, keine Typen. Wie unterscheidet er die beiden?",
+      "optionen": [
+        "Der Compiler kodiert die Parametertypen in den Symbolnamen",
+        "Der Linker liest die Typen aus den Headern",
+        "Gar nicht: Überladene Funktionen müssen in derselben Datei stehen"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Das heisst **Name Mangling**: Aus `addiere(int, int)` wird z. B. `_Z7addiereii`. Für den Linker sind das zwei völlig verschiedene Namen.",
+      "begruendungen": [
+        "Richtig. Namespace, Klasse und Parametertypen stecken im Symbolnamen.",
+        "Der Linker sieht nie Quelltext oder Header, nur Object-Files.",
+        "Überladene Funktionen dürfen in beliebigen Dateien definiert sein."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Wie ein Name gemangelt wird",
+      "text": "GCC und Clang verwenden unter Linux und macOS das Schema der **Itanium C++ ABI**. MSVC unter Windows nutzt ein eigenes Schema, deshalb passen dort gebaute Object-Files nicht zusammen. `c++filt` oder `nm -C` machen aus dem gemangelten Namen wieder lesbaren C++-Code.",
+      "code": {
+        "sprache": "text",
+        "zeilen": [
+          "_Z 7addiere i i",
+          "_ZN 5mathe 7addiere E i i"
+        ],
+        "anmerkungen": [
+          { "zeile": 1, "text": "`_Z` = C++-Symbol, `7` = Länge des Namens, `addiere`, dann ein Kürzel pro Parameter (`i` = int)." },
+          { "zeile": 2, "text": "`N … E` umschliesst verschachtelte Namen, hier `mathe::addiere(int, int)`." }
+        ]
+      },
+      "terminal": {
+        "befehl": "echo _ZN5mathe7addiereEdd | c++filt",
+        "ausgabe": ["mathe::addiere(double, double)"]
+      }
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Ordne die gemangelten Namen den C++-Signaturen zu.",
+      "paare": [
+        { "links": "`_Z7addiereii`", "rechts": "`addiere(int, int)`" },
+        { "links": "`_Z7addieredd`", "rechts": "`addiere(double, double)`" },
+        { "links": "`_ZN5mathe7addiereEii`", "rechts": "`mathe::addiere(int, int)`" },
+        { "links": "`_Z5druckPKc`", "rechts": "`druck(char const*)`" }
+      ],
+      "hinweis": "`P` steht für Zeiger (pointer), `K` für const, `c` für char.",
+      "erklaerung": "Die Kürzel sind kompakt: `i` int, `d` double, `c` char, `P` Zeiger, `K` const, `R` Referenz. Auswendig lernen musst du sie nicht. Es reicht zu wissen, dass ein `_Z` am Anfang einen C++-Namen markiert und dass `c++filt` ihn übersetzt."
+    },
+    {
+      "typ": "terminal-deuten",
+      "frage": "Du linkst eine C-Bibliothek `libcrc.a` und bekommst diesen Fehler, obwohl `nm libcrc.a` die Zeile `T crc32` zeigt. Was ist die Ursache?",
+      "terminal": {
+        "befehl": "g++ main.o -L. -lcrc -o app",
+        "ausgabe": [
+          "/usr/bin/ld: main.o: in function `main':",
+          "main.cpp:(.text+0x2a): undefined reference to `crc32(unsigned char const*, unsigned long)'",
+          "collect2: error: ld returned 1 exit status"
+        ]
+      },
+      "optionen": [
+        "Der Header der C-Bibliothek wurde ohne `extern \"C\"` eingebunden, deshalb sucht C++ einen gemangelten Namen",
+        "Die Bibliothek steht im Link-Befehl an der falschen Stelle",
+        "`crc32` ist in der Bibliothek als `static` definiert"
+      ],
+      "korrekt": 0,
+      "erklaerung": "C kennt kein Mangling, die Bibliothek stellt schlicht `crc32` bereit. C++ hat den Header aber als C++-Deklaration gelesen und sucht deshalb `_Z5crc32PKhm`. Die Meldung zeigt sogar Parametertypen, also einen C++-Namen. Das ist das typische Erkennungszeichen.",
+      "begruendungen": [
+        "Richtig. Ein Linkerfehler mit vollständiger Signatur zu einer C-Funktion deutet fast immer darauf hin.",
+        "Hier steht `-lcrc` nach `main.o`, also richtig. Um die Reihenfolge geht es in Modul 1.3.",
+        "Dann zeigte `nm` ein kleines `t`. Es zeigt aber `T`, also ist die Funktion global."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "`extern \"C\"` im Header",
+      "text": "`extern \"C\"` sagt dem C++-Compiler: Diese Funktionen haben C-Linkage, also keinen gemangelten Namen. Gute C-Bibliotheken bauen das selbst in ihre Header ein, sodass sie aus C und C++ nutzbar sind. Der Präprozessor-Schalter ist nötig, weil ein C-Compiler `extern \"C\"` nicht kennt.",
+      "code": {
+        "sprache": "cpp",
+        "datei": "crc.h",
+        "zeilen": [
+          "#pragma once",
+          "#include <stdint.h>",
+          "#include <stddef.h>",
+          "",
+          "#ifdef __cplusplus",
+          "extern \"C\" {",
+          "#endif",
+          "",
+          "uint32_t crc32(const uint8_t* daten, size_t laenge);",
+          "",
+          "#ifdef __cplusplus",
+          "}",
+          "#endif"
+        ],
+        "anmerkungen": [
+          { "zeile": 5, "text": "`__cplusplus` ist nur definiert, wenn ein C++-Compiler den Header liest." },
+          { "zeile": 6, "text": "Alles bis zur schliessenden Klammer bekommt C-Linkage." }
+        ]
+      }
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze die Zeilen, damit der Header sowohl in C als auch in C++ funktioniert.",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "{{?}} __cplusplus",
+          "extern {{?}} {",
+          "#endif",
+          "void sensor_init(void);",
+          "#ifdef __cplusplus",
+          "}",
+          "#endif"
+        ]
+      },
+      "luecken": [{ "loesungen": ["#ifdef"] }, { "loesungen": ["\"C\""] }],
+      "auswahl": ["#ifdef", "#ifndef", "\"C\"", "\"C++\""],
+      "erklaerung": "`#ifdef __cplusplus` blendet die Zeile für C-Compiler aus. `extern \"C\"` wählt C-Linkage. `extern \"C++\"` gibt es auch, es ist aber der Normalfall und würde hier nichts ändern."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Was ist mit Funktionen in einem `extern \"C\"`-Block **nicht** mehr möglich?",
+      "optionen": [
+        "Zwei Funktionen mit gleichem Namen und verschiedenen Parametern (Überladung)",
+        "Zeiger als Parameter",
+        "Der Aufruf aus C++-Code"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Ohne Mangling hängt der Symbolname nur am Funktionsnamen. Zwei Überladungen hätten denselben Namen, und der Linker könnte sie nicht unterscheiden. Deshalb haben C-Schnittstellen Namen wie `sensor_lesen_int` und `sensor_lesen_float`.",
+      "begruendungen": [
+        "Richtig. Überladung braucht Mangling.",
+        "Zeiger sind in C-Schnittstellen völlig normal.",
+        "Gerade dafür ist `extern \"C\"` da: C-Funktionen aus C++ aufrufen und umgekehrt."
+      ]
+    }
+  ],
+  "praxis": "Du brauchst `extern \"C\"`, wenn du C-Bibliotheken wie zlib, SQLite oder die HAL eines Mikrocontroller-Herstellers einbindest, oder wenn du selbst eine Schnittstelle anbietest, die aus C, Python (ctypes) oder per `dlsym` geladen wird. Siehst du `undefined reference` mit vollständiger Parameterliste zu einer Funktion, die eigentlich aus C kommt, fehlt fast sicher `extern \"C\"`.",
+  "labor": {
+    "titel": "Mangling sichtbar machen",
+    "anleitung": "Schreibe zwei Überladungen von `addiere` und eine Funktion in `extern \"C\"`. Vergleiche die Symbolnamen mit und ohne `-C`.",
+    "befehle": [
+      "g++ -c mangling.cpp",
+      "nm mangling.o",
+      "nm mangling.o | c++filt"
+    ],
+    "beobachtung": "Die Überladungen erscheinen als `_Z7addiereii` und `_Z7addieredd`, die `extern \"C\"`-Funktion ohne `_Z`-Präfix. `c++filt` verändert sie deshalb nicht."
+  },
+  "begriffe": [
+    { "begriff": "Name Mangling", "englisch": "name mangling", "erklaerung": "Kodierung von Namespace, Klasse und Parametertypen in den Symbolnamen, damit Überladungen für den Linker unterscheidbar sind." },
+    { "begriff": "ABI", "englisch": "application binary interface", "erklaerung": "Regeln auf Maschinenebene: Mangling, Aufrufkonventionen, Objektlayout. Nur bei gleicher ABI passen Object-Files zusammen." },
+    { "begriff": "C-Linkage", "englisch": "C language linkage", "erklaerung": "Mit `extern \"C\"`: Symbolname ohne Mangling, kompatibel mit C." }
+  ],
+  "weiterlesen": [
+    { "titel": "Itanium C++ ABI: Mangling", "url": "https://itanium-cxx-abi.github.io/cxx-abi/abi.html#mangling" },
+    { "titel": "cppreference: Language linkage", "url": "https://en.cppreference.com/w/cpp/language/language_linkage" }
+  ]
+}

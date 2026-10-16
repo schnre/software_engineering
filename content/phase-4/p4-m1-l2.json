@@ -1,0 +1,137 @@
+{
+  "id": "p4-m1-l2",
+  "phase": 4,
+  "modul": "4.1 Threads und Data Races",
+  "titel": "Data Races und Mutexe",
+  "lernziele": [
+    "Data Races sicher erkennen",
+    "Gemeinsame Daten mit einem Mutex schützen",
+    "Data Race und Race Condition unterscheiden"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Welche Situationen sind Data Races?",
+      "optionen": [
+        "Zwei Threads lesen gleichzeitig dieselbe Variable",
+        "Ein Thread schreibt eine Variable, ein anderer liest sie gleichzeitig ohne Synchronisation",
+        "Zwei Threads schreiben gleichzeitig in **verschiedene** Elemente desselben `std::vector`, ohne dessen Grösse zu ändern",
+        "Zwei Threads rufen gleichzeitig `push_back` auf denselben `std::vector` auf"
+      ],
+      "korrekt": [1, 3],
+      "erklaerung": "Ein **Data Race** braucht drei Zutaten: derselbe Speicherort, mindestens ein Schreibzugriff, keine Synchronisation. Reines Lesen ist immer sicher. Verschiedene Elemente sind verschiedene Speicherorte. `push_back` dagegen verändert intern dieselben Verwaltungsdaten (Grösse, Zeiger).",
+      "begruendungen": [
+        "Nur Lesen erzeugt kein Data Race.",
+        "Richtig.",
+        "Verschiedene Elemente sind verschiedene Speicherorte, das ist erlaubt (Achtung: `std::vector<bool>` ist eine Ausnahme).",
+        "Richtig. Beide verändern Grösse und eventuell den Speicherblock."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Der Mutex",
+      "text": "Ein **Mutex** (mutual exclusion) lässt immer nur einen Thread in einen geschützten Bereich, den **kritischen Abschnitt**. Gesperrt wird nie von Hand mit `lock()`/`unlock()`, sondern per RAII mit `std::lock_guard` oder `std::scoped_lock`.\n\nWichtiger als „Variable X schützen“ ist: **Invarianten schützen**. Gehören mehrere Werte zusammen (z. B. Saldo und Buchungsliste), müssen sie unter derselben Sperre gelesen und geschrieben werden. Faustregel: Der Mutex gehört als Member in die Klasse, deren Daten er schützt. Die Daten sind `private`."
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze die thread-sichere Klasse.",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "class Konto {",
+          "public:",
+          "    void einzahlen(int betrag) {",
+          "        std::{{?}} lock(m_);",
+          "        saldo_ += betrag;",
+          "    }",
+          "private:",
+          "    mutable std::{{?}} m_;",
+          "    int saldo_ = 0;",
+          "};"
+        ]
+      },
+      "luecken": [{ "loesungen": ["lock_guard"] }, { "loesungen": ["mutex"] }],
+      "auswahl": ["lock_guard", "mutex", "atomic", "thread"],
+      "erklaerung": "`mutable` erlaubt, den Mutex auch in `const`-Memberfunktionen zu sperren, etwa in einem Getter. Das ist eine der wenigen guten Verwendungen von `mutable`: Die Sperre verändert den logischen Zustand des Objekts nicht."
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "ThreadSanitizer meldet ein Data Race in dieser Klasse. Welche Zeile ist schuld?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "class Zaehler {",
+          "public:",
+          "    void erhoehe() { std::lock_guard lock(m_); ++wert_; }",
+          "    int wert() const { return wert_; }",
+          "private:",
+          "    mutable std::mutex m_;",
+          "    int wert_ = 0;",
+          "};"
+        ]
+      },
+      "fehlerZeile": 4,
+      "erklaerung": "Auch das **Lesen** muss gesperrt werden, wenn gleichzeitig geschrieben werden kann. Sonst ist es ein Data Race, auch wenn „nur ein `int` gelesen wird“. Richtig: `int wert() const { std::lock_guard lock(m_); return wert_; }`."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "`enthaelt` und `einfuegen` sperren jeweils intern einen Mutex. Ist dieser Code thread-sicher?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "if (!cache.enthaelt(schluessel)) {",
+          "    cache.einfuegen(schluessel, lade(schluessel));",
+          "}"
+        ]
+      },
+      "optionen": [
+        "Nein: Zwischen Prüfen und Einfügen kann ein anderer Thread denselben Schlüssel einfügen",
+        "Ja, beide Funktionen sind ja gesperrt",
+        "Nein, weil `lade` nicht gesperrt ist"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Das ist kein Data Race, denn jeder einzelne Zugriff ist gesperrt. Es ist aber eine **Race Condition**: Das Ergebnis hängt vom Timing ab. Zwei Threads können beide „nicht enthalten“ sehen und beide laden. Die Lösung ist eine Operation, die Prüfen und Einfügen unter **einer** Sperre erledigt, z. B. `holeOderLade(schluessel)`.",
+      "begruendungen": [
+        "Richtig. Das Muster heisst *check-then-act*.",
+        "Einzelne gesperrte Aufrufe ergeben zusammen keine atomare Operation.",
+        "`lade` muss nicht gesperrt sein, wenn es nur mit eigenen Daten arbeitet."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Data Race vs. Race Condition",
+      "text": "- Ein **Data Race** ist ein unsynchronisierter Zugriff auf denselben Speicher. Das ist Undefined Behavior, und TSan findet es.\n- Eine **Race Condition** ist ein Logikfehler: Das Ergebnis hängt von der zeitlichen Abfolge ab, auch wenn jeder Zugriff korrekt gesperrt ist. Werkzeuge finden das kaum, da hilft nur gutes Design.\n\nDaraus folgt: Thread-sichere Klassen bieten Operationen an, die fachlich vollständig sind (`ueberweise(von, nach, betrag)`), statt Einzelschritte (`saldo()`, `setzeSaldo()`), die der Aufrufer selbst zusammensetzen muss."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Welche Sperre passt wofür?",
+      "paare": [
+        { "links": "`std::lock_guard`", "rechts": "Einfachste Sperre für genau einen Block" },
+        { "links": "`std::scoped_lock`", "rechts": "Sperrt mehrere Mutexe gleichzeitig, ohne Deadlock" },
+        { "links": "`std::unique_lock`", "rechts": "Flexibel: später sperren, früher freigeben, nötig für Condition Variables" },
+        { "links": "`std::shared_mutex` mit `std::shared_lock`", "rechts": "Viele Leser gleichzeitig, Schreiber exklusiv" }
+      ],
+      "erklaerung": "`std::shared_mutex` lohnt sich nur bei vielen Lesern und seltenen Schreibern mit längeren Lesezugriffen. Bei kurzen kritischen Abschnitten ist ein einfacher `std::mutex` oft schneller, weil er weniger Verwaltungsaufwand hat."
+    }
+  ],
+  "praxis": "Bei Klassen, die von mehreren Threads benutzt werden, prüfst du im Review: Ist dokumentiert, welche Methoden thread-sicher sind? Werden alle Zugriffe auf geschützte Daten gesperrt, auch Getter? Gibt Code Zeiger oder Referenzen auf geschützte Daten nach aussen, die dann ungesperrt benutzt werden? Und gibt es check-then-act-Muster über mehrere Aufrufe?",
+  "labor": {
+    "titel": "Data Race und Race Condition",
+    "anleitung": "Baue den `Zaehler` mit ungesperrtem Getter und lass ihn mit TSan laufen. Baue dann den Cache mit check-then-act und zähle, wie oft `lade` für denselben Schlüssel aufgerufen wird.",
+    "befehle": [
+      "g++ -std=c++20 -g -fsanitize=thread zaehler.cpp -o zaehler && ./zaehler",
+      "g++ -std=c++20 -O2 -pthread cache.cpp -o cache && ./cache"
+    ],
+    "beobachtung": "TSan meldet den ungesperrten Getter sofort. Die Race Condition im Cache meldet TSan nicht, aber dein Zähler zeigt, dass `lade` manchmal doppelt aufgerufen wird."
+  },
+  "begriffe": [
+    { "begriff": "Mutex", "englisch": "mutex, mutual exclusion", "erklaerung": "Sperre, die immer nur einen Thread in einen kritischen Abschnitt lässt." },
+    { "begriff": "Kritischer Abschnitt", "englisch": "critical section", "erklaerung": "Code, der auf gemeinsame Daten zugreift und deshalb geschützt werden muss." },
+    { "begriff": "Race Condition", "englisch": "race condition", "erklaerung": "Logikfehler, bei dem das Ergebnis von der zeitlichen Abfolge der Threads abhängt." }
+  ],
+  "weiterlesen": [
+    { "titel": "cppreference: std::mutex", "url": "https://en.cppreference.com/w/cpp/thread/mutex" },
+    { "titel": "cppreference: Memory model (Threads and data races)", "url": "https://en.cppreference.com/w/cpp/language/memory_model" }
+  ]
+}

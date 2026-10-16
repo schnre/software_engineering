@@ -1,0 +1,139 @@
+{
+  "id": "p7-m3-l2",
+  "phase": 7,
+  "modul": "7.3 Ports & Adapters",
+  "titel": "Testbarkeit durch Ports",
+  "lernziele": [
+    "Schwer testbare Abhängigkeiten wie Zeit und Zufall hinter Ports legen",
+    "Tests mit einer Fake-Uhr schreiben, die nicht warten",
+    "Adapter dünn halten (Humble Object)"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Eine Sitzung läuft nach 30 Minuten ab. Der Kern prüft das mit `std::chrono::system_clock::now() > ablauf_`. Was ist das Problem für Tests?",
+      "optionen": [
+        "Ein Test müsste 30 Minuten warten oder die Systemzeit verstellen. Die Uhr gehört hinter einen Port",
+        "`system_clock` ist zu ungenau",
+        "Es gibt keins, man testet einfach mit kürzeren Zeiten"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Die aktuelle Zeit ist eine versteckte Abhängigkeit nach aussen, genau wie eine Datenbank. Mit einem Port `IUhr` kann der Test die Zeit selbst vorstellen. Ausserdem: Für Zeitabstände nimmt man `steady_clock`, denn `system_clock` kann springen, z. B. bei einer Zeitsynchronisation.",
+      "begruendungen": [
+        "Richtig.",
+        "Die Genauigkeit ist nicht das Problem, die Kontrolle schon.",
+        "Kürzere Zeiten verändern das getestete Verhalten und machen Tests flaky."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Typische Ports für Testbarkeit",
+      "text": "Neben Datenbank und Hardware gibt es Abhängigkeiten, die man leicht übersieht, weil sie „einfach da“ sind:\n\n- **Zeit**: `now()`, Timer, `sleep`\n- **Zufall**: Zufallszahlen, UUIDs\n- **Dateisystem**: Dateien lesen und schreiben\n- **Umgebung**: Umgebungsvariablen, Kommandozeile, Konfiguration\n- **Netzwerk** und **Hardware**\n\nAlle diese Dinge machen Tests langsam, unzuverlässig oder unmöglich, solange der Kern sie direkt benutzt. Hinter einem Port sind sie im Test vollständig steuerbar."
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze den Port und die Fake-Uhr.",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "class IUhr {",
+          "public:",
+          "    virtual ~IUhr() = default;",
+          "    virtual std::chrono::steady_clock::time_point {{?}}() const = 0;",
+          "};",
+          "",
+          "class FakeUhr : public IUhr {",
+          "public:",
+          "    std::chrono::steady_clock::time_point jetzt() const override { return t_; }",
+          "    void vorstellen(std::chrono::milliseconds d) { t_ {{?}} d; }",
+          "private:",
+          "    std::chrono::steady_clock::time_point t_{};",
+          "};"
+        ]
+      },
+      "luecken": [{ "loesungen": ["jetzt"] }, { "loesungen": ["+="] }],
+      "auswahl": ["jetzt", "+=", "=", "now"],
+      "erklaerung": "Die Fake-Uhr steht, bis der Test sie vorstellt. Die Produktions-Implementierung `SystemUhr` gibt einfach `std::chrono::steady_clock::now()` zurück. Sie ist so dünn, dass sie kaum eigene Tests braucht."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Wie lange läuft dieser Test?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "TEST(SitzungTest, LaeuftNachDreissigMinutenAb) {",
+          "    FakeUhr uhr;",
+          "    Sitzung s(uhr, 30min);",
+          "    uhr.vorstellen(29min);",
+          "    EXPECT_FALSE(s.abgelaufen());",
+          "    uhr.vorstellen(2min);",
+          "    EXPECT_TRUE(s.abgelaufen());",
+          "}"
+        ]
+      },
+      "optionen": [
+        "Mikrosekunden. Es wird nicht gewartet, nur die Fake-Uhr vorgestellt",
+        "31 Minuten",
+        "Das hängt von der Last des Rechners ab"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Der Test prüft beide Seiten der Grenze, knapp davor und knapp danach, schnell und **deterministisch**: Er liefert bei jedem Lauf und auf jedem Rechner dasselbe Ergebnis. Vergleiche mit dem flaky Timer-Test aus Modul 3.2.",
+      "begruendungen": [
+        "Richtig.",
+        "Mit einer echten Uhr wäre das so.",
+        "Ohne echte Zeit spielt die Last keine Rolle."
+      ]
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Welcher Port macht welche Abhängigkeit testbar?",
+      "paare": [
+        { "links": "Aktuelle Uhrzeit", "rechts": "`IUhr` mit Fake-Uhr" },
+        { "links": "Zufallszahlen", "rechts": "Injizierter Generator mit festem Startwert" },
+        { "links": "Dateien lesen", "rechts": "`IDateiQuelle` oder ein Dateisystem im Speicher" },
+        { "links": "Hardware-Register", "rechts": "HAL-Schnittstelle mit Fake" }
+      ],
+      "erklaerung": "Bei Zufall reicht oft schon, den Generator (z. B. `std::mt19937`) zu injizieren und im Test mit einem festen Startwert (*seed*) zu erzeugen. Dann sind die „zufälligen“ Werte bei jedem Testlauf gleich."
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Humble Object",
+      "text": "Adapter sind schwer zu testen, weil sie echte Technik berühren. Deshalb hält man sie **bescheiden** (*humble object*): so wenig Logik wie möglich, nur Übersetzen und Durchreichen. Jede Entscheidung, jede Umrechnung und jede Fehlerbehandlung gehört in den Kern, wo sie leicht testbar ist.\n\nEin Adapter für einen CAN-Sensor liest Bytes und übergibt sie. Ob die Bytes plausibel sind und wie sie in °C umgerechnet werden, entscheidet der Kern."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Wie testet man die Adapter selbst?",
+      "optionen": [
+        "Mit wenigen Integrationstests gegen die echte Technik, z. B. eine echte SQLite-Datei oder ein CAN-Bus auf dem Prüfstand",
+        "Gar nicht, Adapter sind zu einfach für Tests",
+        "Mit denselben Fakes wie den Kern"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Ein Fake würde genau das ersetzen, was man beim Adapter prüfen will: das Zusammenspiel mit der echten Technik. Weil die Adapter dünn sind, reichen wenige solche Tests. Sie laufen oft nicht bei jedem Commit, sondern in einer späteren Pipeline-Stufe.",
+      "begruendungen": [
+        "Richtig.",
+        "Auch einfache Übersetzung kann falsch sein, etwa bei Byte-Reihenfolge oder Einheiten.",
+        "Dann testet man den Fake, nicht den Adapter."
+      ]
+    }
+  ],
+  "praxis": "Ein guter Test dafür, ob eine Architektur testbar ist: Lässt sich der wichtigste fachliche Ablauf in einem Unit-Test durchspielen, der in Millisekunden läuft und keine Datei, kein Netz, keine Hardware und keine echte Uhr braucht? Wenn nicht, zeigt der Test, welcher Port fehlt. Im Review fallen besonders direkte Aufrufe von `now()`, `rand()` und Dateifunktionen im Kern auf.",
+  "labor": {
+    "titel": "Eine Uhr injizieren",
+    "anleitung": "Nimm eine Klasse aus einem eigenen Projekt, die `std::chrono::...::now()` direkt aufruft. Führe einen Port `IUhr` ein und schreibe einen Test, der mit `FakeUhr` eine Zeitgrenze prüft.",
+    "befehle": [
+      "rg -n 'clock::now\\(\\)' src/ | head",
+      "cmake --build build && ctest --test-dir build -R Sitzung"
+    ],
+    "beobachtung": "Die Liste aus dem ersten Befehl zeigt, wie verbreitet direkte Zeitzugriffe sind. Jeder davon in der Fachlogik ist eine Stelle, die heute nur schwer testbar ist."
+  },
+  "begriffe": [
+    { "begriff": "Deterministischer Test", "englisch": "deterministic test", "erklaerung": "Test, der bei jedem Lauf und auf jedem Rechner dasselbe Ergebnis liefert." },
+    { "begriff": "Humble Object", "englisch": "humble object", "erklaerung": "Möglichst logikfreier Adapter an einer schwer testbaren Grenze. Die Logik liegt testbar im Kern." },
+    { "begriff": "Seed", "englisch": "seed", "erklaerung": "Startwert eines Zufallsgenerators. Gleicher Seed ergibt gleiche Zahlenfolge." }
+  ],
+  "weiterlesen": [
+    { "titel": "Martin Fowler: Humble Object", "url": "https://martinfowler.com/bliki/HumbleObject.html" }
+  ]
+}

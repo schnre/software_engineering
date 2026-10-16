@@ -1,0 +1,151 @@
+{
+  "id": "p1-m2-l2",
+  "phase": 1,
+  "modul": "1.2 Der Linker",
+  "titel": "Linkage: wer ein Symbol sehen darf",
+  "lernziele": [
+    "Externe und interne Linkage unterscheiden",
+    "Hilfsfunktionen mit einem anonymen Namespace vor Kollisionen schützen",
+    "Den Unterschied zwischen `static` und `inline` bei Variablen in Headern erklären"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "code-lesen",
+      "frage": "Zwei Dateien definieren zufällig eine globale Variable mit demselben Namen. Was passiert beim Linken von `a.o` und `b.o`?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "// a.cpp",
+          "int zaehler = 0;",
+          "",
+          "// b.cpp",
+          "int zaehler = 0;"
+        ]
+      },
+      "optionen": [
+        "Es funktioniert, jede Datei hat ihre eigene Variable",
+        "Linkerfehler: `multiple definition of 'zaehler'`",
+        "Es funktioniert, beide Dateien teilen sich eine Variable"
+      ],
+      "korrekt": 1,
+      "fest": true,
+      "erklaerung": "Globale Variablen und Funktionen haben standardmässig **externe Linkage**: Der Linker sieht sie programmweit. Zwei Definitionen desselben Namens verletzen die ODR.",
+      "begruendungen": [
+        "Das wäre so, wenn beide Variablen interne Linkage hätten, z. B. mit `static`.",
+        "Richtig. Beide Definitionen landen beim Linker im selben Namensraum.",
+        "Das wäre bei `inline int zaehler = 0;` (C++17) der Fall, nicht hier."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Externe und interne Linkage",
+      "text": "**Linkage** legt fest, ob ein Name über die Übersetzungseinheit hinaus sichtbar ist.\n\n- **Externe Linkage** (external linkage): Der Name ist im ganzen Programm sichtbar. Das ist der Standard für Funktionen und globale Variablen.\n- **Interne Linkage** (internal linkage): Der Name ist nur in der eigenen Übersetzungseinheit sichtbar. Zwei Dateien können dann denselben Namen ohne Konflikt verwenden.\n\nInterne Linkage bekommt man mit `static` oder, im moderneren Stil, mit einem **anonymen Namespace**. Achtung: `const`-Variablen auf Namespace-Ebene haben in C++ automatisch interne Linkage."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Welche Linkage hat `x` jeweils? Alle Zeilen stehen auf Namespace-Ebene in einer `.cpp`-Datei.",
+      "paare": [
+        { "links": "`int x = 1;`", "rechts": "Extern: im ganzen Programm sichtbar" },
+        { "links": "`static int x = 1;`", "rechts": "Intern, klassischer Stil aus C" },
+        { "links": "`namespace { int x = 1; }`", "rechts": "Intern, bevorzugter C++-Stil" },
+        { "links": "`const int x = 1;`", "rechts": "Intern, weil `const` das in C++ so festlegt" },
+        { "links": "`extern int x;`", "rechts": "Nur eine Deklaration, die Definition liegt anderswo" }
+      ],
+      "erklaerung": "Der anonyme Namespace hat einen Vorteil gegenüber `static`: Er wirkt auch auf Klassen und Typen, nicht nur auf Funktionen und Variablen. Dass `const` auf Namespace-Ebene intern ist, erklärt, warum `const int maxWert = 10;` problemlos in einem Header stehen kann."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "`parser.cpp` braucht eine kleine Hilfsfunktion `istZiffer(char)`, die sonst niemand verwendet. Wie definierst du sie am besten?",
+      "optionen": [
+        "In einem anonymen Namespace in `parser.cpp`",
+        "Deklaration in `parser.h`, Definition in `parser.cpp`",
+        "Als `inline`-Funktion in `parser.h`"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Interne Linkage macht klar, dass die Funktion ein Implementierungsdetail ist. Eine andere Datei mit einer eigenen `istZiffer` kann damit nicht kollidieren. Ausserdem darf der Compiler die Funktion vollständig inlinen und den eigenständigen Code weglassen, weil sie von aussen niemand aufrufen kann.",
+      "begruendungen": [
+        "Richtig. Die Funktion bleibt privat, und es gibt keine Namenskollisionen.",
+        "Damit machst du ein Implementierungsdetail zur öffentlichen Schnittstelle. Andere könnten sich darauf verlassen.",
+        "Das funktioniert technisch, aber jede Datei, die `parser.h` einbindet, sieht die Funktion. Das widerspricht dem Ziel."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Variablen in Headern: `static` oder `inline`?",
+      "text": "Seit C++17 gibt es **inline-Variablen**. Steht eine Variable mit `inline` in einem Header, teilen sich alle Übersetzungseinheiten genau ein Objekt. Mit `static` bekommt dagegen jede Übersetzungseinheit eine eigene Kopie. Das ist eine häufige und schwer zu findende Fehlerquelle.",
+      "code": {
+        "sprache": "cpp",
+        "datei": "konfig.h",
+        "zeilen": [
+          "#pragma once",
+          "inline int instanzen = 0;          // ein Objekt für das ganze Programm",
+          "static int fehlerZaehler = 0;      // eine Kopie pro .cpp-Datei!",
+          "constexpr int maxVersuche = 3;    // ok: konstant, Kopien stören nicht"
+        ],
+        "anmerkungen": [
+          { "zeile": 2, "text": "Alle Dateien, die `konfig.h` einbinden, sehen dieselbe Variable." },
+          { "zeile": 3, "text": "Jede Übersetzungseinheit zählt für sich. Die Summe sieht niemand." },
+          { "zeile": 4, "text": "`constexpr` impliziert `const`, also interne Linkage. Bei Konstanten ist das unproblematisch." }
+        ]
+      }
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Was gibt dieses Programm aus?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "// zaehler.h",
+          "static int aufrufe = 0;",
+          "",
+          "// a.cpp",
+          "#include \"zaehler.h\"",
+          "void zaehle() { ++aufrufe; ++aufrufe; }",
+          "",
+          "// main.cpp",
+          "#include <cstdio>",
+          "#include \"zaehler.h\"",
+          "void zaehle();",
+          "int main() { zaehle(); std::printf(\"%d\\n\", aufrufe); }"
+        ]
+      },
+      "optionen": ["0", "2", "Linkerfehler `multiple definition`"],
+      "korrekt": 0,
+      "fest": true,
+      "erklaerung": "Wegen `static` hat `a.cpp` ein eigenes `aufrufe` und `main.cpp` ebenfalls. `zaehle()` erhöht die Kopie in `a.cpp`, ausgegeben wird die unveränderte Kopie in `main.cpp`. Mit `inline int aufrufe = 0;` wäre die Ausgabe `2`.",
+      "begruendungen": [
+        "Richtig. Zwei Übersetzungseinheiten, zwei unabhängige Variablen.",
+        "Das wäre das Ergebnis mit einer gemeinsamen Variable (`inline` oder `extern` mit einer Definition).",
+        "Interne Linkage verhindert gerade den Konflikt beim Linken."
+      ]
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze die Fachbegriffe.",
+      "text": "Ein Name mit {{?}} Linkage ist nur innerhalb seiner Übersetzungseinheit sichtbar, ein Name mit {{?}} Linkage im ganzen Programm.",
+      "luecken": [{ "loesungen": ["interner"] }, { "loesungen": ["externer"] }],
+      "auswahl": ["interner", "externer", "dynamischer", "virtueller"],
+      "erklaerung": "„Dynamisch“ gehört zu Bibliotheken (dynamisches Linken), „virtuell“ zu Polymorphie. Mit Linkage haben beide nichts zu tun."
+    }
+  ],
+  "praxis": "Im Code-Review sind freie Hilfsfunktionen in `.cpp`-Dateien ohne anonymen Namespace oder `static` ein typischer Befund. Sie funktionieren, bis eine andere Datei zufällig denselben Namen verwendet. Dann kommt `multiple definition`, oder, schlimmer, bei schwachen Symbolen gewinnt still eine der beiden Definitionen. GCC und Clang warnen mit `-Wmissing-declarations` vor solchen Funktionen.",
+  "labor": {
+    "titel": "Linkage in der Symboltabelle",
+    "anleitung": "Definiere in einer Datei eine normale Funktion, eine `static`-Funktion und eine Funktion im anonymen Namespace. Rufe alle drei auf und schau dir die Symboltabelle an.",
+    "befehle": [
+      "g++ -c -O0 linkage.cpp",
+      "nm -C linkage.o"
+    ],
+    "beobachtung": "Die normale Funktion erscheint mit grossem `T` (global). Die beiden anderen erscheinen mit kleinem `t` (lokal), die aus dem anonymen Namespace als `(anonymous namespace)::name`. Mit `-O2` verschwinden die lokalen Funktionen oft ganz, weil der Compiler sie inlinet."
+  },
+  "begriffe": [
+    { "begriff": "Linkage", "englisch": "linkage", "erklaerung": "Legt fest, ob ein Name nur in der eigenen Übersetzungseinheit (intern) oder im ganzen Programm (extern) sichtbar ist." },
+    { "begriff": "Anonymer Namespace", "englisch": "unnamed namespace", "erklaerung": "`namespace { ... }`: Alles darin hat interne Linkage. Bevorzugt gegenüber `static` für Hilfsfunktionen und -typen." },
+    { "begriff": "Inline-Variable", "englisch": "inline variable", "erklaerung": "Seit C++17: Variable, die in einem Header definiert werden darf und programmweit genau ein Objekt ist." }
+  ],
+  "weiterlesen": [
+    { "titel": "cppreference: Storage class specifiers (Linkage)", "url": "https://en.cppreference.com/w/cpp/language/storage_duration" },
+    { "titel": "C++ Core Guidelines: SF.22 – Use an unnamed namespace for all internal entities", "url": "https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#Rs-unnamed2" }
+  ]
+}

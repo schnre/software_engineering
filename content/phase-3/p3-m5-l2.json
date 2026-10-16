@@ -1,0 +1,151 @@
+{
+  "id": "p3-m5-l2",
+  "phase": 3,
+  "modul": "3.5 Statische Analyse",
+  "titel": "clang-tidy und clang-format",
+  "lernziele": [
+    "Die Aufgaben von clang-format und clang-tidy unterscheiden",
+    "clang-tidy-Meldungen deuten und beheben",
+    "Beide Werkzeuge im Team verbindlich machen"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Was macht `clang-format`?",
+      "optionen": [
+        "Es formatiert Code einheitlich (Einrückung, Umbrüche, Leerzeichen), ohne seine Bedeutung zu ändern",
+        "Es findet Fehler wie Speicherlecks",
+        "Es übersetzt Code in einen neueren C++-Standard"
+      ],
+      "korrekt": 0,
+      "erklaerung": "`clang-format` kümmert sich nur ums Aussehen. Fehler sucht `clang-tidy`: ein Werkzeug für statische Analyse, das den Code wie ein Compiler versteht und hunderte Prüfungen kennt. Einige davon können Code auch modernisieren.",
+      "begruendungen": [
+        "Richtig.",
+        "Das ist Aufgabe von statischer Analyse oder Sanitizern.",
+        "Modernisieren kann `clang-tidy` mit den `modernize-*`-Checks."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "clang-tidy",
+      "text": "`clang-tidy` braucht dieselben Compiler-Optionen wie der Build. Es liest sie aus `compile_commands.json` (`-DCMAKE_EXPORT_COMPILE_COMMANDS=ON`). Die Prüfungen sind in Gruppen sortiert:\n\n- `bugprone-*`: wahrscheinliche Fehler\n- `cppcoreguidelines-*`: Regeln der C++ Core Guidelines\n- `modernize-*`: moderne Sprachmittel statt alter Muster\n- `performance-*`: unnötige Kopien und ähnliches\n- `readability-*`: Lesbarkeit und Namen\n\nKonfiguriert wird in einer Datei `.clang-tidy` im Projekt. Mit `--fix` behebt das Werkzeug viele Funde selbst. Alternativen und Ergänzungen sind cppcheck und kommerzielle Werkzeuge wie Coverity, PVS-Studio oder Polyspace, die oft auch MISRA-Regeln prüfen."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Was meldet welcher Check?",
+      "paare": [
+        { "links": "`bugprone-use-after-move`", "rechts": "Ein Objekt wird nach `std::move` weiterbenutzt" },
+        { "links": "`modernize-use-nullptr`", "rechts": "`NULL` oder `0` statt `nullptr`" },
+        { "links": "`performance-unnecessary-value-param`", "rechts": "Ein teurer Parameter wird kopiert statt per `const&` übergeben" },
+        { "links": "`readability-identifier-naming`", "rechts": "Namen folgen nicht der Konvention des Projekts" }
+      ],
+      "erklaerung": "Welche Checks sinnvoll sind, entscheidet das Team. Ein guter Start: alle `bugprone-*` und ausgewählte `performance-*` und `modernize-*`. Viele `readability-*`-Checks sind Geschmackssache."
+    },
+    {
+      "typ": "terminal-deuten",
+      "frage": "Wie behebst du den Fund?",
+      "terminal": {
+        "befehl": "clang-tidy -p build src/sitzung.cpp",
+        "ausgabe": [
+          "src/sitzung.cpp:42:9: warning: 'name' used after it was moved [bugprone-use-after-move]",
+          "    log(name);",
+          "        ^",
+          "src/sitzung.cpp:41:15: note: move occurred here",
+          "    nutzer_ = std::move(name);",
+          "              ^"
+        ]
+      },
+      "optionen": [
+        "Die Reihenfolge tauschen (erst loggen, dann verschieben) oder `nutzer_` statt `name` loggen",
+        "Die Meldung mit `// NOLINT` abschalten",
+        "`std::move` durch `std::forward` ersetzen"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Nach dem Verschieben ist `name` gültig, aber in unbestimmtem Zustand, wahrscheinlich leer. Das Log würde dann einen leeren Namen zeigen. Kein Absturz, aber ein echter Fehler. `NOLINT` gehört nur an Stellen, an denen der Fund nachweislich falsch ist, und mit Begründung.",
+      "begruendungen": [
+        "Richtig.",
+        "Das versteckt einen echten Fehler.",
+        "`std::forward` ist für Templates gedacht und würde hier genauso verschieben."
+      ]
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze die Konfiguration: Fehler-verdächtige Funde sollen den Build scheitern lassen, die anderen nur warnen.",
+      "code": {
+        "sprache": "yaml",
+        "datei": ".clang-tidy",
+        "zeilen": [
+          "Checks: >",
+          "  -*,",
+          "  bugprone-*,",
+          "  modernize-*,",
+          "  performance-*",
+          "WarningsAsErrors: '{{?}}'",
+          "HeaderFilterRegex: 'src/.*'"
+        ]
+      },
+      "luecken": [{ "loesungen": ["bugprone-*"] }],
+      "auswahl": ["bugprone-*", "-*", "*", "readability-*"],
+      "erklaerung": "`-*` schaltet zuerst alles ab, dann werden Gruppen gezielt eingeschaltet. So bleibt die Auswahl nachvollziehbar. `WarningsAsErrors` legt fest, welche Funde als Fehler zählen. `HeaderFilterRegex` sorgt dafür, dass nur eigene Header geprüft werden."
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "clang-format",
+      "text": "Die Datei `.clang-format` legt den Stil fest, z. B. `BasedOnStyle: Google` mit `ColumnLimit: 100`. Editoren formatieren beim Speichern, ein **pre-commit-Hook** prüft vor jedem Commit, und die CI kontrolliert mit `clang-format --dry-run --Werror`.\n\nDer eigentliche Gewinn ist sozial: Über Einrückung und Klammern muss niemand mehr diskutieren, das Werkzeug entscheidet. Reviews konzentrieren sich auf Inhalt, und Diffs enthalten keine reinen Formatänderungen mehr."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Warum gehört die Formatprüfung in die CI und nicht in die Code-Reviews?",
+      "optionen": [
+        "Reviews sollen sich auf Logik und Design konzentrieren. Format prüft eine Maschine schneller, vollständiger und ohne Diskussion",
+        "Weil Reviewer Formatfehler nicht erkennen können",
+        "Weil Formatierung keine Rolle spielt"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Kommentare zu Leerzeichen kosten Zeit und Nerven und lenken vom Wesentlichen ab. Einheitliches Format ist trotzdem wichtig: Es macht Code leichter lesbar und Diffs kleiner.",
+      "begruendungen": [
+        "Richtig.",
+        "Können sie schon, es ist nur Verschwendung ihrer Zeit.",
+        "Einheitliches Format hilft beim Lesen sehr, genau deshalb automatisiert man es."
+      ]
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "clang-tidy meldet an einer Stelle einen Fund, der nach gründlicher Prüfung falsch ist (false positive). Wie gehst du vor?",
+      "optionen": [
+        "Gezielt mit `// NOLINT(check-name)` und einem kurzen Kommentar zur Begründung unterdrücken",
+        "Den ganzen Check projektweit abschalten",
+        "Den Code so lange umschreiben, bis die Meldung verschwindet, egal wie"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Gezieltes Unterdrücken mit Namen des Checks und Begründung hält die Ausnahme sichtbar und überprüfbar. Ein ganzer Check gehört nur dann abgeschaltet, wenn er im Projekt überwiegend Fehlalarme erzeugt, und auch das sollte begründet in der `.clang-tidy` stehen.",
+      "begruendungen": [
+        "Richtig.",
+        "Dann verliert man den Check auch dort, wo er echte Fehler findet.",
+        "Lesbarkeit sollte nicht einem Werkzeug geopfert werden."
+      ]
+    }
+  ],
+  "praxis": "Ein typischer Senior-Beitrag in einem neuen Team: `.clang-format` und `.clang-tidy` einführen, mit einer einmaligen Formatierung aller Dateien in einem eigenen Commit (den man in `.git-blame-ignore-revs` einträgt, damit `git blame` nützlich bleibt) und einer CI-Prüfung, die neue Funde verhindert. So verbessert sich die Codebasis jeden Tag ein wenig, ohne grosse Umbaumassnahmen.",
+  "labor": {
+    "titel": "Beide Werkzeuge einrichten",
+    "anleitung": "Lege in einem eigenen Projekt `.clang-format` und `.clang-tidy` an und lass beide über alle Quelldateien laufen.",
+    "befehle": [
+      "clang-format --style=Google --dump-config > .clang-format",
+      "find src -name '*.cpp' -o -name '*.h' | xargs clang-format --dry-run --Werror",
+      "run-clang-tidy -p build -quiet 2>/dev/null | grep -E 'warning:' | sed -E 's/.*\\[(.*)\\]/\\1/' | sort | uniq -c | sort -rn"
+    ],
+    "beobachtung": "Der letzte Befehl zählt die Funde pro Check. So siehst du, wo die grössten Baustellen sind und welche Checks vielleicht nicht zum Projekt passen."
+  },
+  "begriffe": [
+    { "begriff": "Statische Analyse", "englisch": "static analysis", "erklaerung": "Untersuchung von Quellcode auf Fehler, ohne ihn auszuführen." },
+    { "begriff": "clang-tidy", "englisch": "clang-tidy", "erklaerung": "Werkzeug für statische Analyse und Modernisierung von C++-Code auf Basis von Clang." },
+    { "begriff": "clang-format", "englisch": "clang-format", "erklaerung": "Werkzeug, das Code nach einem festgelegten Stil formatiert." },
+    { "begriff": "False Positive", "englisch": "false positive", "erklaerung": "Meldung eines Werkzeugs, die sich bei genauer Prüfung als kein Fehler herausstellt." }
+  ],
+  "weiterlesen": [
+    { "titel": "clang-tidy: List of Checks", "url": "https://clang.llvm.org/extra/clang-tidy/checks/list.html" },
+    { "titel": "ClangFormat Style Options", "url": "https://clang.llvm.org/docs/ClangFormatStyleOptions.html" }
+  ]
+}

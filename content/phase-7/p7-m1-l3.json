@@ -1,0 +1,141 @@
+{
+  "id": "p7-m1-l3",
+  "phase": 7,
+  "modul": "7.1 Prinzipien",
+  "titel": "Composition over Inheritance",
+  "lernziele": [
+    "Probleme von Vererbung zur Wiederverwendung von Code erkennen",
+    "Verhalten durch Komposition zusammensetzen",
+    "Entscheiden, wann Vererbung die richtige Wahl ist"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Ein Logger soll in eine Datei oder übers Netz schreiben und optional einen Zeitstempel voranstellen. Mit Vererbung entstehen `DateiLogger`, `NetzLogger`, `DateiLoggerMitZeit`, `NetzLoggerMitZeit` … Was ist die bessere Lösung?",
+      "optionen": [
+        "Ein `Logger`, der ein austauschbares Ausgabeziel und ein austauschbares Format **enthält** (Komposition)",
+        "Mehrfachvererbung von `DateiLogger` und `ZeitLogger`",
+        "Alles in einer Klasse mit vielen `if`-Abfragen"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Mit Vererbung braucht jede Kombination eine eigene Unterklasse, und zwei Achsen mit je drei Varianten ergeben neun Klassen. Mit Komposition gibt es drei Ziele und drei Formate, die man beliebig kombiniert, sogar zur Laufzeit.",
+      "begruendungen": [
+        "Richtig.",
+        "Mehrfachvererbung macht die Hierarchie noch verwickelter.",
+        "Damit wächst eine Klasse mit jeder neuen Variante weiter."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Hat-ein statt ist-ein",
+      "text": "**Vererbung** koppelt sehr eng: Die Unterklasse hängt von Details der Basisklasse ab, und Änderungen an der Basis können Unterklassen unerwartet brechen (*fragile base class*). Die Hierarchie ist ausserdem zur Kompilierzeit festgelegt.\n\n**Komposition** baut Verhalten aus Teilen zusammen: Ein Objekt *hat* andere Objekte und *delegiert* Aufgaben an sie. Die Teile sind klein, einzeln testbar und austauschbar.\n\nVererbung bleibt richtig, um eine **Schnittstelle zu implementieren** (`class CanSensor : public ISensor`). Zur reinen Wiederverwendung von Code ist Komposition fast immer besser."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Ordne die Begriffe zu.",
+      "paare": [
+        { "links": "Klassenexplosion", "rechts": "Jede Kombination von Eigenschaften braucht eine eigene Unterklasse" },
+        { "links": "Fragile Base Class", "rechts": "Eine Änderung an der Basisklasse bricht unerwartet Unterklassen" },
+        { "links": "Komposition", "rechts": "Ein Objekt enthält andere Objekte und delegiert an sie" },
+        { "links": "Interface-Vererbung", "rechts": "Von einer abstrakten Klasse ableiten, um einen Vertrag zu erfüllen" }
+      ],
+      "erklaerung": "Die Unterscheidung zwischen Interface-Vererbung (gut) und Implementierungs-Vererbung (mit Vorsicht) ist der Kern der Sache. Viele moderne Sprachen wie Go oder Rust haben Implementierungs-Vererbung deshalb gar nicht erst eingebaut."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Was ist das Problem an diesem Stapel?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "class Stapel : public std::vector<int> {",
+          "public:",
+          "    void lege(int x) { push_back(x); }",
+          "    int nimm() { int x = back(); pop_back(); return x; }",
+          "};"
+        ]
+      },
+      "optionen": [
+        "Jeder Nutzer kann über die geerbten Funktionen wie `insert` oder `erase` mitten im Stapel ändern und so die Stapel-Regel umgehen",
+        "`std::vector` darf man nicht verwenden",
+        "Der Stapel ist zu langsam"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Öffentliche Vererbung macht die ganze Schnittstelle von `std::vector` zu einem Teil von `Stapel`, auch was kein Stapel können sollte. Dazu hat `std::vector` keinen virtuellen Destruktor (Modul 2.4). Besser: `std::vector<int>` als privates Member, nach aussen nur `lege`, `nimm` und `leer`. Genau so ist übrigens `std::stack` gebaut.",
+      "begruendungen": [
+        "Richtig.",
+        "Als Member ist `std::vector` die perfekte Wahl.",
+        "Die Leistung ist nicht das Problem."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Komposition im Code",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "class Logger {",
+          "public:",
+          "    Logger(std::unique_ptr<IFormat> format, std::vector<std::unique_ptr<ISenke>> senken)",
+          "        : format_(std::move(format)), senken_(std::move(senken)) {}",
+          "",
+          "    void log(std::string_view text) {",
+          "        const std::string zeile = format_->formatiere(text);",
+          "        for (auto& s : senken_) s->schreibe(zeile);",
+          "    }",
+          "private:",
+          "    std::unique_ptr<IFormat> format_;",
+          "    std::vector<std::unique_ptr<ISenke>> senken_;",
+          "};"
+        ],
+        "anmerkungen": [
+          { "zeile": 3, "text": "Format und Ziele kommen von aussen, Dependency Injection aus Modul 6.3." },
+          { "zeile": 8, "text": "Der Logger delegiert das Schreiben an beliebig viele Senken: Datei, Netz, Konsole." }
+        ]
+      },
+      "text": "Ein neues Ziel (z. B. Syslog) ist eine neue kleine Klasse, `Logger` selbst bleibt unverändert."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Wann ist Vererbung die richtige Wahl?",
+      "optionen": [
+        "Wenn eine Klasse eine Schnittstelle implementiert und sich überall so verhält, wie die Basis verspricht",
+        "Wenn zwei Klassen ein paar gleiche Hilfsfunktionen brauchen",
+        "Immer, wenn eine Klasse eine andere enthält"
+      ],
+      "korrekt": 0,
+      "erklaerung": "`CanSensor : public ISensor` ist ein echtes „ist ein“: überall einsetzbar, wo ein `ISensor` erwartet wird (Liskov). Für gemeinsame Hilfsfunktionen sind freie Funktionen oder ein gemeinsames Member einfacher und loser gekoppelt.",
+      "begruendungen": [
+        "Richtig.",
+        "Dafür reichen freie Funktionen oder ein gemeinsames Hilfsobjekt.",
+        "Enthalten ist genau der Fall für Komposition."
+      ]
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze die Merkhilfe.",
+      "text": "Vererbung drückt eine {{?}}-Beziehung aus, Komposition eine {{?}}-Beziehung.",
+      "luecken": [{ "loesungen": ["ist-ein"] }, { "loesungen": ["hat-ein"] }],
+      "auswahl": ["ist-ein", "hat-ein", "kennt-ein", "nutzt-ein"],
+      "erklaerung": "Im Englischen *is-a* und *has-a*. Wenn man bei einer geplanten Vererbung nur „hat ein“ oder „benutzt ein“ sagen kann, ist Komposition die passende Wahl."
+    }
+  ],
+  "praxis": "Tiefe Vererbungshierarchien (vier, fünf Ebenen mit `protected`-Membern, die überall verändert werden) gehören zu den teuersten Altlasten in grossen C++-Codebasen. Im Review fragst du bei jeder neuen Unterklasse: Ist das ein echtes „ist ein“? Wird eine Schnittstelle implementiert oder nur Code wiederverwendet? Oft ist die Antwort ein Member statt einer Basisklasse.",
+  "labor": {
+    "titel": "Eine Hierarchie vermessen",
+    "anleitung": "Finde in einem Projekt die tiefsten Vererbungsketten.",
+    "befehle": [
+      "rg -n 'class \\w+ (final )?: public \\w+' src/ | wc -l",
+      "doxygen -g && sed -i 's/HAVE_DOT .*/HAVE_DOT = YES/' Doxyfile && doxygen"
+    ],
+    "beobachtung": "Doxygen mit Graphviz zeichnet Vererbungsdiagramme. Ketten über mehr als drei Ebenen mit Implementierungs-Vererbung sind oft Kandidaten für Komposition."
+  },
+  "begriffe": [
+    { "begriff": "Komposition", "englisch": "composition", "erklaerung": "Ein Objekt enthält andere Objekte und delegiert Aufgaben an sie." },
+    { "begriff": "Fragile Base Class", "englisch": "fragile base class problem", "erklaerung": "Änderungen an einer Basisklasse brechen unerwartet abgeleitete Klassen." },
+    { "begriff": "Delegation", "englisch": "delegation", "erklaerung": "Ein Objekt reicht eine Aufgabe an ein anderes, enthaltenes Objekt weiter." }
+  ],
+  "weiterlesen": [
+    { "titel": "C++ Core Guidelines: C.120 – Use class hierarchies to represent concepts with inherent hierarchical structure (only)", "url": "https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#Rh-domain" }
+  ]
+}

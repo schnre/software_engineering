@@ -1,0 +1,157 @@
+{
+  "id": "p3-m3-l2",
+  "phase": 3,
+  "modul": "3.3 Debugging",
+  "titel": "Core Dumps und Backtraces",
+  "lernziele": [
+    "Core Dumps aktivieren und mit gdb analysieren",
+    "Einen Backtrace lesen und die relevante Stelle finden",
+    "Erklären, warum Binary und Debug-Symbole exakt passen müssen"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Ein Programm ist beim Kunden abgestürzt. Bei dir lässt sich der Fehler nicht reproduzieren. Was hilft am meisten?",
+      "optionen": [
+        "Ein Core Dump vom Kunden plus das exakt ausgelieferte Binary und dessen Debug-Symbole",
+        "Eine Beschreibung des Kunden, was er vorher gemacht hat",
+        "Das Programm bei dir so lange laufen lassen, bis es auch abstürzt"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Ein **Core Dump** ist eine Momentaufnahme des Prozessspeichers zum Zeitpunkt des Absturzes. Damit kannst du nachträglich im Debugger untersuchen, wo das Programm stand und welche Werte die Variablen hatten, als wärst du dabei gewesen.",
+      "begruendungen": [
+        "Richtig.",
+        "Hilfreich als Ergänzung, aber oft ungenau.",
+        "Vielleicht fehlen bei dir gerade die Bedingungen, unter denen der Fehler auftritt."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Core Dumps unter Linux",
+      "text": "Ob ein Core Dump geschrieben wird, steuern das Limit `ulimit -c` (oft standardmässig 0) und die Kernel-Einstellung `/proc/sys/kernel/core_pattern`. Viele Distributionen leiten Abstürze an **systemd-coredump** weiter. Dann listet `coredumpctl list` die Abstürze, und `coredumpctl gdb` öffnet den letzten direkt im Debugger.\n\nOhne systemd: `ulimit -c unlimited`, Programm abstürzen lassen, dann `gdb ./app core`. Im Debugger funktionieren `bt`, `frame`, `print` wie gewohnt. Nur weiterlaufen lassen kann man das Programm nicht."
+    },
+    {
+      "typ": "reihenfolge",
+      "frage": "Bringe die Schritte in die richtige Reihenfolge.",
+      "elemente": [
+        "Core Dumps auf dem System erlauben (`ulimit -c` bzw. systemd-coredump)",
+        "Der Absturz tritt auf, eine Core-Datei entsteht",
+        "Core-Datei, exakt passendes Binary und Debug-Symbole zusammenbringen",
+        "Mit `gdb ./app core` öffnen und mit `bt` die Absturzstelle suchen"
+      ],
+      "erklaerung": "In Embedded-Systemen und Containern muss man das Schreiben von Core Dumps oft bewusst einrichten, inklusive Platz auf dem Datenträger. Für Kundensysteme muss man ausserdem den Datenschutz bedenken: Ein Core Dump enthält den gesamten Speicher, also möglicherweise auch Passwörter und persönliche Daten."
+    },
+    {
+      "typ": "terminal-deuten",
+      "frage": "Wo fängst du mit der Analyse an?",
+      "terminal": {
+        "befehl": "gdb ./app core.4711 -ex bt",
+        "ausgabe": [
+          "#0  __pthread_kill_implementation (...) at ./nptl/pthread_kill.c:44",
+          "#1  0x00007f3a8e45a26e in __GI_raise (sig=6) at ../sysdeps/posix/raise.c:26",
+          "#2  0x00007f3a8e43d8ff in __GI_abort () at ./stdlib/abort.c:79",
+          "#3  0x00007f3a8e43d81b in __assert_fail_base (...) at ./assert/assert.c:94",
+          "#4  0x000055c1b0a2f2d4 in Puffer::lies (this=0x55c1b1e4a2c0, index=17) at puffer.cpp:31",
+          "#5  0x000055c1b0a2f6a1 in Protokoll::verarbeite (this=0x55c1b1e4a2a0) at protokoll.cpp:88",
+          "#6  0x000055c1b0a2e9b3 in main () at main.cpp:20"
+        ]
+      },
+      "optionen": [
+        "Bei Frame #4: Ein `assert` in `Puffer::lies` ist mit `index=17` fehlgeschlagen. Frames 0 bis 3 gehören zur C-Bibliothek",
+        "Bei Frame #0: Dort ist das Programm abgestürzt, also liegt dort der Fehler",
+        "Bei Frame #6: `main` ist immer schuld"
+      ],
+      "korrekt": 0,
+      "erklaerung": "`abort` und `__assert_fail` zeigen: Ein `assert` hat das Programm absichtlich beendet (Signal 6, `SIGABRT`). Spannend ist der erste Frame in deinem Code. Mit `frame 4` und `print groesse_` siehst du, ob `index` zu gross war. Dann fragst du in Frame 5, woher der Index kam.",
+      "begruendungen": [
+        "Richtig. Der erste eigene Frame ist fast immer der Startpunkt.",
+        "Frame 0 ist die Stelle, an der das Signal ausgelöst wurde. Das ist hier die C-Bibliothek, die korrekt arbeitet.",
+        "`main` steht nur ganz unten, weil dort alles beginnt."
+      ]
+    },
+    {
+      "typ": "terminal-deuten",
+      "frage": "Warum ist dieser Backtrace unbrauchbar?",
+      "terminal": {
+        "befehl": "gdb ./app core -ex bt",
+        "ausgabe": [
+          "#0  0x000055d3c4a0b1e9 in ?? ()",
+          "#1  0x000055d3c4a0b3f2 in ?? ()",
+          "#2  0x00007f2b1c829d90 in __libc_start_call_main (...) at ../sysdeps/nptl/libc_start_call_main.h:58",
+          "#3  0x00007f2b1c829e40 in __libc_start_main_impl (...) at ../csu/libc-start.c:392"
+        ]
+      },
+      "optionen": [
+        "Das Binary ist gestrippt oder passt nicht zur Core-Datei, deshalb fehlen Funktionsnamen",
+        "Das Programm hat gar nicht angefangen zu laufen",
+        "Die Core-Datei ist leer"
+      ],
+      "korrekt": 0,
+      "erklaerung": "`??` heisst: gdb findet zu dieser Adresse kein Symbol. Für die C-Bibliothek gibt es Debug-Symbole aus der Distribution, für das eigene Programm nicht. Abhilfe: die aufbewahrten Debug-Informationen dazuladen (`symbol-file app.debug`) oder einen debuginfod-Server nutzen.",
+      "begruendungen": [
+        "Richtig.",
+        "Die Frames 2 und 3 zeigen, dass `main` bereits lief.",
+        "Dann gäbe es gar keinen Backtrace."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Build-ID und Symbolverwaltung",
+      "text": "Jedes Binary bekommt beim Linken eine **Build-ID**, einen Hash, den `file app` oder `readelf -n app` anzeigt. Die Core-Datei enthält dieselbe ID. Damit lässt sich prüfen, ob Binary, Debug-Datei und Core zusammenpassen. Schon ein neu kompiliertes Binary aus demselben Quellcode kann andere Adressen haben, wenn der Build nicht reproduzierbar ist.\n\nProfessionelle Pipelines archivieren pro Release die Debug-Symbole, oft auf einem **debuginfod**-Server, von dem gdb sie automatisch per Build-ID lädt. Steht in einem Log nur eine Adresse, übersetzt `addr2line` sie in Datei und Zeile."
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze die Befehle.",
+      "code": {
+        "sprache": "bash",
+        "zeilen": [
+          "# Adresse aus einem Log in Funktion und Zeile übersetzen",
+          "{{?}} -e app -f -C 0x11e9",
+          "# Core-Datei im Debugger öffnen",
+          "gdb ./app {{?}}"
+        ]
+      },
+      "luecken": [{ "loesungen": ["addr2line"] }, { "loesungen": ["core"] }],
+      "auswahl": ["addr2line", "core", "objdump", "c++filt"],
+      "erklaerung": "`addr2line` braucht ein Binary mit Debug-Informationen. Bei positionsunabhängigen Programmen (PIE) muss man die Ladeadresse abziehen, also den Offset innerhalb der Datei angeben. Viele Absturz-Handler schreiben deshalb gleich den Offset ins Log."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Warum funktioniert die Analyse nur mit **exakt** dem Binary, das abgestürzt ist?",
+      "optionen": [
+        "Die Core-Datei enthält Adressen. Schon eine kleine Änderung am Code verschiebt Funktionen und Daten im Binary",
+        "Weil gdb das Binary neu startet",
+        "Weil der Core Dump verschlüsselt ist"
+      ],
+      "korrekt": 0,
+      "erklaerung": "gdb übersetzt Adressen anhand der Symboltabelle und der Debug-Informationen des Binarys. Passen sie nicht, zeigt gdb falsche Funktionen oder Zeilen an. Das ist schlimmer als `??`, weil es plausibel aussieht. Deshalb gehören reproduzierbare Builds und archivierte Symbole zusammen.",
+      "begruendungen": [
+        "Richtig.",
+        "Mit einer Core-Datei startet gdb nichts. Der Prozess ist ja schon beendet.",
+        "Core-Dateien sind nicht verschlüsselt."
+      ]
+    }
+  ],
+  "praxis": "In Produktion ist der Core Dump oft das einzige Beweisstück. Teams, die Debug-Symbole pro Release archivieren und Core Dumps automatisch einsammeln, finden seltene Abstürze in Stunden statt in Wochen. Wenn du ein neues Produkt aufsetzt, plane das von Anfang an mit ein: Wo landen Core Dumps? Wie kommen sie zum Team? Wo liegen die Symbole?",
+  "labor": {
+    "titel": "Einen Core Dump analysieren",
+    "anleitung": "Lass ein Programm mit einem fehlgeschlagenen `assert` abstürzen und analysiere den Core Dump.",
+    "befehle": [
+      "ulimit -c unlimited && g++ -g absturz.cpp -o absturz && ./absturz",
+      "coredumpctl list 2>/dev/null | tail -3 || ls core*",
+      "coredumpctl gdb absturz  # oder: gdb ./absturz core",
+      "file absturz | grep -o 'BuildID[^,]*'"
+    ],
+    "beobachtung": "In gdb zeigt `bt` die Kette bis zum `assert`. Mit `frame N` und `print` untersuchst du die Variablen zum Absturzzeitpunkt."
+  },
+  "begriffe": [
+    { "begriff": "Core Dump", "englisch": "core dump", "erklaerung": "Abbild des Prozessspeichers beim Absturz. Lässt sich nachträglich im Debugger untersuchen." },
+    { "begriff": "Build-ID", "englisch": "build ID", "erklaerung": "Eindeutiger Hash eines Binarys, mit dem sich passende Debug-Symbole und Core Dumps zuordnen lassen." },
+    { "begriff": "debuginfod", "englisch": "debuginfod", "erklaerung": "Server, der Debug-Informationen per Build-ID ausliefert. gdb kann ihn automatisch nutzen." }
+  ],
+  "weiterlesen": [
+    { "titel": "man core(5)", "url": "https://man7.org/linux/man-pages/man5/core.5.html" },
+    { "titel": "man coredumpctl(1)", "url": "https://man7.org/linux/man-pages/man1/coredumpctl.1.html" }
+  ]
+}

@@ -1,0 +1,146 @@
+{
+  "id": "p2-m1-l2",
+  "phase": 2,
+  "modul": "2.1 Speicherlayout zur Laufzeit",
+  "titel": "Stack Frames und Stack Overflow",
+  "lernziele": [
+    "Den Aufbau eines Stack Frames beschreiben",
+    "Erklären, warum ein Zeiger auf eine lokale Variable nach dem Return ungültig ist",
+    "Ursachen eines Stack Overflows erkennen"
+  ],
+  "dauerMinuten": 5,
+  "schritte": [
+    {
+      "typ": "code-lesen",
+      "frage": "Was passiert hier?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "int* erzeuge() {",
+          "    int wert = 42;",
+          "    return &wert;",
+          "}",
+          "",
+          "int main() {",
+          "    int* p = erzeuge();",
+          "    std::cout << *p;",
+          "}"
+        ]
+      },
+      "optionen": [
+        "Es gibt sicher `42` aus",
+        "Undefined Behavior: `wert` existiert nach dem Return nicht mehr",
+        "Compilerfehler: Man darf keine Adresse zurückgeben"
+      ],
+      "korrekt": 1,
+      "fest": true,
+      "erklaerung": "`wert` lebt im Stack Frame von `erzeuge()`. Mit dem Return wird der Frame freigegeben, und der nächste Funktionsaufruf (hier `operator<<`) überschreibt ihn. `p` ist ein **hängender Zeiger** (dangling pointer). Manchmal kommt trotzdem `42` heraus, und genau das macht den Fehler so tückisch. GCC warnt mit `-Wreturn-local-addr`. Mit Optimierung gibt GCC hier sogar absichtlich `nullptr` zurück, damit es sicher abstürzt.",
+      "begruendungen": [
+        "Es *kann* zufällig funktionieren, sicher ist es nicht.",
+        "Richtig. Der Speicher gehört nach dem Return niemandem mehr.",
+        "Der Code ist syntaktisch gültig. Der Compiler warnt nur."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Der Stack Frame",
+      "text": "Jeder Funktionsaufruf bekommt einen **Stack Frame**: ein Stück Stack mit Rücksprungadresse, gesicherten Registern und lokalen Variablen. Die ersten Argumente übergibt man auf x86-64 und ARM64 meist in Registern, weitere auf dem Stack.\n\nBeim Return wird der Stack Pointer einfach zurückgesetzt. Der Speicher wird dabei weder gelöscht noch geschützt, er wird beim nächsten Aufruf wiederverwendet. Deshalb funktionieren hängende Zeiger manchmal scheinbar, bis ein anderer Aufruf den Frame überschreibt."
+    },
+    {
+      "typ": "reihenfolge",
+      "frage": "Was passiert bei einem Funktionsaufruf? Bringe die Schritte in die richtige Reihenfolge.",
+      "elemente": [
+        "Der Aufrufer legt die Argumente in Register oder auf den Stack",
+        "`call` legt die Rücksprungadresse auf den Stack und springt in die Funktion",
+        "Die Funktion reserviert ihren Frame für lokale Variablen",
+        "Beim Return wird der Frame freigegeben, und `ret` springt zur Rücksprungadresse"
+      ],
+      "erklaerung": "Weil die Rücksprungadresse auf dem Stack liegt, ist ein Pufferüberlauf in einem lokalen Array so gefährlich: Er kann die Rücksprungadresse überschreiben. Schutzmechanismen wie Stack Canaries (`-fstack-protector`) erkennen das."
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Unter Linux stürzt `verarbeite()` sofort beim Aufruf mit `Segmentation fault` ab. Welche Zeile ist schuld?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "void verarbeite() {",
+          "    double messwerte[2'000'000];",
+          "    fuelle(messwerte);",
+          "    auswerten(messwerte);",
+          "}"
+        ]
+      },
+      "fehlerZeile": 2,
+      "erklaerung": "2 Millionen `double` sind 16 MB. Das passt nicht in den Stack (typisch 8 MB), und der Zugriff landet hinter dem Stack-Ende. Grosse oder in der Grösse variable Daten gehören auf den Heap, z. B. in `std::vector<double> messwerte(2'000'000);`."
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Wie gross ist der Stack?",
+      "text": "Unter Linux zeigt `ulimit -s` die Grösse für den Haupt-Thread (meist 8192 KB). Neue Threads bekommen ihre eigene, feste Stack-Grösse. Unter Windows sind es standardmässig 1 MB, auf Mikrocontrollern oft nur 1 bis 8 KB, festgelegt im Linker-Skript. Wenn der Stack überläuft, gibt es keine freundliche Fehlermeldung. Unter Linux stürzt das Programm ab, auf Mikrocontrollern überschreibt der Stack oft still andere Daten."
+    },
+    {
+      "typ": "terminal-deuten",
+      "frage": "Das Programm ist abgestürzt. Was ist die Ursache?",
+      "terminal": {
+        "befehl": "gdb -batch -ex run -ex bt ./rekursion",
+        "ausgabe": [
+          "Program received signal SIGSEGV, Segmentation fault.",
+          "0x000055555555513d in tiefe (n=174612) at rekursion.cpp:3",
+          "#0  0x000055555555513d in tiefe (n=174612) at rekursion.cpp:3",
+          "#1  0x0000555555555152 in tiefe (n=174611) at rekursion.cpp:4",
+          "#2  0x0000555555555152 in tiefe (n=174610) at rekursion.cpp:4",
+          "#3  0x0000555555555152 in tiefe (n=174609) at rekursion.cpp:4",
+          "..."
+        ]
+      },
+      "optionen": [
+        "Zu tiefe oder endlose Rekursion: Jeder Aufruf belegt einen Frame, bis der Stack voll ist",
+        "Ein Nullzeiger in Zeile 3",
+        "Der Heap ist voll"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Über 170 000 verschachtelte Aufrufe derselben Funktion sind das typische Bild eines Stack Overflows. Entweder fehlt die Abbruchbedingung, oder die Eingabe ist für Rekursion zu gross. Dann hilft eine Schleife mit eigenem Stack, z. B. `std::vector` als Arbeitsliste.",
+      "begruendungen": [
+        "Richtig. Der Backtrace zeigt die immer gleiche Funktion mit wachsendem `n`.",
+        "Ein Nullzeiger zeigt sich nicht als zehntausende gleiche Frames.",
+        "Bei vollem Heap würde `new` eine `std::bad_alloc` werfen."
+      ]
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Warum hat `std::vector<double> messwerte(2'000'000);` das Problem aus der Übung oben nicht?",
+      "optionen": [
+        "Die Elemente liegen auf dem Heap. Auf dem Stack liegt nur das kleine Verwaltungsobjekt",
+        "`std::vector` komprimiert die Werte",
+        "Der Compiler vergrössert den Stack automatisch für Vektoren"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Der Stack braucht für den Vektor nur rund 24 Byte. Die 16 MB fordert der Vektor beim Heap an. Schlägt das fehl, wirft er eine Exception, statt still abzustürzen.",
+      "begruendungen": [
+        "Richtig.",
+        "Es wird nichts komprimiert, die 16 MB werden voll belegt.",
+        "Die Stack-Grösse ist fest und wird zur Laufzeit nicht angepasst."
+      ]
+    }
+  ],
+  "praxis": "Hängende Zeiger und Referenzen auf lokale Variablen gehören zu den häufigsten C++-Fehlern im Review. Oft verstecken sie sich, z. B. in einem Lambda, das eine lokale Variable per Referenz einfängt (`[&]`) und später in einem anderen Thread läuft. Auf Embedded-Systemen misst man die maximale Stack-Nutzung (z. B. mit `-fstack-usage` oder durch Vorbefüllen des Stacks mit einem Muster), statt sie zu raten.",
+  "labor": {
+    "titel": "Den Stack überlaufen lassen",
+    "anleitung": "Schreibe eine rekursive Funktion ohne Abbruch und beobachte den Absturz. Ändere danach die Stack-Grösse.",
+    "befehle": [
+      "ulimit -s",
+      "g++ -O0 -g rekursion.cpp -o rekursion && ./rekursion",
+      "(ulimit -s 65536 && ./rekursion)",
+      "g++ -O2 -fstack-usage -c rekursion.cpp && cat rekursion.su"
+    ],
+    "beobachtung": "Mit grösserem Limit kommt die Rekursion weiter, stürzt aber irgendwann trotzdem ab. Die `.su`-Datei zeigt, wie viele Bytes jede Funktion pro Aufruf auf dem Stack belegt."
+  },
+  "begriffe": [
+    { "begriff": "Stack Frame", "englisch": "stack frame", "erklaerung": "Bereich des Stacks für einen Funktionsaufruf: Rücksprungadresse, gesicherte Register, lokale Variablen." },
+    { "begriff": "Hängender Zeiger", "englisch": "dangling pointer", "erklaerung": "Zeiger auf ein Objekt, dessen Lebenszeit bereits geendet hat." },
+    { "begriff": "Stack Overflow", "englisch": "stack overflow", "erklaerung": "Der Stack ist voll, z. B. durch zu tiefe Rekursion oder sehr grosse lokale Arrays." }
+  ],
+  "weiterlesen": [
+    { "titel": "GCC: -fstack-usage", "url": "https://gcc.gnu.org/onlinedocs/gcc/Developer-Options.html" }
+  ]
+}

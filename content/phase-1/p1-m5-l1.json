@@ -1,0 +1,125 @@
+{
+  "id": "p1-m5-l1",
+  "phase": 1,
+  "modul": "1.5 Toolchains und Cross-Kompilierung",
+  "titel": "Was zu einer Toolchain gehört",
+  "lernziele": [
+    "Die Bestandteile einer C++-Toolchain aufzählen",
+    "Ein Target-Triple lesen",
+    "Erklären, warum Bibliotheken mit unterschiedlicher Standardbibliothek nicht zusammenpassen"
+  ],
+  "dauerMinuten": 5,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Was gehört zu einer C++-Toolchain?",
+      "optionen": [
+        "Compiler, Assembler und Linker",
+        "Die C- und die C++-Standardbibliothek",
+        "Header und Bibliotheken des Zielsystems",
+        "Der Editor oder die IDE"
+      ],
+      "korrekt": [0, 1, 2],
+      "erklaerung": "Eine **Toolchain** ist alles, was nötig ist, um aus Quelltext ein lauffähiges Programm für ein bestimmtes Zielsystem zu machen. Die IDE ist bequem, aber austauschbar. Sie ruft die Toolchain nur auf.",
+      "begruendungen": [
+        "Richtig. Unter Linux kommen Assembler und Linker aus den GNU Binutils.",
+        "Richtig. Ohne sie gäbe es weder `printf` noch `std::vector`.",
+        "Richtig. Beim Cross-Kompilieren ist das die Sysroot, mehr dazu in der nächsten Lektion.",
+        "Die IDE gehört nicht dazu. Dasselbe Projekt baut auch auf der Kommandozeile."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Die Bausteine",
+      "text": "- **Compiler**: GCC (`g++`), Clang (`clang++`) oder MSVC (`cl.exe`)\n- **Binutils**: Assembler `as`, Linker `ld` (oder `lld`, `mold`), dazu Werkzeuge wie `ar`, `nm`, `objdump`, `strip`\n- **C-Bibliothek**: glibc (Linux-Desktop/Server), musl (kleine Container), newlib (Mikrocontroller)\n- **C++-Standardbibliothek**: libstdc++ (GCC) oder libc++ (LLVM)\n- **Sysroot**: Header und Bibliotheken des Zielsystems\n\nDas Zielsystem beschreibt ein **Target-Triple** der Form `Architektur-Hersteller-Betriebssystem-ABI`, wobei Teile fehlen dürfen."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Ordne die Target-Triples zu.",
+      "paare": [
+        { "links": "`x86_64-linux-gnu`", "rechts": "PC oder Server mit Linux und glibc" },
+        { "links": "`aarch64-linux-gnu`", "rechts": "64-Bit-ARM mit Linux, z. B. Raspberry Pi mit 64-Bit-OS" },
+        { "links": "`arm-none-eabi`", "rechts": "ARM-Mikrocontroller ohne Betriebssystem" },
+        { "links": "`x86_64-w64-mingw32`", "rechts": "Windows-Programme, gebaut mit MinGW" }
+      ],
+      "erklaerung": "`none` heisst: kein Betriebssystem (bare metal). `eabi` ist die Embedded-ABI von ARM. `gnu` am Ende bedeutet Linux mit glibc. Mit musl hiesse es z. B. `x86_64-linux-musl`."
+    },
+    {
+      "typ": "terminal-deuten",
+      "frage": "Für welches System erzeugt dieser Compiler Code?",
+      "terminal": {
+        "befehl": "g++ -v",
+        "ausgabe": [
+          "Using built-in specs.",
+          "COLLECT_GCC=g++",
+          "Target: aarch64-linux-gnu",
+          "Configured with: ../src/configure -v --with-pkgversion='Debian 12.2.0-14' ...",
+          "Thread model: posix",
+          "gcc version 12.2.0 (Debian 12.2.0-14)"
+        ]
+      },
+      "optionen": [
+        "64-Bit-ARM mit Linux und glibc",
+        "x86-64-PC mit Debian",
+        "ARM-Mikrocontroller ohne Betriebssystem"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Die Zeile `Target:` verrät das Zielsystem. Hier läuft vermutlich ein natives GCC auf einem Raspberry Pi oder einem ARM-Server. Mit `g++ -dumpmachine` bekommst du nur das Triple.",
+      "begruendungen": [
+        "Richtig: `aarch64-linux-gnu`.",
+        "„Debian“ ist die Distribution, aus der der Compiler stammt. Das Ziel ist ARM.",
+        "Dann stünde dort `arm-none-eabi`."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Zwei Standardbibliotheken",
+      "text": "`std::string`, `std::vector` und Co. sind in libstdc++ und libc++ unterschiedlich umgesetzt, mit anderem Speicherlayout und anderen Symbolnamen. libc++ legt alles in einen eigenen Namespace `std::__1`. Ein Object-File, das mit der einen gebaut wurde, passt deshalb nicht zu einem, das die andere verwendet, sobald Standardtypen über die Schnittstelle gehen.\n\nClang verwendet unter Linux standardmässig libstdc++ und ist damit zu GCC kompatibel. Mit `-stdlib=libc++` wechselt man."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Du bekommst eine vorkompilierte Bibliothek, gebaut mit `clang++ -stdlib=libc++`. Ihre Funktionen nehmen `std::string`. Dein Projekt nutzt GCC mit libstdc++. Was passiert?",
+      "optionen": [
+        "Linkerfehler wie `undefined reference to ...std::__1::basic_string...`, weil die Typen in beiden Bibliotheken verschieden heissen",
+        "Es funktioniert, weil `std::string` standardisiert ist",
+        "Compilerfehler im Header der Bibliothek"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Der C++-Standard legt fest, wie sich `std::string` verhält, nicht wie es im Speicher aussieht. Deshalb müssen alle Teile eines Programms dieselbe Standardbibliothek in einer kompatiblen Version verwenden. Wer Bibliotheken über Toolchain-Grenzen hinweg ausliefern will, nutzt an der Schnittstelle nur C-Typen.",
+      "begruendungen": [
+        "Richtig. Der Namespace `std::__1` macht den Unterschied sogar im Symbolnamen sichtbar.",
+        "Standardisiert ist das Verhalten, nicht die ABI.",
+        "Der Header kompiliert mit beiden Standardbibliotheken, das Problem zeigt sich erst beim Linken."
+      ]
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze die Namen der Standardbibliotheken.",
+      "text": "Die C++-Standardbibliothek von GCC heisst {{?}}, die von LLVM heisst {{?}}. Die C-Bibliothek auf den meisten Linux-Systemen ist {{?}}.",
+      "luecken": [{ "loesungen": ["libstdc++"] }, { "loesungen": ["libc++"] }, { "loesungen": ["glibc"] }],
+      "auswahl": ["libstdc++", "libc++", "glibc", "newlib"],
+      "erklaerung": "newlib findest du vor allem in Toolchains für Mikrocontroller wie `arm-none-eabi`. Dort gibt es keine glibc, weil kein Linux läuft."
+    }
+  ],
+  "praxis": "Wenn ein Projekt auf deinem Rechner baut und in der CI nicht (oder umgekehrt), vergleiche zuerst die Toolchains: `g++ --version`, `g++ -dumpmachine`, Standardbibliothek, Version der Binutils. Viele Teams legen die Toolchain deshalb in einem Docker-Image fest. Beim Einbinden vorkompilierter Bibliotheken fragst du immer: Mit welchem Compiler, welcher Standardbibliothek und welchen Flags wurde sie gebaut?",
+  "labor": {
+    "titel": "Die eigene Toolchain kennenlernen",
+    "anleitung": "Finde heraus, womit du eigentlich baust.",
+    "befehle": [
+      "g++ -dumpmachine && g++ --version | head -1",
+      "ld --version | head -1",
+      "ldd --version | head -1",
+      "echo '#include <string>' | g++ -x c++ -E - | grep -m1 -o 'libstdc++\\|__1'"
+    ],
+    "beobachtung": "Du siehst Target-Triple, Compiler-, Linker- und glibc-Version. Mit `clang++ -stdlib=libc++` statt `g++` liefert der letzte Befehl `__1`, sofern libc++ installiert ist."
+  },
+  "begriffe": [
+    { "begriff": "Toolchain", "englisch": "toolchain", "erklaerung": "Compiler, Binutils, C- und C++-Standardbibliothek und Zielsystem-Dateien, die zusammen ein Programm für ein Ziel erzeugen." },
+    { "begriff": "Target-Triple", "englisch": "target triple", "erklaerung": "Beschreibung des Zielsystems wie `aarch64-linux-gnu`: Architektur, Hersteller, Betriebssystem, ABI." },
+    { "begriff": "Binutils", "englisch": "GNU binary utilities", "erklaerung": "Werkzeuge rund um Object-Files: `as`, `ld`, `ar`, `nm`, `objdump`, `readelf`, `strip`." }
+  ],
+  "weiterlesen": [
+    { "titel": "Clang: Cross-compilation using Clang (Target Triple)", "url": "https://clang.llvm.org/docs/CrossCompilation.html" },
+    { "titel": "libstdc++: Dual ABI", "url": "https://gcc.gnu.org/onlinedocs/libstdc++/manual/using_dual_abi.html" }
+  ]
+}

@@ -1,0 +1,137 @@
+{
+  "id": "p4-m3-l2",
+  "phase": 4,
+  "modul": "4.3 Atomics und Speichermodell",
+  "titel": "Memory Ordering",
+  "lernziele": [
+    "Erklären, warum Compiler und CPU Speicherzugriffe umordnen dürfen",
+    "Daten mit release/acquire sicher an einen anderen Thread übergeben",
+    "Einschätzen, wann `memory_order_relaxed` genügt"
+  ],
+  "dauerMinuten": 7,
+  "schritte": [
+    {
+      "typ": "code-lesen",
+      "frage": "Thread A setzt Daten und ein Flag, Thread B wartet auf das Flag und liest die Daten. Ist die Ausgabe `42` garantiert?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "int daten = 0;",
+          "std::atomic<bool> bereit{false};",
+          "",
+          "// Thread A",
+          "daten = 42;",
+          "bereit.store(true, std::memory_order_relaxed);",
+          "",
+          "// Thread B",
+          "while (!bereit.load(std::memory_order_relaxed)) {}",
+          "std::cout << daten;"
+        ]
+      },
+      "optionen": [
+        "Ja, `daten` wird ja vor `bereit` geschrieben",
+        "Nein: `relaxed` legt keine Reihenfolge zu anderen Zugriffen fest. Der Zugriff auf `daten` ist damit sogar ein Data Race",
+        "Nein, die Schleife in Thread B endet nie"
+      ],
+      "korrekt": 1,
+      "fest": true,
+      "erklaerung": "Compiler und CPU dürfen Speicherzugriffe umordnen, solange es für **einen** Thread keinen Unterschied macht. `relaxed` garantiert nur, dass das Flag selbst atomar ist. Dass B nach dem Flag auch die 42 sieht, ist nicht garantiert. Formal fehlt eine *happens-before*-Beziehung, und der Zugriff auf `daten` ist ein Data Race.",
+      "begruendungen": [
+        "Im Quelltext ja. Compiler und CPU dürfen die Zugriffe aber umordnen.",
+        "Richtig.",
+        "B sieht das Flag irgendwann. Die Frage ist, ob dann auch `daten` schon sichtbar ist."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Das Speichermodell",
+      "text": "Das C++-**Speichermodell** legt fest, wann ein Schreibzugriff eines Threads für einen anderen sichtbar ist. Der Schlüssel ist ein Paar:\n\n- Ein **release**-Store veröffentlicht: Alle Speicherzugriffe davor werden nicht hinter ihn verschoben.\n- Ein **acquire**-Load, der diesen Wert liest, übernimmt: Alle Zugriffe danach werden nicht vor ihn verschoben.\n\nLiest B per acquire den Wert, den A per release geschrieben hat, sieht B **alles**, was A vor dem release geschrieben hat. Mutexe funktionieren intern genauso: `lock` ist ein acquire, `unlock` ein release. Der Standard für alle Atomics ist das noch strengere `memory_order_seq_cst`."
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze die Speicherordnungen, damit Thread B garantiert `42` sieht.",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "// Thread A",
+          "daten = 42;",
+          "bereit.store(true, std::memory_order_{{?}});",
+          "",
+          "// Thread B",
+          "while (!bereit.load(std::memory_order_{{?}})) {}",
+          "std::cout << daten;"
+        ]
+      },
+      "luecken": [{ "loesungen": ["release"] }, { "loesungen": ["acquire"] }],
+      "auswahl": ["release", "acquire", "relaxed", "consume"],
+      "erklaerung": "Schreiben veröffentlicht mit `release`, Lesen übernimmt mit `acquire`. Ganz ohne Angabe (also `seq_cst`) wäre es ebenfalls korrekt. `consume` ist im Standard so problematisch spezifiziert, dass alle Compiler es als `acquire` behandeln. Man sollte es nicht verwenden."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Ordne die Speicherordnungen zu.",
+      "paare": [
+        { "links": "`memory_order_seq_cst`", "rechts": "Standard: eine globale Reihenfolge aller solchen Operationen, am leichtesten zu verstehen" },
+        { "links": "`memory_order_acquire`", "rechts": "Beim Lesen: Spätere Zugriffe werden nicht davor verschoben" },
+        { "links": "`memory_order_release`", "rechts": "Beim Schreiben: Frühere Zugriffe werden nicht dahinter verschoben" },
+        { "links": "`memory_order_relaxed`", "rechts": "Nur Unteilbarkeit, keine Ordnung zu anderen Zugriffen" }
+      ],
+      "erklaerung": "`seq_cst` kostet auf x86 nur bei Stores etwas mehr. Auf ARM sind geordnete Loads und Stores etwas teurer als `relaxed`. In den allermeisten Programmen ist der Unterschied nicht messbar. Deshalb ist `seq_cst` der richtige Standard."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Wo ist `memory_order_relaxed` angemessen?",
+      "optionen": [
+        "Bei einem Statistikzähler, der erst nach `join()` aller Threads ausgelesen wird",
+        "Bei einem Flag, das anzeigt, dass Daten bereitliegen",
+        "Bei einem Zeiger auf ein neu erzeugtes Objekt, das andere Threads danach benutzen"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Beim Zähler interessiert nur, dass keine Erhöhung verloren geht. Die Reihenfolge zu anderen Daten ist egal, und `join()` synchronisiert am Ende ohnehin. In den beiden anderen Fällen veröffentlicht das Atomic andere Daten (das Objekt, auf das der Zeiger zeigt). Dafür braucht es release/acquire.",
+      "begruendungen": [
+        "Richtig.",
+        "Das ist genau das Beispiel vom Anfang. Hier braucht es release/acquire.",
+        "Ohne release/acquire sieht der andere Thread womöglich ein halb konstruiertes Objekt."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Warum es „bei mir funktioniert“",
+      "text": "x86-Prozessoren ordnen Speicherzugriffe sehr streng (*Total Store Order*): Fast alles verhält sich, als wäre es acquire/release. Fehler mit zu schwacher Ordnung bleiben dort oft unsichtbar. ARM, RISC-V und POWER ordnen deutlich freier, und genau dort zeigen sich die Fehler, typischerweise erst auf dem Zielgerät.\n\nDie Empfehlung für den Alltag: Mutexe oder `seq_cst`-Atomics verwenden. Schwächere Ordnungen nur nach Messung, mit Kommentar und Review durch jemanden, der sich auskennt."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Code mit `memory_order_relaxed` läuft auf dem x86-Testrechner seit Monaten fehlerfrei, auf dem ARM-Gerät gehen sporadisch Daten verloren. Was ist die wahrscheinlichste Erklärung?",
+      "optionen": [
+        "x86 ordnet Speicherzugriffe strenger. ARM darf mehr umordnen, deshalb zeigt sich der Fehler erst dort",
+        "Der ARM-Compiler ist fehlerhaft",
+        "ARM-Prozessoren unterstützen keine Atomics"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Der Fehler war von Anfang an da. x86 hat ihn nur verdeckt. Deshalb gehören nebenläufige Tests auch auf die Zielarchitektur, und ThreadSanitizer, der solche Fehler unabhängig von der CPU erkennt, in die CI.",
+      "begruendungen": [
+        "Richtig.",
+        "Der Compiler darf genau das tun, was `relaxed` erlaubt.",
+        "ARM hat vollständige Unterstützung für Atomics."
+      ]
+    }
+  ],
+  "praxis": "Die meisten Entwickler brauchen schwache Speicherordnungen nie selbst. Erkennen musst du sie trotzdem: Im Review fragst du bei jedem `memory_order_relaxed`, ob das Atomic andere Daten veröffentlicht. Wenn ja, ist es fast sicher ein Fehler. Und bei Code, der für ARM gebaut wird, gehören nebenläufige Tests auf echte Hardware oder in QEMU mit mehreren Kernen.",
+  "labor": {
+    "titel": "Umordnung sichtbar machen",
+    "anleitung": "Schau dir im Compiler Explorer (godbolt.org) an, welchen Code `store` mit `relaxed`, `release` und `seq_cst` auf x86-64 und auf ARM64 erzeugt.",
+    "befehle": [
+      "g++ -O2 -S -o - ordnung.cpp | grep -E 'mov|xchg|mfence'",
+      "aarch64-linux-gnu-g++ -O2 -S -o - ordnung.cpp | grep -E 'str|stlr|dmb'"
+    ],
+    "beobachtung": "Auf x86 erzeugen `relaxed` und `release` denselben einfachen `mov`, nur `seq_cst` braucht `xchg`. Auf ARM64 wird `relaxed` zu einem einfachen `str`, `release` und `seq_cst` zu `stlr`, einem Store mit eingebauter Ordnung. Auf x86 sieht man den Unterschied zwischen `relaxed` und `release` also gar nicht, auf ARM schon. Darum fallen Fehler erst auf ARM auf."
+  },
+  "begriffe": [
+    { "begriff": "Speichermodell", "englisch": "memory model", "erklaerung": "Regeln, wann Schreibzugriffe eines Threads für andere Threads sichtbar sind." },
+    { "begriff": "Acquire/Release", "englisch": "acquire/release semantics", "erklaerung": "Paar von Operationen, das alle Schreibzugriffe vor dem release für den Leser nach dem acquire sichtbar macht." },
+    { "begriff": "Happens-before", "englisch": "happens-before", "erklaerung": "Ordnungsbeziehung zwischen Operationen verschiedener Threads. Ohne sie ist ein Zugriff auf gemeinsame Daten ein Data Race." }
+  ],
+  "weiterlesen": [
+    { "titel": "cppreference: std::memory_order", "url": "https://en.cppreference.com/w/cpp/atomic/memory_order" },
+    { "titel": "Preshing on Programming: Acquire and Release Semantics", "url": "https://preshing.com/20120913/acquire-and-release-semantics/" }
+  ]
+}

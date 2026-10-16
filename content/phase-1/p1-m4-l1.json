@@ -1,0 +1,145 @@
+{
+  "id": "p1-m4-l1",
+  "phase": 1,
+  "modul": "1.4 Speicherlayout des Binaries",
+  "titel": "Sektionen und Segmente im ELF-Format",
+  "lernziele": [
+    "Sektionen (Sicht des Linkers) und Segmente (Sicht des Loaders) unterscheiden",
+    "Speicherrechte von Code, Konstanten und Variablen erklären",
+    "Erklären, was `strip` entfernt und warum man Debug-Informationen trotzdem aufhebt"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Warum liegen String-Literale in `.rodata` und nicht einfach zusammen mit den Variablen in `.data`?",
+      "optionen": [
+        "`.rodata` wird schreibgeschützt geladen: Ein versehentlicher Schreibzugriff stürzt sofort ab, statt still Daten zu zerstören",
+        "`.rodata` wird beim Programmstart komprimiert und spart so RAM",
+        "Der Compiler kann String-Literale nur in `.rodata` übersetzen"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Getrennte Sektionen erlauben getrennte Rechte. Schreibgeschützte Seiten können ausserdem von mehreren Prozessen geteilt und bei Bedarf einfach neu von der Platte gelesen werden. Auf Mikrocontrollern bleibt `.rodata` im Flash und kostet keinen RAM.",
+      "begruendungen": [
+        "Richtig. Das Betriebssystem setzt die Rechte pro Speicherseite.",
+        "Es wird nichts komprimiert. Gespart wird, weil Seiten geteilt und nicht kopiert werden.",
+        "Das ist eine bewusste Entscheidung des Toolchain-Designs, keine technische Grenze."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Zwei Sichten auf dieselbe Datei",
+      "text": "Ausführbare Dateien unter Linux haben das Format **ELF** (Executable and Linkable Format). Es kennt zwei Sichten:\n\n- **Sektionen** (sections) für Linker und Werkzeuge: `.text`, `.rodata`, `.data`, `.bss`, `.debug_info` … Anzeigen mit `readelf -S`.\n- **Segmente** (segments) für den Loader: Gruppen von Sektionen mit gleichen Rechten, die als Ganzes in den Speicher abgebildet werden. Anzeigen mit `readelf -l`.\n\nDer Loader interessiert sich nur für Segmente. Debug-Sektionen gehören zu keinem ladbaren Segment und kosten zur Laufzeit keinen RAM."
+    },
+    {
+      "typ": "terminal-deuten",
+      "frage": "Warum ist beim letzten Segment `MemSiz` viel grösser als `FileSiz`?",
+      "terminal": {
+        "befehl": "readelf -lW app   # Ausschnitt: Program Headers",
+        "ausgabe": [
+          "  Type  Offset   VirtAddr           FileSiz  MemSiz   Flg Align",
+          "  LOAD  0x000000 0x0000000000000000 0x000628 0x000628 R   0x1000",
+          "  LOAD  0x001000 0x0000000000001000 0x0001b5 0x0001b5 R E 0x1000",
+          "  LOAD  0x002000 0x0000000000002000 0x000114 0x000114 R   0x1000",
+          "  LOAD  0x002db8 0x0000000000003db8 0x000258 0x061a80 RW  0x1000"
+        ]
+      },
+      "optionen": [
+        "Das Segment enthält `.bss`: Der Loader reserviert den Speicher und füllt ihn mit Nullen, ohne etwas aus der Datei zu lesen",
+        "Die Datei ist beschädigt und muss neu gebaut werden",
+        "Der Heap wird bereits beim Laden vollständig reserviert"
+      ],
+      "korrekt": 0,
+      "erklaerung": "`FileSiz` ist das, was in der Datei steht (`.data` und Verwandte), `MemSiz` das, was im Speicher belegt wird. Die Differenz von etwa 400 KB ist `.bss`, und die Rechte `RW` passen dazu.",
+      "begruendungen": [
+        "Richtig. So wird `.bss` umgesetzt.",
+        "Das ist der Normalfall bei jedem Programm mit globalen Variablen ohne Startwert.",
+        "Der Heap gehört nicht zum Binary. Er wächst erst zur Laufzeit über `malloc`/`new`."
+      ]
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Welches Segment enthält was?",
+      "paare": [
+        { "links": "`R E` (lesen, ausführen)", "rechts": "Maschinencode aus `.text`" },
+        { "links": "`R` (nur lesen)", "rechts": "Konstanten und String-Literale aus `.rodata`" },
+        { "links": "`RW` (lesen, schreiben)", "rechts": "Globale Variablen aus `.data` und `.bss`" }
+      ],
+      "erklaerung": "Kein Segment ist zugleich schreib- und ausführbar (`W^X`). Das erschwert Angriffe, bei denen eingeschleuster Code ausgeführt werden soll."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Was passiert typischerweise unter Linux?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "char* s = const_cast<char*>(\"Hallo\");",
+          "s[0] = 'h';",
+          "std::puts(s);"
+        ]
+      },
+      "optionen": [
+        "Ausgabe `hallo`",
+        "Absturz mit `Segmentation fault`, weil das Literal in schreibgeschütztem Speicher liegt",
+        "Compilerfehler: Literale sind `const`"
+      ],
+      "korrekt": 1,
+      "fest": true,
+      "erklaerung": "Ein String-Literal zu verändern ist **Undefined Behavior**. In der Praxis liegt es in einem `R`-Segment, und der Schreibzugriff löst eine Speicherschutzverletzung aus. Der `const_cast` bringt den Compiler zum Schweigen, ändert aber nichts an den Seitenrechten.",
+      "begruendungen": [
+        "Das passiert höchstens auf Systemen ohne Speicherschutz. Verlassen darf man sich nicht darauf.",
+        "Richtig. Undefined Behavior, das sich hier als Absturz zeigt.",
+        "Ohne `const_cast` gäbe es einen Fehler. Mit `const_cast` kompiliert der Code."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Debug-Informationen",
+      "text": "Mit `-g` schreibt der Compiler **Debug-Informationen** (DWARF) in eigene Sektionen wie `.debug_info` und `.debug_line`. Sie verbinden Maschinencode mit Quelltextzeilen, Variablennamen und Typen. Der Debugger braucht sie, das Programm selbst nicht.\n\n`strip` entfernt Debug-Informationen und die Symboltabelle. Das macht ausgelieferte Dateien deutlich kleiner. Profis heben die Debug-Informationen trotzdem auf, z. B. mit `objcopy --only-keep-debug`. So lässt sich ein Absturz beim Kunden später noch analysieren."
+    },
+    {
+      "typ": "terminal-deuten",
+      "frage": "Was hat `strip` entfernt?",
+      "terminal": {
+        "befehl": "ls -lh app && strip app && ls -lh app",
+        "ausgabe": [
+          "-rwxr-xr-x 1 dev dev 1.9M Mar  3 10:14 app",
+          "-rwxr-xr-x 1 dev dev 182K Mar  3 10:14 app"
+        ]
+      },
+      "optionen": [
+        "Debug-Informationen und die Symboltabelle",
+        "Den Code von Funktionen, die nie aufgerufen werden",
+        "Die Sektion `.bss`"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Der Maschinencode bleibt unverändert, das Programm verhält sich identisch. Nur Stacktraces und Debugging werden ohne die separaten Debug-Informationen unleserlich. Ungenutzte Funktionen entfernt dagegen der Linker mit `--gc-sections`, nicht `strip`.",
+      "begruendungen": [
+        "Richtig. Das spart hier über 90 Prozent.",
+        "`strip` ändert keinen Code. Das wäre Aufgabe des Linkers.",
+        "`.bss` belegt in der Datei ohnehin keinen Platz."
+      ]
+    }
+  ],
+  "praxis": "Bei einem Absturz in Produktion hast du oft nur einen Core Dump und ein gestripptes Binary. Ohne die passenden, aufbewahrten Debug-Informationen siehst du im Debugger nur Adressen. Deshalb archivieren gute Build-Pipelines für jedes Release die Debug-Symbole, z. B. als `-dbg`-Paket oder auf einem Symbol-Server. Darauf achtest du beim Aufsetzen einer Release-Pipeline.",
+  "labor": {
+    "titel": "Ein Binary vermessen",
+    "anleitung": "Baue ein kleines Programm mit `-g` und untersuche Sektionen, Segmente und die Wirkung von `strip`.",
+    "befehle": [
+      "g++ -g -O2 main.cpp -o app",
+      "readelf -SW app | grep -E 'text|rodata|data|bss|debug'",
+      "readelf -lW app | grep LOAD",
+      "objcopy --only-keep-debug app app.debug && strip app && ls -l app app.debug"
+    ],
+    "beobachtung": "Die `.debug_*`-Sektionen machen den Grossteil der Datei aus. Nach `strip` sind sie weg, liegen aber in `app.debug`. Mit `gdb -s app.debug -e app` kann man trotzdem mit Quelltext debuggen."
+  },
+  "begriffe": [
+    { "begriff": "ELF", "englisch": "Executable and Linkable Format", "erklaerung": "Dateiformat für Object-Files, Programme und Shared Libraries unter Linux und vielen Embedded-Systemen." },
+    { "begriff": "Segment", "englisch": "segment", "erklaerung": "Teil eines ELF-Programms, den der Loader mit bestimmten Rechten (R, W, X) in den Speicher abbildet." },
+    { "begriff": "Debug-Informationen", "englisch": "debug information, DWARF", "erklaerung": "Zuordnung von Maschinencode zu Quelltext, Variablen und Typen. Entsteht mit `-g`." }
+  ],
+  "weiterlesen": [
+    { "titel": "man elf", "url": "https://man7.org/linux/man-pages/man5/elf.5.html" },
+    { "titel": "GNU Binutils: readelf", "url": "https://sourceware.org/binutils/docs/binutils/readelf.html" }
+  ]
+}

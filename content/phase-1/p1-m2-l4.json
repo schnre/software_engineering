@@ -1,0 +1,172 @@
+{
+  "id": "p1-m2-l4",
+  "phase": 1,
+  "modul": "1.2 Der Linker",
+  "titel": "Sektionen und Relocation",
+  "lernziele": [
+    "Die Sektionen `.text`, `.data`, `.bss` und `.rodata` unterscheiden",
+    "Erklären, was eine Relocation ist und wer sie auflöst",
+    "Die Ausgabe von `size` und `objdump -dr` lesen"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Beim Übersetzen von `main.cpp` weiss der Compiler nicht, an welcher Adresse `addiere()` im fertigen Programm liegen wird. Was schreibt er in die Aufruf-Instruktion?",
+      "optionen": [
+        "Einen Platzhalter und einen Vermerk für den Linker, die Adresse später einzusetzen",
+        "Die Adresse 0, an der das Programm zur Laufzeit nach `addiere` sucht",
+        "Den Namen `addiere` als Text, den die CPU beim Ausführen nachschlägt"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Der Vermerk heisst **Relocation**: An Position X im Code muss die Adresse von Symbol Y eingetragen werden. Der Linker kennt am Ende alle Adressen und füllt die Platzhalter aus.",
+      "begruendungen": [
+        "Richtig. Das ist ein Relocation-Eintrag.",
+        "Die CPU springt einfach an die Adresse in der Instruktion. Bei 0 würde das Programm abstürzen.",
+        "Die CPU kennt keine Namen. Nachschlagen per Name gibt es nur beim dynamischen Laden, und auch das erledigt der Loader vorab."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Sektionen",
+      "text": "Ein Object-File ist in **Sektionen** (sections) gegliedert. Jede Sektion fasst Inhalte mit gleichen Eigenschaften zusammen. Der Linker legt später gleichnamige Sektionen aller Object-Files hintereinander.",
+      "tabelle": {
+        "kopf": ["Sektion", "Inhalt", "Eigenschaft"],
+        "zeilen": [
+          ["`.text`", "Maschinencode der Funktionen", "lesen und ausführen"],
+          ["`.rodata`", "Konstanten, String-Literale", "nur lesen"],
+          ["`.data`", "globale/statische Variablen mit Startwert ≠ 0", "lesen und schreiben, Werte stehen in der Datei"],
+          ["`.bss`", "globale/statische Variablen ohne Startwert oder = 0", "lesen und schreiben, belegt **keinen** Platz in der Datei"]
+        ]
+      }
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "In welcher Sektion landet was? Alle Variablen sind global.",
+      "paare": [
+        { "links": "`int addiere(int a, int b) { return a + b; }`", "rechts": "`.text`" },
+        { "links": "`int zaehler = 42;`", "rechts": "`.data`" },
+        { "links": "`int puffer[1024];`", "rechts": "`.bss`" },
+        { "links": "das Literal `\"Hallo\"` in `const char* s = \"Hallo\";`", "rechts": "`.rodata`" }
+      ],
+      "erklaerung": "`puffer` hat keinen Startwert und wird deshalb beim Programmstart mit Nullen gefüllt. Dafür muss in der Datei nichts gespeichert werden, nur die Grösse. Der Zeiger `s` selbst ist eine Variable mit Startwert und liegt in `.data`, der Text \"Hallo\" in `.rodata`."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Welche Variante macht die ausführbare Datei um etwa 400 KB grösser?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "// Variante A",
+          "int tabelle[100000];",
+          "",
+          "// Variante B",
+          "int tabelle[100000] = {1};"
+        ]
+      },
+      "optionen": ["Variante A", "Variante B", "Beide gleich viel"],
+      "korrekt": 1,
+      "fest": true,
+      "erklaerung": "In Variante B ist ein Element ungleich null. Das ganze Array kommt deshalb in `.data`, und alle 400 000 Byte stehen in der Datei, auch die Nullen. Variante A liegt in `.bss`, dort wird nur die Grösse vermerkt. Den RAM belegen beide gleich.",
+      "begruendungen": [
+        "`.bss` kostet in der Datei praktisch nichts.",
+        "Richtig. `.data` speichert jeden Startwert in der Datei.",
+        "Im RAM stimmt das, in der Datei nicht."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Relocations ansehen",
+      "text": "`objdump -dr` zeigt den Maschinencode zusammen mit den Relocations. Der Aufruf `call` enthält vier Nullbytes. Darunter steht, was der Linker dort eintragen soll.",
+      "terminal": {
+        "befehl": "objdump -dr main.o",
+        "ausgabe": [
+          "0000000000000000 <main>:",
+          "   0:  55                      push   %rbp",
+          "   1:  48 89 e5                mov    %rsp,%rbp",
+          "   4:  be 03 00 00 00          mov    $0x3,%esi",
+          "   9:  bf 02 00 00 00          mov    $0x2,%edi",
+          "   e:  e8 00 00 00 00          call   13 <main+0x13>",
+          "                       f: R_X86_64_PLT32  _Z7addiereii-0x4",
+          "  13:  5d                      pop    %rbp",
+          "  14:  c3                      ret"
+        ]
+      }
+    },
+    {
+      "typ": "terminal-deuten",
+      "frage": "Was bedeutet die Zeile `f: R_X86_64_PLT32 _Z7addiereii-0x4` in der Ausgabe oben?",
+      "terminal": {
+        "ausgabe": [
+          "   e:  e8 00 00 00 00          call   13 <main+0x13>",
+          "                       f: R_X86_64_PLT32  _Z7addiereii-0x4"
+        ]
+      },
+      "optionen": [
+        "Ab Byte `0xf` soll der Linker den Abstand zu `addiere(int, int)` eintragen",
+        "`addiere` wurde bei Adresse `0xf` definiert",
+        "Der Aufruf von `addiere` wurde wegoptimiert"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Die vier Nullbytes nach dem Opcode `e8` beginnen bei Offset `0xf`. Dort trägt der Linker die relative Sprungweite zu `addiere` ein. Das `-0x4` gleicht aus, dass die CPU relativ zum Ende der Instruktion rechnet. `PLT` bedeutet: Liegt `addiere` in einer Shared Library, läuft der Aufruf über eine Sprungtabelle.",
+      "begruendungen": [
+        "Richtig. Ort, Art und Ziel der Korrektur stehen in der Zeile.",
+        "`addiere` ist in `main.o` gar nicht definiert, es ist ein `U`-Symbol.",
+        "Der `call` ist ja noch da, nur das Ziel fehlt."
+      ]
+    },
+    {
+      "typ": "reihenfolge",
+      "frage": "In welcher Reihenfolge arbeitet der Linker?",
+      "elemente": [
+        "Gleichnamige Sektionen aller Object-Files zusammenfassen",
+        "Jeder Sektion und jedem Symbol eine endgültige Adresse zuweisen",
+        "Relocations auflösen: Platzhalter mit den Adressen füllen",
+        "Die ausführbare Datei schreiben"
+      ],
+      "erklaerung": "Erst wenn alle Sektionen ihren Platz haben, stehen die Adressen fest. Erst dann können die Platzhalter ausgefüllt werden. Die Symbolauflösung aus der vorletzten Lektion gehört zum ersten Schritt: Der Linker muss wissen, welche Object-Files überhaupt mitkommen."
+    },
+    {
+      "typ": "terminal-deuten",
+      "frage": "Wie viel RAM belegen die globalen Variablen ohne Startwert?",
+      "terminal": {
+        "befehl": "size app",
+        "ausgabe": [
+          "   text    data     bss     dec     hex filename",
+          "   1517     600  400032  402149   622e5 app"
+        ]
+      },
+      "optionen": ["1517 Byte", "600 Byte", "400032 Byte", "402149 Byte"],
+      "korrekt": 2,
+      "fest": true,
+      "erklaerung": "Die Spalte `bss` zählt die mit Null initialisierten Variablen. Sie belegen zur Laufzeit 400 KB RAM, stehen aber nicht in der Datei. `dec` und `hex` sind nur die Summe der drei Spalten. Auf Mikrocontrollern ist `size` ein schneller Check, ob Flash (`text` + `data`) und RAM (`data` + `bss`) noch reichen.",
+      "begruendungen": [
+        "`text` ist Code und Konstanten.",
+        "`data` sind Variablen mit Startwert.",
+        "Richtig.",
+        "Das ist die Summe aller drei Spalten."
+      ]
+    }
+  ],
+  "praxis": "Auf Mikrocontrollern entscheidet die Sektion, ob etwas Flash oder RAM kostet: Grosse Tabellen mit `const` (also `.rodata` im Flash) zu markieren, spart wertvollen RAM. Unter Linux erklärt dir `.rodata`, warum das Schreiben in ein String-Literal abstürzt. Relocations begegnen dir wieder bei Shared Libraries (`-fPIC`) und in Fehlermeldungen wie `relocation truncated to fit`.",
+  "labor": {
+    "titel": "Sektionen und Relocations untersuchen",
+    "anleitung": "Baue `main.cpp` mit dem Aufruf von `addiere` und schau dir das Object-File und das fertige Programm an.",
+    "befehle": [
+      "g++ -c -O0 main.cpp addiere.cpp",
+      "objdump -h main.o",
+      "objdump -dr main.o",
+      "g++ main.o addiere.o -o app && objdump -d app | grep -A6 '<main>:'"
+    ],
+    "beobachtung": "Im Object-File stehen nach `e8` vier Nullbytes. Im fertigen Programm stehen dort echte Werte, und `objdump` zeigt `call ... <_Z7addiereii>` mit Zieladresse."
+  },
+  "begriffe": [
+    { "begriff": "Sektion", "englisch": "section", "erklaerung": "Benannter Bereich in einem Object-File, z. B. `.text` für Code oder `.data` für initialisierte Variablen." },
+    { "begriff": ".bss", "englisch": "block started by symbol", "erklaerung": "Sektion für Variablen, die mit Null starten. Belegt RAM, aber keinen Platz in der Datei." },
+    { "begriff": "Relocation", "englisch": "relocation", "erklaerung": "Vermerk im Object-File: An dieser Stelle muss der Linker die Adresse eines Symbols eintragen." }
+  ],
+  "weiterlesen": [
+    { "titel": "GNU Binutils: objdump", "url": "https://sourceware.org/binutils/docs/binutils/objdump.html" },
+    { "titel": "GNU Binutils: size", "url": "https://sourceware.org/binutils/docs/binutils/size.html" }
+  ]
+}

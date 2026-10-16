@@ -1,0 +1,112 @@
+{
+  "id": "p8-m4-l2",
+  "phase": 8,
+  "modul": "8.4 Kommunikation und Mentoring",
+  "titel": "Andere weiterbringen",
+  "lernziele": [
+    "Die passende Form der Unterstützung für eine Situation wählen",
+    "Fehler im Team konstruktiv und ohne Schuldzuweisung aufarbeiten",
+    "Beschreiben, woran man einen guten Senior im Team erkennt"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Ein Junior fragt dich, wie er einen Fehler beheben soll. Du kennst die Lösung und könntest sie in zwei Minuten sagen. Es ist kein Notfall. Was bringt ihn langfristig am meisten weiter?",
+      "optionen": [
+        "Mit Fragen zur Lösung führen oder kurz gemeinsam daran arbeiten, sodass er sie selbst findet",
+        "Die Lösung direkt sagen, das spart Zeit",
+        "Ihn allein suchen lassen, so lernt er am meisten"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Wer die Lösung selbst findet, lernt das Vorgehen, nicht nur das Ergebnis, und fragt beim nächsten ähnlichen Problem nicht mehr. Fragen wie „Was sagt der Backtrace?“ oder „Wo wird dieser Wert zuletzt geschrieben?“ zeigen, wie ein erfahrener Mensch denkt.",
+      "begruendungen": [
+        "Richtig.",
+        "Bei echten Notfällen ja. Sonst lernt er dabei wenig.",
+        "Ganz ohne Unterstützung verliert er womöglich Stunden und den Mut."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Formen der Unterstützung",
+      "text": "Gutes Mentoring passt die Unterstützung an Person und Situation an:\n\n- **Pair Programming**: gemeinsam an einer Aufgabe, um Denkweise und Werkzeuge zu zeigen\n- **Leitende Fragen**: wenn jemand nah an der Lösung ist\n- **Direkt sagen**: bei Notfällen oder wenn Wissen fehlt, das man nicht herleiten kann\n- **Delegieren mit Sicherheitsnetz**: Verantwortung übergeben, mit festen Punkten für Rückfragen\n- **Reviews als Lerngelegenheit**: erklären, warum, nicht nur was\n\nDazu gehört, Kontext zu teilen: Warum ist das Projekt so aufgebaut? Was ist dem Kunden wichtig? Wer den Zusammenhang kennt, trifft bessere eigene Entscheidungen."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Welche Form passt zu welcher Situation?",
+      "paare": [
+        { "links": "Pair Programming", "rechts": "Eine komplexe Aufgabe, bei der man die eigene Denkweise zeigen will" },
+        { "links": "Leitende Fragen", "rechts": "Die Person ist nah an der Lösung und soll sie selbst finden" },
+        { "links": "Direkt sagen", "rechts": "Ein Fehler in Produktion, keine Zeit zum Lernen" },
+        { "links": "Delegieren mit Rückfragen", "rechts": "Die Person soll Verantwortung übernehmen, mit Sicherheitsnetz" }
+      ],
+      "erklaerung": "Nach einem Notfall lohnt sich oft eine kurze Nachbesprechung: „Wie hätten wir das schneller gefunden?“ So wird auch aus der direkten Lösung noch eine Lerngelegenheit."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Ein Junior hat eine fehlerhafte Konfiguration ausgeliefert, die bei Kunden zu Ausfällen führte. Wie gehst du damit um?",
+      "optionen": [
+        "Gemeinsam beheben, dann in einer Nachbesprechung fragen, warum das System den Fehler durchgelassen hat, und eine Prüfung ergänzen",
+        "In der Teamrunde deutlich machen, wer den Fehler gemacht hat, damit es nicht wieder passiert",
+        "Ihm die Berechtigung zum Ausliefern entziehen"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Wenn ein einzelner Fehler eines Menschen zu einem Ausfall führen kann, ist das ein Fehler im **System**: Es fehlt eine Prüfung, ein Review, ein Test. Wer Schuldige sucht, erreicht vor allem, dass Fehler künftig verschwiegen werden. Kritik am Einzelnen gehört, wenn überhaupt, unter vier Augen.",
+      "begruendungen": [
+        "Richtig.",
+        "Öffentliche Schuldzuweisung zerstört Vertrauen, und künftige Fehler werden versteckt.",
+        "Das bekämpft das Symptom, nicht die fehlende Prüfung."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Psychologische Sicherheit",
+      "text": "Googles Studie *Project Aristotle* fand, dass der wichtigste Faktor für erfolgreiche Teams **psychologische Sicherheit** ist: das Gefühl, Fragen stellen, Fehler zugeben und Bedenken äussern zu können, ohne bestraft oder belächelt zu werden.\n\nSeniors prägen das stark durch ihr eigenes Verhalten: „Das weiss ich nicht, lass uns nachsehen“ sagen, eigene Fehler offen ansprechen, Fragen ernst nehmen, Lob öffentlich und Kritik unter vier Augen. Nach Vorfällen hilft ein **Blameless Postmortem**: eine Nachbesprechung, die nach Ursachen im System sucht, nicht nach Schuldigen."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Woran erkennt man einen guten Senior im Team?",
+      "optionen": [
+        "Andere werden durch ihn oder sie besser",
+        "Teilt Wissen aktiv, über Dokumentation, Reviews und Pairing",
+        "Ist die einzige Person, die die kritischen Teile des Systems versteht",
+        "Übernimmt Verantwortung für das Ergebnis des ganzen Teams, nicht nur für eigene Aufgaben"
+      ],
+      "korrekt": [0, 1, 3],
+      "erklaerung": "Seniorität zeigt sich weniger an der eigenen Produktivität als an der Wirkung auf andere. Wer der einzige Wissensträger ist, ist für das Team ein Risiko, nicht ein Vorbild. Der *Bus-Faktor* aus Modul 5.2 lässt grüssen.",
+      "begruendungen": [
+        "Richtig.",
+        "Richtig.",
+        "Das ist ein Risiko. Ein guter Senior verteilt dieses Wissen.",
+        "Richtig."
+      ]
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze den Begriff.",
+      "text": "Eine Nachbesprechung eines Vorfalls, die nach Ursachen im System statt nach Schuldigen sucht, heisst {{?}} Postmortem.",
+      "luecken": [{ "loesungen": ["blameless"] }],
+      "auswahl": ["blameless", "formales", "technisches", "geheimes"],
+      "erklaerung": "Das Ergebnis eines guten Postmortems sind konkrete Verbesserungen: ein neuer Test, eine zusätzliche Prüfung in der Pipeline, eine bessere Warnung. Dann hat der Vorfall das System stärker gemacht."
+    }
+  ],
+  "praxis": "Damit schliesst sich der Kreis dieser App: Vom Linker über Tests, Nebenläufigkeit und Architektur bis zu Entscheidungen und Kommunikation hast du die Werkzeuge kennengelernt, die einen Senior C++-Entwickler ausmachen. Der letzte Schritt passiert nicht hier, sondern im Team: Teile, was du gelernt hast, erkläre es anderen, lass dich reviewen, und hilf anderen, besser zu werden. Wiederhole hier regelmässig, damit das Wissen bleibt.",
+  "labor": {
+    "titel": "Wissen teilen",
+    "anleitung": "Wähle ein Thema aus dieser App, das in deinem Team wenig bekannt ist, z. B. Sanitizer, ADRs oder Link-Reihenfolge, und bereite eine kurze Vorführung von 15 Minuten vor, mit einem echten Beispiel aus eurem Code.",
+    "befehle": [
+      "git switch -c doku/sanitizer-einfuehrung",
+      "mkdir -p docs/wissen && $EDITOR docs/wissen/sanitizer.md"
+    ],
+    "beobachtung": "Beim Vorbereiten merkst du schnell, wo dein eigenes Verständnis noch Lücken hat. Erklären ist eine der wirksamsten Arten zu lernen, und das Team profitiert gleich mit."
+  },
+  "begriffe": [
+    { "begriff": "Mentoring", "englisch": "mentoring", "erklaerung": "Gezielte Unterstützung einer weniger erfahrenen Person beim Lernen und Wachsen." },
+    { "begriff": "Psychologische Sicherheit", "englisch": "psychological safety", "erklaerung": "Das Gefühl im Team, Fragen, Fehler und Bedenken ohne negative Folgen äussern zu können." },
+    { "begriff": "Blameless Postmortem", "englisch": "blameless postmortem", "erklaerung": "Nachbesprechung eines Vorfalls, die Ursachen im System statt Schuldige sucht." }
+  ],
+  "weiterlesen": [
+    { "titel": "Google re:Work: Understand team effectiveness", "url": "https://rework.withgoogle.com/en/guides/understanding-team-effectiveness" },
+    { "titel": "Google SRE Book: Postmortem Culture", "url": "https://sre.google/sre-book/postmortem-culture/" }
+  ]
+}

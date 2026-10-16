@@ -1,0 +1,160 @@
+{
+  "id": "p7-m1-l1",
+  "phase": 7,
+  "modul": "7.1 Prinzipien",
+  "titel": "SOLID",
+  "lernziele": [
+    "Die fünf SOLID-Prinzipien in eigenen Worten erklären",
+    "Verstösse gegen Open/Closed, Liskov und Interface Segregation erkennen",
+    "SOLID als Heuristik statt als Dogma einsetzen"
+  ],
+  "dauerMinuten": 7,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Was besagt das **Single Responsibility Principle**?",
+      "optionen": [
+        "Eine Klasse sollte nur einen Grund haben, sich zu ändern",
+        "Eine Klasse sollte nur eine einzige Memberfunktion haben",
+        "Jede Klasse sollte nur von einer Person bearbeitet werden"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Gemeint ist keine Zählregel, sondern eine Frage der Verantwortung: Für wen oder wofür ändert sich diese Klasse? Gibt es mehrere unabhängige Antworten, z. B. „wenn sich das Datenformat ändert“ und „wenn sich die Anzeige ändert“, sollte sie aufgeteilt werden. Das ist die Kohäsion aus Modul 6.1.",
+      "begruendungen": [
+        "Richtig.",
+        "Viele Memberfunktionen sind in Ordnung, solange sie einer Aufgabe dienen.",
+        "Mit Personen hat das Prinzip nichts zu tun."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Die fünf Prinzipien",
+      "text": "**SOLID** fasst fünf Entwurfsprinzipien für objektorientierten Code zusammen (geprägt von Robert C. Martin):\n\n- **S**ingle Responsibility: ein Grund zur Änderung pro Klasse\n- **O**pen/Closed: offen für Erweiterung, geschlossen für Änderung\n- **L**iskov Substitution: Unterklassen müssen sich überall wie ihre Basisklasse verhalten\n- **I**nterface Segregation: lieber mehrere kleine, passende Schnittstellen als eine grosse\n- **D**ependency Inversion: von Abstraktionen abhängen, nicht von konkreten Implementierungen"
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Ordne die Prinzipien zu.",
+      "paare": [
+        { "links": "Single Responsibility", "rechts": "Eine Klasse hat genau einen Grund, sich zu ändern" },
+        { "links": "Open/Closed", "rechts": "Neues Verhalten durch Hinzufügen statt durch Ändern bestehenden Codes" },
+        { "links": "Liskov Substitution", "rechts": "Eine Unterklasse ist überall einsetzbar, wo die Basisklasse erwartet wird" },
+        { "links": "Interface Segregation", "rechts": "Niemand soll von Methoden abhängen, die er nicht braucht" },
+        { "links": "Dependency Inversion", "rechts": "Fachlogik hängt von Schnittstellen ab, nicht von konkreten Details" }
+      ],
+      "erklaerung": "Dependency Inversion kennst du schon aus Modul 6.3. Es ist das Prinzip hinter Dependency Injection und dem Auflösen von Zyklen."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Um einen neuen Sensortyp zu unterstützen, musst du in sieben `switch`-Anweisungen über `SensorTyp` einen neuen `case` ergänzen. Welches Prinzip wird verletzt?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "double lies(const Sensor& s) {",
+          "    switch (s.typ) {",
+          "    case SensorTyp::Can: return leseCan(s);",
+          "    case SensorTyp::I2c: return leseI2c(s);",
+          "    }",
+          "}"
+        ]
+      },
+      "optionen": ["Open/Closed", "Liskov Substitution", "Interface Segregation"],
+      "korrekt": 0,
+      "erklaerung": "Jede Erweiterung erzwingt Änderungen an bestehendem Code an vielen Stellen, und eine vergessene Stelle ist ein Fehler. Mit einer Schnittstelle `ISensor` und einer Klasse pro Typ wäre ein neuer Sensor eine neue Klasse, ohne bestehenden Code anzufassen. Ein `switch` an **einer** Stelle, etwa in einer Fabrikfunktion, ist dagegen völlig in Ordnung.",
+      "begruendungen": [
+        "Richtig.",
+        "Es gibt hier keine Vererbung, die Liskov verletzen könnte.",
+        "Es geht nicht um zu grosse Schnittstellen."
+      ]
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "`Quadrat` erbt von `Rechteck`. `setzeBreite` setzt beim Quadrat auch die Höhe. Was passiert, wenn `verdopple` ein `Quadrat` bekommt?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "void verdopple(Rechteck& r) {",
+          "    double alt = r.flaeche();",
+          "    r.setzeBreite(r.breite() * 2);",
+          "    assert(r.flaeche() == 2 * alt);",
+          "}"
+        ]
+      },
+      "optionen": [
+        "Das `assert` schlägt fehl: Die Fläche vervierfacht sich, weil auch die Höhe verdoppelt wird",
+        "Alles funktioniert, ein Quadrat ist ja ein Rechteck",
+        "Compilerfehler"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Mathematisch ist ein Quadrat ein Rechteck, im Code aber nicht: Ein `Rechteck` verspricht, dass Breite und Höhe unabhängig sind. `Quadrat` bricht dieses Versprechen. Das ist eine Verletzung des **Liskov-Prinzips**: Unterklassen müssen die Zusagen der Basisklasse einhalten, nicht nur ihre Signaturen.",
+      "begruendungen": [
+        "Richtig.",
+        "„Ist ein“ im Alltag heisst nicht „verhält sich wie“ im Code.",
+        "Der Code kompiliert, das Problem zeigt sich erst zur Laufzeit."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Interface Segregation und Dependency Inversion",
+      "text": "**Interface Segregation**: Eine grosse Schnittstelle zwingt alle Implementierungen, alles anzubieten, und alle Nutzer, von allem abzuhängen. Besser sind kleine, gezielte Schnittstellen: `ILesbar`, `ISchreibbar`, `IKalibrierbar`. Eine Klasse kann mehrere davon implementieren.\n\n**Dependency Inversion**: Die Fachlogik definiert, was sie braucht (`ITemperaturQuelle`), und die technischen Details implementieren es. So zeigen die Abhängigkeiten vom Detail zur Fachlogik, nicht umgekehrt."
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Welche Zeile zeigt am deutlichsten, dass die Schnittstelle zu gross ist?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "class IGeraet {",
+          "public:",
+          "    virtual ~IGeraet() = default;",
+          "    virtual double lies() = 0;",
+          "    virtual void schreibe(double wert) = 0;",
+          "    virtual void kalibriere() = 0;",
+          "};",
+          "",
+          "class Temperaturfuehler : public IGeraet {",
+          "public:",
+          "    double lies() override;",
+          "    void schreibe(double) override { throw std::logic_error(\"nicht unterstützt\"); }",
+          "    void kalibriere() override;",
+          "};"
+        ]
+      },
+      "fehlerZeile": 12,
+      "erklaerung": "Ein Fühler kann nicht schreiben, muss es aber anbieten, also wirft er. Das verletzt Interface Segregation (die Schnittstelle ist zu breit) und Liskov (ein `IGeraet` kann man nicht überall gleich benutzen). Mit getrennten Schnittstellen `ILesbar` und `ISchreibbar` implementiert der Fühler nur, was er kann."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Wie geht man mit SOLID am besten um?",
+      "optionen": [
+        "Als Denkwerkzeug: Wenn Code schwer zu ändern oder zu testen ist, helfen die Prinzipien, die Ursache zu finden",
+        "Als Pflicht: Jede Klasse bekommt von Anfang an Schnittstellen für alle denkbaren Erweiterungen",
+        "Gar nicht, die Prinzipien sind veraltet"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Zu viel Abstraktion ist ebenfalls ein Problem: Schnittstellen mit nur einer Implementierung, die es nie geben wird, machen Code schwerer lesbar. Das Prinzip **YAGNI** (*you aren't gonna need it*) ist das Gegengewicht. Eine gute Faustregel: Abstraktion einführen, wenn eine zweite Variante oder ein Test sie wirklich braucht.",
+      "begruendungen": [
+        "Richtig.",
+        "Das führt zu Überabstraktion und unnötiger Komplexität.",
+        "Die Ideen sind zeitlos, nur nicht als starre Regeln gedacht."
+      ]
+    }
+  ],
+  "praxis": "Im Review hilft SOLID, ein Unbehagen in Worte zu fassen: „Diese Klasse hat zwei Gründe, sich zu ändern“ oder „Diese Unterklasse hält das Versprechen der Basis nicht ein“. Das ist konkreter als „gefällt mir nicht“. Ein Senior erkennt aber auch das Gegenteil: Schnittstellen und Fabriken für Dinge, die es nur einmal gibt, sind kein gutes Design, sondern Aufwand ohne Nutzen.",
+  "labor": {
+    "titel": "Einen switch auflösen",
+    "anleitung": "Suche in einem Projekt nach `switch`-Anweisungen über denselben Typ-Enum an mehreren Stellen.",
+    "befehle": [
+      "rg -n 'switch \\(.*typ' src/ | head",
+      "rg -c 'case SensorTyp::' src/"
+    ],
+    "beobachtung": "Kommt derselbe Enum in vielen `switch`-Anweisungen vor, ist er ein Kandidat für Polymorphie (virtuelle Funktionen oder `std::variant` mit `std::visit`). Kommt er nur an einer Stelle vor, ist der `switch` meist die einfachste und beste Lösung."
+  },
+  "begriffe": [
+    { "begriff": "SOLID", "englisch": "SOLID", "erklaerung": "Fünf Entwurfsprinzipien: Single Responsibility, Open/Closed, Liskov Substitution, Interface Segregation, Dependency Inversion." },
+    { "begriff": "Liskov-Prinzip", "englisch": "Liskov substitution principle", "erklaerung": "Eine Unterklasse muss sich überall so verhalten, wie es die Basisklasse verspricht." },
+    { "begriff": "YAGNI", "englisch": "you aren't gonna need it", "erklaerung": "Keine Abstraktion oder Funktion auf Vorrat bauen, die man noch nicht braucht." }
+  ],
+  "weiterlesen": [
+    { "titel": "C++ Core Guidelines: C.hier – Class hierarchies", "url": "https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#S-hier" }
+  ]
+}

@@ -1,0 +1,109 @@
+{
+  "id": "p8-m4-l1",
+  "phase": 8,
+  "modul": "8.4 Kommunikation und Mentoring",
+  "titel": "Technisches verständlich erklären",
+  "lernziele": [
+    "Botschaften an das jeweilige Publikum anpassen",
+    "Nachrichten mit dem Wichtigsten zuerst aufbauen",
+    "Ein kurzes Design-Dokument gliedern"
+  ],
+  "dauerMinuten": 5,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Die Projektleitung will wissen, warum sich das Release verschiebt. Die Ursache ist ein Data Race im Empfangsthread. Was sagst du?",
+      "optionen": [
+        "„Release 2.4 verschiebt sich voraussichtlich um eine Woche. Wir haben einen seltenen Fehler gefunden, der Messwerte verfälschen kann. Den beheben wir lieber jetzt als beim Kunden.“",
+        "„Wir haben ein Data Race zwischen dem CAN-Empfangsthread und dem Verarbeitungsthread, weil der Ringpuffer ohne Acquire-Release-Semantik synchronisiert wird.“",
+        "„Es gibt Probleme mit Threads, das kann dauern.“"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Die Projektleitung muss **entscheiden und planen**. Dafür braucht sie Auswirkung, Grund in verständlichen Worten und eine Einschätzung. Die technischen Details sind für sie nicht nutzbar. Bei Bedarf fragt sie nach, und dann kannst du sie liefern.",
+      "begruendungen": [
+        "Richtig.",
+        "Korrekt, aber für die Projektleitung nicht verwertbar.",
+        "Zu vage: Wie lange? Wie schlimm? Was ist zu tun?"
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Für wen schreibe ich?",
+      "text": "Dieselbe technische Tatsache braucht für verschiedene Leute verschiedene Worte. Frag dich vor jeder Nachricht: **Wer liest das, und was muss diese Person danach tun oder wissen?**\n\nEin bewährter Aufbau heisst **BLUF** (*bottom line up front*): Das Wichtigste zuerst, also Ergebnis, Entscheidung oder Bitte. Dann die Begründung, dann die Details für alle, die tiefer einsteigen wollen. Wer nur die ersten zwei Sätze liest, sollte trotzdem alles Nötige wissen."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Worauf kommt es bei welchem Publikum an?",
+      "paare": [
+        { "links": "Projektleitung", "rechts": "Auswirkung auf Termin, Kosten und Risiko, mit Optionen" },
+        { "links": "Kollegin aus dem Team", "rechts": "Technische Ursache, Details und nächste Schritte" },
+        { "links": "Kunde", "rechts": "Was betroffen ist, was er tun muss und wann es behoben ist" },
+        { "links": "Neue Person im Team", "rechts": "Erst der Überblick, Details erst bei Bedarf" }
+      ],
+      "erklaerung": "Fachbegriffe sind nicht verboten, aber jedes Wort, das das Gegenüber nicht kennt, kostet Aufmerksamkeit. Gegenüber der Projektleitung sagst du „seltener Fehler bei gleichzeitigen Zugriffen“, im Team „Data Race im Ringpuffer“."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Welche Statusnachricht ist am besten?",
+      "optionen": [
+        "„Kurz: 2.4 verschiebt sich voraussichtlich um eine Woche. Grund: ein seltener Fehler bei der Messwerterfassung. Optionen: A) Release mit bekanntem Fehler und Patch in zwei Wochen, B) eine Woche später, fehlerfrei. Ich empfehle B. Entscheidung bitte bis Freitag.“",
+        "„Ich habe am Montag angefangen, den Fehler zu suchen, dann am Dienstag die Logs angeschaut, dann …“ (zwei Seiten)",
+        "„Gibt Probleme, lass uns mal ein Meeting machen.“"
+      ],
+      "korrekt": 0,
+      "fest": true,
+      "erklaerung": "Die erste Nachricht beginnt mit dem Ergebnis, nennt den Grund in einem Satz, bietet Optionen mit Folgen, gibt eine Empfehlung und sagt, was gebraucht wird und bis wann. Die chronologische Erzählung versteckt das Wichtige am Ende. Die dritte verschiebt die Arbeit nur in ein Meeting.",
+      "begruendungen": [
+        "Richtig.",
+        "Chronologisch ist der natürlichste, aber für Lesende der schwierigste Aufbau.",
+        "Ohne Inhalt kann sich niemand vorbereiten."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Kurze Design-Dokumente",
+      "text": "Für grössere Vorhaben lohnt sich vor der Umsetzung ein kurzes Design-Dokument, meist zwei bis fünf Seiten:\n\n- **Problem**: Was soll gelöst werden, und warum jetzt?\n- **Ziele und Nicht-Ziele**: Was gehört dazu, was ausdrücklich nicht?\n- **Vorschlag**: die Lösung, mit einer Skizze\n- **Alternativen**: was verworfen wurde und warum\n- **Risiken und offene Fragen**\n\nEs wird von den Betroffenen kommentiert, bevor eine Zeile Code geschrieben ist. Das ist der billigste Zeitpunkt, um Fehler im Design zu finden."
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze den Namen des Prinzips.",
+      "text": "Beim Prinzip {{?}} steht das Wichtigste, also Ergebnis, Entscheidung oder Bitte, am Anfang einer Nachricht.",
+      "luecken": [{ "loesungen": ["BLUF"] }],
+      "auswahl": ["BLUF", "FIFO", "YAGNI", "DRY"],
+      "erklaerung": "*Bottom line up front* stammt aus dem Militär, wo Nachrichten unter Zeitdruck gelesen werden. In E-Mails, Tickets und Pull-Request-Beschreibungen hilft es genauso."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Wozu dient der Abschnitt **Nicht-Ziele** in einem Design-Dokument?",
+      "optionen": [
+        "Er verhindert Missverständnisse und schleichende Erweiterungen, indem er ausdrücklich sagt, was nicht Teil des Vorhabens ist",
+        "Er listet auf, was im Projekt schiefgehen könnte",
+        "Er ist nur eine Formalie und kann leer bleiben"
+      ],
+      "korrekt": 0,
+      "erklaerung": "„Nicht-Ziel: Unterstützung mehrerer gleichzeitiger Sensoren“ beendet eine Diskussion, bevor sie beginnt, und gibt allen ein gemeinsames Bild vom Umfang. Viele spätere Konflikte entstehen daraus, dass jemand stillschweigend etwas anderes erwartet hat.",
+      "begruendungen": [
+        "Richtig.",
+        "Dafür gibt es den Abschnitt Risiken.",
+        "Gerade dieser Abschnitt spart oft am meisten Zeit."
+      ]
+    }
+  ],
+  "praxis": "Je weiter man als Entwickler kommt, desto mehr Wirkung entsteht durch Kommunikation statt durch eigenen Code: ein Design-Dokument, das ein Team auf eine Linie bringt, eine Statusmeldung, die eine gute Entscheidung ermöglicht, ein README, das neue Leute in einem Tag produktiv macht. Übe es bewusst, z. B. indem du vor dem Absenden jeder wichtigen Nachricht prüfst, ob die ersten zwei Sätze allein reichen würden.",
+  "labor": {
+    "titel": "Eine Nachricht umbauen",
+    "anleitung": "Nimm eine längere E-Mail, Ticket-Beschreibung oder Pull-Request-Beschreibung, die du kürzlich geschrieben hast, und baue sie nach BLUF um: Ergebnis oder Bitte zuerst, dann Begründung, dann Details.",
+    "befehle": [
+      "gh pr view --json body --jq .body | head -20"
+    ],
+    "beobachtung": "Oft steht das Wichtigste im letzten Absatz. Nach vorne gestellt, wird die Nachricht kürzer, und die Rückfragen werden weniger."
+  },
+  "begriffe": [
+    { "begriff": "BLUF", "englisch": "bottom line up front", "erklaerung": "Das Wichtigste, also Ergebnis, Entscheidung oder Bitte, steht am Anfang einer Nachricht." },
+    { "begriff": "Design-Dokument", "englisch": "design document, design doc", "erklaerung": "Kurzes Dokument mit Problem, Zielen, Vorschlag und Alternativen, das vor der Umsetzung besprochen wird." },
+    { "begriff": "Nicht-Ziel", "englisch": "non-goal", "erklaerung": "Ausdrücklich ausgeschlossener Teil eines Vorhabens, um den Umfang klar zu begrenzen." }
+  ],
+  "weiterlesen": [
+    { "titel": "Industrial Empathy: Design Docs at Google", "url": "https://www.industrialempathy.com/posts/design-docs-at-google/" }
+  ]
+}

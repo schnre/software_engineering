@@ -1,0 +1,178 @@
+{
+  "id": "p1-m6-l3",
+  "phase": 1,
+  "modul": "1.6 Build-Systeme",
+  "titel": "Ninja und Bazel lesen",
+  "lernziele": [
+    "Erklären, wofür Ninja gebaut wurde",
+    "Eine Bazel-`BUILD`-Datei lesen",
+    "Abschätzen, wann sich Bazel lohnt"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Warum lässt man CMake meist Ninja-Dateien statt Makefiles erzeugen?",
+      "optionen": [
+        "Ninja ist darauf ausgelegt, generiert zu werden, und startet und prüft sehr schnell, auch bei zehntausenden Dateien",
+        "Ninja kann als einziges Build-System parallel bauen",
+        "Ninja kompiliert C++ schneller als GCC"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Ninja kennt fast keine Logik: keine Bedingungen, keine Funktionen, nur Regeln und Kanten. Die Intelligenz steckt im Generator (CMake, GN, Meson). Dafür ist Ninja extrem schnell beim Prüfen, ob etwas zu tun ist (*no-op build*), und baut standardmässig mit allen CPU-Kernen.",
+      "begruendungen": [
+        "Richtig. Der Vorteil zeigt sich vor allem in grossen Projekten.",
+        "Make kann mit `-j` ebenfalls parallel bauen. Ninja macht es nur standardmässig.",
+        "Kompiliert wird weiterhin von `g++` oder `clang++`, Ninja ruft sie nur auf."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Ninja",
+      "text": "Eine `build.ninja` schreibt man nicht von Hand. Lesen können sollte man sie trotzdem, wenn man einen Build-Fehler versteht. Die wichtigsten Befehle: `ninja -C build` baut im Verzeichnis `build`, `ninja -C build -t targets` listet alle Ziele, und `ninja -C build -t commands app` zeigt alle Befehle für ein Ziel.",
+      "code": {
+        "sprache": "text",
+        "datei": "build.ninja (Ausschnitt)",
+        "zeilen": [
+          "rule CXX_COMPILER",
+          "  command = /usr/bin/g++ $DEFINES $INCLUDES $FLAGS -MD -MF $DEP_FILE -o $out -c $in",
+          "  deps = gcc",
+          "",
+          "build src/CMakeFiles/mathe.dir/matrix.cpp.o: CXX_COMPILER ../src/matrix.cpp",
+          "  INCLUDES = -I../include"
+        ],
+        "anmerkungen": [
+          { "zeile": 1, "text": "Eine Regel: wie man etwas baut." },
+          { "zeile": 3, "text": "Ninja liest die Header-Abhängigkeiten aus der Compiler-Ausgabe, wie `-MMD` bei Make." },
+          { "zeile": 5, "text": "Eine Kante: Ausgabe, Regel und Eingabe." }
+        ]
+      }
+    },
+    {
+      "typ": "terminal-deuten",
+      "frage": "Was bedeutet `[37/120]`?",
+      "terminal": {
+        "befehl": "ninja -C build",
+        "ausgabe": [
+          "ninja: Entering directory `build'",
+          "[37/120] Building CXX object src/CMakeFiles/mathe.dir/matrix.cpp.o"
+        ]
+      },
+      "optionen": [
+        "Schritt 37 von insgesamt 120 nötigen Build-Schritten",
+        "37 von 120 Dateien enthalten Fehler",
+        "Der Build ist zu 37 Prozent fertig, gemessen an der Zeit"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Ninja zählt die Kanten im Graphen, die gebaut werden müssen. Bei einem inkrementellen Build ist die zweite Zahl entsprechend klein. Mit `ninja -v` siehst du statt der Kurzbeschreibung den vollständigen Befehl.",
+      "begruendungen": [
+        "Richtig.",
+        "Fehler zeigt Ninja mit `FAILED:` an.",
+        "Die Zählung ist nach Schritten, nicht nach Zeit. Grosse Dateien dauern länger."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Bazel",
+      "text": "**Bazel** (ursprünglich von Google) ist ein vollständiges Build-System für grosse, mehrsprachige Monorepos. Ziele stehen in `BUILD`-Dateien, geschrieben in **Starlark**, einem Python-Dialekt. Jede Aktion läuft **hermetisch** in einer Sandbox, die nur die deklarierten Eingaben sieht. Deshalb kann Bazel Ergebnisse sicher zwischenspeichern, auch auf einem gemeinsamen **Remote-Cache** für das ganze Team.",
+      "code": {
+        "sprache": "starlark",
+        "datei": "mathe/BUILD",
+        "zeilen": [
+          "cc_library(",
+          "    name = \"mathe\",",
+          "    srcs = [\"vektor.cpp\", \"matrix.cpp\"],",
+          "    hdrs = [\"vektor.h\", \"matrix.h\"],",
+          "    visibility = [\"//app:__pkg__\"],",
+          ")",
+          "",
+          "cc_test(",
+          "    name = \"mathe_test\",",
+          "    srcs = [\"mathe_test.cpp\"],",
+          "    deps = [\":mathe\", \"@googletest//:gtest_main\"],",
+          ")"
+        ],
+        "anmerkungen": [
+          { "zeile": 4, "text": "Nur diese Header dürfen Nutzer einbinden." },
+          { "zeile": 5, "text": "Nur Ziele im Paket `//app` dürfen `mathe` verwenden." },
+          { "zeile": 11, "text": "`:mathe` ist ein Ziel im selben Paket, `@googletest` ein externes Repository." }
+        ]
+      }
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Ordne die Bazel-Begriffe zu.",
+      "paare": [
+        { "links": "`//app:rechner`", "rechts": "Label: Ziel `rechner` im Paket `app`" },
+        { "links": "`deps`", "rechts": "Direkte Abhängigkeiten eines Ziels" },
+        { "links": "`hdrs`", "rechts": "Öffentliche Header, die Nutzer einbinden dürfen" },
+        { "links": "`visibility`", "rechts": "Wer dieses Ziel als Abhängigkeit verwenden darf" }
+      ],
+      "erklaerung": "`visibility` ist Architektur, die der Build erzwingt. Will ein Modul eine interne Bibliothek eines anderen Teams verwenden, schlägt der Build fehl, solange niemand die Sichtbarkeit bewusst erweitert."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "`app.cpp` bindet einen Header aus `//netz` ein, aber `//netz` steht nicht in `deps`. Unter Bazel schlägt der Build fehl. Warum ist das ein Vorteil?",
+      "optionen": [
+        "Undeklarierte Abhängigkeiten fallen sofort auf, statt zufällig über andere Pfade zu funktionieren",
+        "Fehlgeschlagene Builds sind schneller als erfolgreiche",
+        "Es ist kein Vorteil, sondern eine bekannte Schwäche von Bazel"
+      ],
+      "korrekt": 0,
+      "erklaerung": "In vielen Make- und CMake-Projekten funktioniert so etwas „zufällig“, weil ein globaler Include-Pfad den Header findet. Dann ist der Abhängigkeitsgraph falsch, und inkrementelle Builds, Caches und Refactorings werden unzuverlässig. Die Sandbox macht solche Fehler sichtbar.",
+      "begruendungen": [
+        "Richtig. Der Graph stimmt immer mit der Wirklichkeit überein.",
+        "Das ist nicht der Punkt.",
+        "Es ist ein bewusstes Merkmal. Ohne korrekte Abhängigkeiten wäre Caching unsicher."
+      ]
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Wann lohnt sich Bazel am ehesten?",
+      "optionen": [
+        "Grosses Monorepo mit mehreren Sprachen, vielen Teams und Bedarf an verteiltem Caching",
+        "Eine kleine Bibliothek mit fünf Dateien",
+        "Immer, weil Bazel in jedem Fall schneller ist als CMake"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Bazel spielt seine Stärken bei Grösse aus: Hermetik, Remote-Cache und Remote-Ausführung. Dafür sind Einrichtung und Integration externer Bibliotheken aufwendiger als bei CMake. Für die meisten C++-Projekte ist CMake mit Ninja der Industriestandard.",
+      "begruendungen": [
+        "Richtig.",
+        "Der Aufwand für die Einrichtung übersteigt hier den Nutzen.",
+        "Bei kleinen Projekten ist Bazel oft langsamer, allein schon wegen des eigenen Server-Prozesses."
+      ]
+    },
+    {
+      "typ": "reihenfolge",
+      "frage": "Bringe den typischen CMake-Ablauf in die richtige Reihenfolge.",
+      "elemente": [
+        "`CMakeLists.txt` schreiben",
+        "`cmake -S . -B build -G Ninja` (konfigurieren und generieren)",
+        "`cmake --build build` (Ninja baut)",
+        "`ctest --test-dir build` (Tests ausführen)"
+      ],
+      "erklaerung": "Konfigurieren muss man nur einmal und erneut, wenn sich `CMakeLists.txt` ändert. Das erkennt CMake meist selbst. Der Bau-Schritt ist inkrementell."
+    }
+  ],
+  "praxis": "Im Alltag liest du Ninja-Ausgaben, wenn ein CI-Build fehlschlägt: Hinter `FAILED:` steht der genaue Befehl, den du lokal nachstellen kannst. Bazel triffst du in grösseren Firmen und bei Open-Source-Projekten wie TensorFlow. Dort musst du `BUILD`-Dateien lesen und ergänzen können, wenn du eine Abhängigkeit hinzufügst.",
+  "labor": {
+    "titel": "Ninja befragen",
+    "anleitung": "Nimm das CMake-Projekt aus der letzten Lektion und erkunde den erzeugten Ninja-Build.",
+    "befehle": [
+      "ninja -C build -t targets | head",
+      "ninja -C build -t commands rechner | tail -3",
+      "ninja -C build && ninja -C build",
+      "ninja -C build -t graph rechner | dot -Tpng -o graph.png"
+    ],
+    "beobachtung": "Der zweite `ninja`-Aufruf meldet `no work to do`. Mit Graphviz (`dot`) entsteht ein Bild des Abhängigkeitsgraphen."
+  },
+  "begriffe": [
+    { "begriff": "Ninja", "englisch": "Ninja", "erklaerung": "Kleines, sehr schnelles Build-System, dessen Dateien von Generatoren wie CMake erzeugt werden." },
+    { "begriff": "Bazel", "englisch": "Bazel", "erklaerung": "Build-System für grosse Monorepos mit hermetischen Aktionen, Starlark-`BUILD`-Dateien und Remote-Cache." },
+    { "begriff": "Hermetischer Build", "englisch": "hermetic build", "erklaerung": "Jede Build-Aktion sieht nur ihre deklarierten Eingaben. Das Ergebnis hängt nicht vom Rechner ab." }
+  ],
+  "weiterlesen": [
+    { "titel": "Ninja Manual", "url": "https://ninja-build.org/manual.html" },
+    { "titel": "Bazel: C++ Tutorial", "url": "https://bazel.build/start/cpp" }
+  ]
+}

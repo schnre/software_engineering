@@ -1,0 +1,153 @@
+{
+  "id": "p2-m7-l1",
+  "phase": 2,
+  "modul": "2.7 Fehlerbehandlung",
+  "titel": "Exceptions und Exception Safety",
+  "lernziele": [
+    "Den Ablauf von `throw`, Stack Unwinding und `catch` vorhersagen",
+    "Die drei Garantien der Exception Safety unterscheiden",
+    "Typische Fehler beim Fangen von Exceptions erkennen"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "code-lesen",
+      "frage": "Was gibt das Programm aus?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "struct Log { ~Log() { std::cout << \"~Log \"; } };",
+          "",
+          "void tief()  { throw std::runtime_error(\"Fehler\"); }",
+          "void mitte() { Log l; tief(); std::cout << \"nie \"; }",
+          "",
+          "int main() {",
+          "    try { mitte(); }",
+          "    catch (const std::exception& e) { std::cout << e.what(); }",
+          "}"
+        ]
+      },
+      "optionen": ["`~Log Fehler`", "`Fehler ~Log`", "`nie ~Log Fehler`", "`Fehler`"],
+      "korrekt": 0,
+      "fest": true,
+      "erklaerung": "`throw` verlässt `tief` und `mitte` sofort. Auf dem Weg zum passenden `catch` werden alle lokalen Objekte zerstört, deshalb erscheint `~Log` **vor** dem `catch`-Block. Das heisst **Stack Unwinding**, und genau darauf baut RAII auf.",
+      "begruendungen": [
+        "Richtig.",
+        "Destruktoren laufen beim Verlassen der Frames, also bevor der `catch`-Block beginnt.",
+        "Nach dem `throw` läuft in `mitte` nichts mehr.",
+        "Der Destruktor von `l` läuft garantiert."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Wie Exceptions funktionieren",
+      "text": "- `throw` erzeugt ein Exception-Objekt und sucht im Aufrufstapel nach oben nach einem passenden `catch`.\n- Unterwegs laufen die Destruktoren aller vollständig konstruierten lokalen Objekte.\n- Gefangen wird per **const-Referenz**: `catch (const std::exception& e)`.\n- Findet sich kein `catch`, ruft das Programm `std::terminate` auf.\n- `noexcept` an einer Funktion verspricht: Sie wirft nicht. Wirft sie doch, wird `std::terminate` aufgerufen.\n\nIn den gängigen Implementierungen kosten Exceptions nichts, solange keine geworfen wird. Das Werfen selbst ist dafür vergleichsweise teuer."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Ordne die Garantien der Exception Safety zu.",
+      "paare": [
+        { "links": "No-throw-Garantie", "rechts": "Die Operation wirft nie, z. B. Destruktoren, `swap`, Move mit `noexcept`" },
+        { "links": "Starke Garantie", "rechts": "Bei einer Exception bleibt der Zustand wie vorher: alles oder nichts" },
+        { "links": "Basisgarantie", "rechts": "Bei einer Exception bleibt alles gültig und ohne Lecks, der Zustand kann sich aber geändert haben" },
+        { "links": "Keine Garantie", "rechts": "Nach einer Exception können Invarianten verletzt oder Ressourcen verloren sein" }
+      ],
+      "erklaerung": "Die Basisgarantie sollte jeder Code erfüllen, mit RAII ist das fast automatisch der Fall. Die starke Garantie bieten z. B. `std::vector::push_back` und gute Zuweisungsoperatoren. Destruktoren sind implizit `noexcept`."
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Die Fehlermeldung ist immer nur `std::exception` statt der eigentlichen Ursache. Welche Zeile ist schuld?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "try {",
+          "    oeffneKonfiguration(pfad);",
+          "} catch (std::exception e) {",
+          "    std::cerr << e.what() << '\\n';",
+          "}"
+        ]
+      },
+      "fehlerZeile": 3,
+      "erklaerung": "`catch (std::exception e)` fängt **als Wert**. Das geworfene `std::runtime_error` wird in ein `std::exception` kopiert und dabei abgeschnitten (Object Slicing). `what()` liefert dann nur noch einen allgemeinen Text. Richtig: `catch (const std::exception& e)`."
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Die starke Garantie mit Copy-and-Swap",
+      "text": "Ein bewährtes Muster für die starke Garantie: erst alle Arbeit, die werfen kann, an einer **Kopie** erledigen, dann mit einer Operation, die nicht wirft, austauschen.",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "Konfig& Konfig::operator=(const Konfig& andere) {",
+          "    Konfig kopie(andere);   // kann werfen, *this bleibt unverändert",
+          "    swap(kopie);            // noexcept: tauscht nur Zeiger",
+          "    return *this;",
+          "}                           // kopie räumt den alten Zustand ab"
+        ]
+      }
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "`f()` wird in einem `try`/`catch (...)` aufgerufen. Was passiert?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "struct Gefaehrlich {",
+          "    ~Gefaehrlich() noexcept(false) { throw std::logic_error(\"im Destruktor\"); }",
+          "};",
+          "",
+          "void f() {",
+          "    Gefaehrlich g;",
+          "    throw std::runtime_error(\"erste\");",
+          "}"
+        ]
+      },
+      "optionen": [
+        "`std::terminate`: Während des Stack Unwinding wirft ein Destruktor eine zweite Exception",
+        "Der `catch`-Block fängt `erste`",
+        "Der `catch`-Block fängt `im Destruktor`"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Zwei gleichzeitig aktive Exceptions kann C++ nicht behandeln. Deshalb gilt: Destruktoren werfen nie. Ohne `noexcept(false)` würde schon der erste `throw` im Destruktor `std::terminate` auslösen, weil Destruktoren implizit `noexcept` sind.",
+      "begruendungen": [
+        "Richtig.",
+        "Der Destruktor von `g` läuft beim Unwinding und wirft, bevor der `catch` erreicht wird.",
+        "Auch diese Exception erreicht keinen `catch`."
+      ]
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Viele Embedded- und Safety-Projekte kompilieren mit `-fno-exceptions`. Was ist der Hauptgrund?",
+      "optionen": [
+        "Das Werfen hat schwer vorhersagbare Laufzeit und Speicherbedarf, und Coding-Standards wie MISRA schränken Exceptions stark ein",
+        "Exceptions machen jeden Funktionsaufruf langsamer",
+        "Exceptions funktionieren auf ARM-Prozessoren nicht"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Bei harten Echtzeitanforderungen muss die maximale Laufzeit bekannt sein. Das Unwinding hängt von der Aufruftiefe ab, braucht Tabellen und teils dynamischen Speicher. Ohne Exceptions nutzt man Fehlercodes oder `std::expected`, das Thema der nächsten Lektion. Achtung: Mit `-fno-exceptions` beenden Standardfunktionen, die sonst werfen würden, das Programm.",
+      "begruendungen": [
+        "Richtig.",
+        "Solange nichts geworfen wird, kosten Exceptions in modernen Implementierungen praktisch keine Laufzeit.",
+        "Exceptions funktionieren auf ARM wie auf x86."
+      ]
+    }
+  ],
+  "praxis": "Im Review achtest du auf: `catch` als Wert, leere `catch (...) {}`-Blöcke, die Fehler verschlucken, Destruktoren, die werfen können, und Move-Konstruktoren ohne `noexcept`. Eine gute Faustregel: Exceptions für Fehler, die der direkte Aufrufer nicht sinnvoll behandeln kann (Datei fehlt beim Start, Speicher voll). Für erwartbare Fehler, die direkt behandelt werden, eignen sich Rückgabewerte besser.",
+  "labor": {
+    "titel": "Unwinding beobachten",
+    "anleitung": "Baue das erste Beispiel nach und füge in mehreren Funktionen lokale `Log`-Objekte ein. Probiere aus, was ohne `try`/`catch` passiert.",
+    "befehle": [
+      "g++ -std=c++20 -g exceptions.cpp -o exceptions && ./exceptions",
+      "gdb -batch -ex 'catch throw' -ex run -ex bt ./exceptions"
+    ],
+    "beobachtung": "Mit `catch throw` hält gdb genau an der Stelle an, an der geworfen wird. So findest du die Quelle einer Exception, auch wenn sie weit oben gefangen wird."
+  },
+  "begriffe": [
+    { "begriff": "Stack Unwinding", "englisch": "stack unwinding", "erklaerung": "Beim Werfen einer Exception werden die Frames verlassen und deren lokale Objekte zerstört." },
+    { "begriff": "Exception Safety", "englisch": "exception safety", "erklaerung": "Zusage, in welchem Zustand ein Objekt nach einer Exception ist: keine, Basis-, starke oder No-throw-Garantie." },
+    { "begriff": "Copy-and-Swap", "englisch": "copy-and-swap idiom", "erklaerung": "Erst an einer Kopie arbeiten, dann mit einem nicht werfenden `swap` austauschen. Ergibt die starke Garantie." }
+  ],
+  "weiterlesen": [
+    { "titel": "cppreference: Exceptions", "url": "https://en.cppreference.com/w/cpp/language/exceptions" },
+    { "titel": "C++ Core Guidelines: E – Error handling", "url": "https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#S-errors" }
+  ]
+}
