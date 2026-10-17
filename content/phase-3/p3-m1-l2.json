@@ -1,187 +1,135 @@
 {
   "id": "p3-m1-l2",
   "phase": 3,
-  "modul": "3.1 Unit-Tests mit GoogleTest",
-  "titel": "Fixtures und parametrisierte Tests",
+  "modul": "3.1 Templates für Fortgeschrittene",
+  "titel": "Type Traits, SFINAE und if constexpr",
   "lernziele": [
-    "Gemeinsame Vorbereitung mit einer Test-Fixture lösen",
-    "Viele Eingaben mit parametrisierten Tests prüfen",
-    "Testfälle nach Äquivalenzklassen und Grenzwerten auswählen"
+    "Type Traits verwenden und einfache eigene schreiben",
+    "SFINAE in bestehendem Code erkennen",
+    "Mit `if constexpr` typabhängigen Code einfach formulieren"
   ],
-  "dauerMinuten": 6,
+  "dauerMinuten": 7,
   "schritte": [
     {
-      "typ": "multiple-choice",
-      "frage": "Fünf Tests brauchen alle ein `Lager` mit denselben drei Artikeln. Wie löst du das am besten?",
-      "optionen": [
-        "Mit einer Test-Fixture, die das Lager vor jedem Test frisch aufbaut",
-        "Mit einem globalen `Lager`, das alle Tests gemeinsam benutzen",
-        "Die Vorbereitung in jeden Test kopieren"
+      "typ": "zuordnen",
+      "frage": "Was liefern diese Type Traits?",
+      "paare": [
+        { "links": "`std::is_integral_v<T>`", "rechts": "`true` für `int`, `char`, `bool` und Co." },
+        { "links": "`std::remove_cvref_t<T>`", "rechts": "`T` ohne `const`, `volatile` und Referenz" },
+        { "links": "`std::is_trivially_copyable_v<T>`", "rechts": "`true`, wenn `T` per `memcpy` kopiert werden darf" },
+        { "links": "`std::underlying_type_t<E>`", "rechts": "Der Ganzzahltyp hinter einer `enum class`" }
       ],
-      "korrekt": 0,
-      "erklaerung": "Eine **Fixture** ist eine Klasse, die die gemeinsame Vorbereitung enthält. GoogleTest erzeugt für **jeden** Test ein neues Fixture-Objekt. So ist die Vorbereitung an einer Stelle, und trotzdem beeinflussen sich die Tests nicht.",
-      "begruendungen": [
-        "Richtig.",
-        "Dann hängt das Ergebnis eines Tests davon ab, was andere Tests vorher verändert haben.",
-        "Funktioniert, aber jede Änderung muss fünfmal gemacht werden."
-      ]
-    },
-    {
-      "typ": "erklaerung",
-      "titel": "Eine Fixture",
-      "code": {
-        "sprache": "cpp",
-        "zeilen": [
-          "class LagerTest : public ::testing::Test {",
-          "protected:",
-          "    void SetUp() override {",
-          "        lager.hinzufuegen(\"Schraube\", 100);",
-          "        lager.hinzufuegen(\"Mutter\", 50);",
-          "    }",
-          "    Lager lager;",
-          "};",
-          "",
-          "TEST_F(LagerTest, EntnahmeVerringertBestand) {",
-          "    lager.entnehmen(\"Schraube\", 30);",
-          "    EXPECT_EQ(lager.bestand(\"Schraube\"), 70);",
-          "}"
-        ],
-        "anmerkungen": [
-          { "zeile": 3, "text": "`SetUp` läuft vor jedem Test, `TearDown` danach (falls nötig)." },
-          { "zeile": 10, "text": "`TEST_F` statt `TEST`: Der erste Parameter ist die Fixture-Klasse." }
-        ]
-      },
-      "text": "Die Member der Fixture stehen in jedem `TEST_F` direkt zur Verfügung."
+      "erklaerung": "**Type Traits** aus `<type_traits>` sind Templates, die zur Übersetzungszeit Fragen über Typen beantworten oder Typen umformen. Das `_v` steht für den Wert, das `_t` für den Ergebnistyp. `is_trivially_copyable` ist im Embedded-Bereich wichtig: Nur solche Typen darf man direkt in Register, Flash oder Nachrichtenpuffer kopieren."
     },
     {
       "typ": "code-lesen",
-      "frage": "Test `A` läuft vor Test `B`. Welchen Bestand an Schrauben sieht `B`?",
+      "frage": "Was macht dieser selbst geschriebene Trait?",
       "code": {
         "sprache": "cpp",
         "zeilen": [
-          "TEST_F(LagerTest, A) {",
-          "    lager.entnehmen(\"Schraube\", 30);",
-          "}",
+          "template <typename T>",
+          "struct istStdArray : std::false_type {};",
           "",
-          "TEST_F(LagerTest, B) {",
-          "    std::cout << lager.bestand(\"Schraube\");",
-          "}"
+          "template <typename T, std::size_t N>",
+          "struct istStdArray<std::array<T, N>> : std::true_type {};",
+          "",
+          "static_assert(istStdArray<std::array<int, 3>>::value);",
+          "static_assert(!istStdArray<std::vector<int>>::value);"
         ]
       },
-      "optionen": ["`100`", "`70`", "Das hängt von der Reihenfolge ab"],
+      "optionen": [
+        "Er erkennt mit einer partiellen Spezialisierung, ob ein Typ ein `std::array` beliebiger Grösse ist",
+        "Er wandelt einen Typ in ein `std::array` um",
+        "Er prüft zur Laufzeit, ob ein Objekt ein Array ist"
+      ],
       "korrekt": 0,
-      "fest": true,
-      "erklaerung": "Jeder Test bekommt ein eigenes, frisch aufgebautes `LagerTest`-Objekt. Was `A` verändert, verschwindet mit dessen Fixture. Genau diese Isolation macht Tests reproduzierbar.",
+      "erklaerung": "Das Grundmuster fast aller Traits: Ein allgemeines Template liefert `false`, eine **partielle Spezialisierung** für das gesuchte Muster liefert `true`. Der Compiler wählt die passendste Variante. Alles passiert zur Übersetzungszeit.",
       "begruendungen": [
         "Richtig.",
-        "Das wäre bei geteiltem Zustand so.",
-        "Gerade nicht. Die Fixture macht die Reihenfolge egal."
+        "Es gibt keinen Ergebnistyp, nur einen Wahrheitswert.",
+        "Die Prüfung erfolgt beim Übersetzen, `static_assert` zeigt das."
       ]
     },
     {
       "typ": "erklaerung",
-      "titel": "Parametrisierte Tests",
-      "text": "Wenn dieselbe Prüfung für viele Eingaben laufen soll, schreibt man sie einmal mit `TEST_P` und liefert die Daten mit `INSTANTIATE_TEST_SUITE_P`. Jeder Datensatz erscheint als eigener Test.",
+      "titel": "SFINAE",
+      "text": "**SFINAE** heisst *substitution failure is not an error*. Wenn beim Einsetzen der Template-Argumente in eine Signatur ein ungültiger Typ entsteht, verwirft der Compiler diese Überladung still, statt einen Fehler zu melden. Vor C++20 hat man damit Templates eingeschränkt:\n\n```\ntemplate <typename T,\n          std::enable_if_t<std::is_integral_v<T>, int> = 0>\nT halbiere(T x) { return x / 2; }\n```\n\nFür nicht ganzzahlige `T` existiert `enable_if_t` nicht, die Überladung fällt weg. Das funktioniert, ist aber schwer lesbar und liefert schreckliche Fehlermeldungen. In neuem Code nimmt man **Concepts** (nächste Lektion) oder `if constexpr`. SFINAE begegnet dir aber in jeder älteren Codebase."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Was passiert bei `serialisiere(puffer, 3.5f)` und bei `serialisiere(puffer, std::string{\"x\"})`?",
       "code": {
         "sprache": "cpp",
         "zeilen": [
-          "class SchaltjahrTest : public ::testing::TestWithParam<std::pair<int, bool>> {};",
-          "",
-          "TEST_P(SchaltjahrTest, ErkenntSchaltjahre) {",
-          "    auto [jahr, erwartet] = GetParam();",
-          "    EXPECT_EQ(istSchaltjahr(jahr), erwartet) << \"Jahr \" << jahr;",
-          "}",
-          "",
-          "INSTANTIATE_TEST_SUITE_P(Jahre, SchaltjahrTest, ::testing::Values(",
-          "    std::pair{2024, true}, std::pair{1900, false},",
-          "    std::pair{2000, true}, std::pair{2023, false}));"
-        ],
-        "anmerkungen": [
-          { "zeile": 5, "text": "Mit `<<` hängt man eine Erklärung an, die bei einem Fehlschlag erscheint." }
-        ]
-      }
-    },
-    {
-      "typ": "multiple-choice",
-      "frage": "Ein Jahr ist ein Schaltjahr, wenn es durch 4 teilbar ist, ausser es ist durch 100 teilbar, es sei denn, es ist auch durch 400 teilbar. Welche drei Jahre prüfen je einen **anderen** Fall der Regel?",
-      "optionen": ["2024", "1900", "2000", "2028"],
-      "korrekt": [0, 1, 2],
-      "erklaerung": "Gute Testfälle wählt man nach **Äquivalenzklassen**: Alle Werte einer Klasse verhalten sich gleich, einer pro Klasse genügt. 2024 und 2028 fallen in dieselbe Klasse („durch 4, nicht durch 100“). Ergänzend lohnen sich **Grenzwerte** wie 0, negative Werte oder `INT_MAX`, denn an Grenzen passieren die meisten Fehler.",
-      "begruendungen": [
-        "Richtig: durch 4, nicht durch 100.",
-        "Richtig: durch 100, nicht durch 400, also kein Schaltjahr.",
-        "Richtig: durch 400, also doch ein Schaltjahr.",
-        "Gleicher Fall wie 2024, bringt keine neue Information."
-      ]
-    },
-    {
-      "typ": "lueckentext",
-      "frage": "Ergänze die Makros für einen parametrisierten Test.",
-      "code": {
-        "sprache": "cpp",
-        "zeilen": [
-          "{{?}}(CrcTest, BerechnetPruefsumme) {",
-          "    auto [eingabe, erwartet] = GetParam();",
-          "    EXPECT_EQ(crc8(eingabe), erwartet);",
-          "}",
-          "",
-          "{{?}}(Bekannt, CrcTest, ::testing::Values(",
-          "    std::pair{std::string(\"\"), 0x00}, std::pair{std::string(\"123456789\"), 0xF4}));"
-        ]
-      },
-      "luecken": [{ "loesungen": ["TEST_P"] }, { "loesungen": ["INSTANTIATE_TEST_SUITE_P"] }],
-      "auswahl": ["TEST_P", "TEST_F", "INSTANTIATE_TEST_SUITE_P", "TEST"],
-      "erklaerung": "`TEST_P` definiert das Muster, `INSTANTIATE_TEST_SUITE_P` die Daten. `0xF4` ist der Prüfwert der Standard-CRC-8 für den Text \"123456789\". Solche bekannten Werte aus Normen oder Datenblättern sind ideale Testfälle."
-    },
-    {
-      "typ": "fehler-finden",
-      "frage": "Einzeln laufen beide Tests grün, zusammen schlägt `LeeresLager` fehl. Welche Zeile ist die Ursache?",
-      "code": {
-        "sprache": "cpp",
-        "zeilen": [
-          "static Lager gLager;",
-          "",
-          "TEST(LagerTest, Hinzufuegen) {",
-          "    gLager.hinzufuegen(\"Mutter\", 10);",
-          "    EXPECT_EQ(gLager.bestand(\"Mutter\"), 10);",
-          "}",
-          "",
-          "TEST(LagerTest, LeeresLager) {",
-          "    EXPECT_EQ(gLager.anzahlArtikel(), 0);",
+          "template <typename T>",
+          "void serialisiere(Puffer& p, const T& wert) {",
+          "    if constexpr (std::is_arithmetic_v<T>) {",
+          "        p.schreibeBytes(&wert, sizeof wert);",
+          "    } else if constexpr (requires { wert.size(); wert.data(); }) {",
+          "        serialisiere(p, static_cast<uint32_t>(wert.size()));",
+          "        p.schreibeBytes(wert.data(), wert.size());",
+          "    } else {",
+          "        static_assert(sizeof(T) == 0, \"Typ nicht serialisierbar\");",
+          "    }",
           "}"
         ]
       },
-      "fehlerZeile": 1,
-      "erklaerung": "Ein globales Objekt teilt Zustand zwischen Tests. Das Ergebnis hängt dann von der Reihenfolge ab. Mit `--gtest_shuffle` würde der Fehler mal auftreten, mal nicht. Abhilfe: das Lager in eine Fixture oder lokal in jeden Test verschieben."
+      "optionen": [
+        "Der `float` wird als 4 Byte geschrieben, der String als Länge plus Zeichen. Für andere Typen scheitert das Übersetzen mit einer klaren Meldung",
+        "Beide werden als Rohbytes des Objekts geschrieben",
+        "Der Code übersetzt nicht, weil `float` keine Methode `size()` hat"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Bei `if constexpr` wird der nicht gewählte Zweig verworfen und für diesen Typ nicht übersetzt. Darum stört es nicht, dass `float` kein `size()` hat. Der Trick `sizeof(T) == 0` im `else` sorgt dafür, dass `static_assert` nur bei Instanziierung zuschlägt. Seit C++23 darf man direkt `static_assert(false, ...)` schreiben.",
+      "begruendungen": [
+        "Richtig.",
+        "Für den String würde man sonst Zeiger statt Zeichen schreiben.",
+        "Der verworfene Zweig wird für `float` nicht übersetzt."
+      ]
     },
     {
-      "typ": "zuordnen",
-      "frage": "Wofür sind diese Optionen des Testprogramms?",
-      "paare": [
-        { "links": "`--gtest_filter=Lager*`", "rechts": "Nur passende Tests ausführen" },
-        { "links": "`--gtest_shuffle`", "rechts": "Zufällige Reihenfolge, deckt Abhängigkeiten auf" },
-        { "links": "`--gtest_repeat=200`", "rechts": "Wiederholen, um sporadische Fehlschläge zu finden" },
-        { "links": "`--gtest_break_on_failure`", "rechts": "Beim ersten Fehlschlag im Debugger anhalten" }
-      ],
-      "erklaerung": "`--gtest_repeat` zusammen mit `--gtest_shuffle` ist ein schneller Weg, um *flaky* Tests zu entlarven, also Tests, die ohne Code-Änderung mal grün und mal rot sind."
+      "typ": "fehler-finden",
+      "frage": "Diese Funktion soll für vorzeichenlose Ganzzahlen schieben statt teilen, übersetzt aber für `double` nicht. Welche Zeile ist falsch?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "template <typename T>",
+          "T halbiere(T x) {",
+          "    if (std::is_unsigned_v<T>) {",
+          "        return x >> 1;",
+          "    }",
+          "    return x / 2;",
+          "}"
+        ]
+      },
+      "fehlerZeile": 3,
+      "erklaerung": "Ein normales `if` prüft zur Laufzeit, beide Zweige müssen für jedes `T` übersetzbar sein. `x >> 1` ist für `double` ungültig. Mit `if constexpr` wird der Zweig für `double` verworfen. Der Wert der Bedingung war schon vorher zur Übersetzungszeit bekannt, das allein reicht aber nicht."
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze.",
+      "text": "Mit {{?}} werden nicht gewählte Zweige für den jeweiligen Typ nicht übersetzt. Das ältere Verfahren, Überladungen über ungültige Signaturen auszuschliessen, heisst {{?}}.",
+      "luecken": [{ "loesungen": ["if constexpr"] }, { "loesungen": ["SFINAE"] }],
+      "auswahl": ["if constexpr", "SFINAE", "constexpr if", "RAII"],
+      "erklaerung": "Die Schreibweise ist `if constexpr`, nicht `constexpr if`. Ein häufiger Tippfehler."
     }
   ],
-  "praxis": "Im Review sind globale Objekte und `static`-Variablen in Testdateien ein Warnsignal. Ebenso Tests mit fünf fast identischen Kopien: Das schreit nach einem parametrisierten Test. Bei Testdaten fragst du: Deckt jede Klasse von Eingaben genau ein Fall ab? Sind die Grenzen dabei, also leer, eins, maximal, negativ?",
+  "praxis": "In Bibliotheks- und Infrastrukturcode (Serialisierung, Logging, Container, HALs) sind Type Traits und `if constexpr` Alltag. Ein guter Grundsatz: Für Einschränkungen von Templates Concepts verwenden, für Fallunterscheidungen im Rumpf `if constexpr`, SFINAE nur noch lesen und bei Gelegenheit ersetzen.",
   "labor": {
-    "titel": "Reihenfolgeabhängigkeit aufdecken",
-    "anleitung": "Baue die beiden Tests mit `gLager` und lass sie mehrfach in zufälliger Reihenfolge laufen.",
+    "titel": "Ein Serialisierer",
+    "anleitung": "Baue die Funktion `serialisiere` aus der Übung aus: Unterstütze `enum class` über `std::underlying_type_t`, `std::array` mit deinem Trait und Strukturen, die `is_trivially_copyable` sind. Teste mit `static_assert`, dass ein Typ mit `std::string`-Member abgelehnt wird.",
     "befehle": [
-      "./lager_test --gtest_repeat=20 --gtest_shuffle | grep -E 'PASSED|FAILED' | sort | uniq -c"
+      "g++ -std=c++20 -Wall serialisierer.cpp -o serialisierer && ./serialisierer"
     ],
-    "beobachtung": "In manchen Durchläufen scheitert `LeeresLager`, in anderen nicht. Nach der Umstellung auf eine Fixture laufen alle Durchläufe grün."
+    "beobachtung": "Die Fehlermeldung für nicht unterstützte Typen ist dank `static_assert` eine einzige verständliche Zeile, statt Dutzender Zeilen Template-Fehler."
   },
   "begriffe": [
-    { "begriff": "Test-Fixture", "englisch": "test fixture", "erklaerung": "Gemeinsame Vorbereitung mehrerer Tests. Jeder Test bekommt ein frisches Exemplar." },
-    { "begriff": "Parametrisierter Test", "englisch": "parameterized test", "erklaerung": "Ein Test, der mit vielen Datensätzen ausgeführt wird (`TEST_P`)." },
-    { "begriff": "Äquivalenzklasse", "englisch": "equivalence class", "erklaerung": "Menge von Eingaben, für die sich das Programm gleich verhält. Ein Testfall pro Klasse genügt." },
-    { "begriff": "Grenzwertanalyse", "englisch": "boundary value analysis", "erklaerung": "Gezieltes Testen an den Rändern der Äquivalenzklassen, wo Fehler am häufigsten sind." }
+    { "begriff": "Type Trait", "englisch": "type trait", "erklaerung": "Template, das zur Übersetzungszeit Eigenschaften eines Typs liefert oder ihn umformt." },
+    { "begriff": "SFINAE", "englisch": "substitution failure is not an error", "erklaerung": "Ungültige Signaturen beim Einsetzen von Template-Argumenten schliessen eine Überladung still aus." },
+    { "begriff": "if constexpr", "englisch": "constexpr if", "erklaerung": "Verzweigung zur Übersetzungszeit, der nicht gewählte Zweig wird verworfen." }
   ],
   "weiterlesen": [
-    { "titel": "GoogleTest: Value-Parameterized Tests", "url": "https://google.github.io/googletest/advanced.html#value-parameterized-tests" }
+    { "titel": "cppreference: Type traits", "url": "https://en.cppreference.com/w/cpp/meta" },
+    { "titel": "cppreference: SFINAE", "url": "https://en.cppreference.com/w/cpp/language/sfinae" }
   ]
 }

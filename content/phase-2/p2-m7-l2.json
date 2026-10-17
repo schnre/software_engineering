@@ -30,12 +30,32 @@
       "typ": "erklaerung",
       "titel": "Vier Werkzeuge",
       "tabelle": {
-        "kopf": ["Mechanismus", "Stärke", "Schwäche"],
+        "kopf": [
+          "Mechanismus",
+          "Stärke",
+          "Schwäche"
+        ],
         "zeilen": [
-          ["Exception", "kann nicht ignoriert werden, trennt Fehlerpfad", "unsichtbar in der Signatur, Werfen ist teuer"],
-          ["Fehlercode / `bool`", "einfach, C-kompatibel, ohne Exceptions", "leicht zu ignorieren, Ergebnis oft als Ausgabeparameter"],
-          ["`std::optional<T>`", "Wert oder nichts, im Typ sichtbar", "kein Grund für das Fehlen"],
-          ["`std::expected<T, E>` (C++23)", "Wert oder Fehlerbeschreibung, im Typ sichtbar", "etwas mehr Schreibarbeit"]
+          [
+            "Exception",
+            "kann nicht ignoriert werden, trennt Fehlerpfad",
+            "unsichtbar in der Signatur, Werfen ist teuer"
+          ],
+          [
+            "Fehlercode / `bool`",
+            "einfach, C-kompatibel, ohne Exceptions",
+            "leicht zu ignorieren, Ergebnis oft als Ausgabeparameter"
+          ],
+          [
+            "`std::optional<T>`",
+            "Wert oder nichts, im Typ sichtbar",
+            "kein Grund für das Fehlen"
+          ],
+          [
+            "`std::expected<T, E>` (C++23)",
+            "Wert oder Fehlerbeschreibung, im Typ sichtbar",
+            "etwas mehr Schreibarbeit"
+          ]
         ]
       },
       "text": "Es gibt nicht *die* richtige Wahl. Entscheidend ist, wie erwartbar der Fehler ist und wer ihn behandeln kann."
@@ -53,8 +73,24 @@
           "}"
         ]
       },
-      "luecken": [{ "loesungen": ["optional"] }, { "loesungen": ["nullopt"] }],
-      "auswahl": ["optional", "nullopt", "expected", "nullptr"],
+      "luecken": [
+        {
+          "loesungen": [
+            "optional"
+          ]
+        },
+        {
+          "loesungen": [
+            "nullopt"
+          ]
+        }
+      ],
+      "auswahl": [
+        "optional",
+        "nullopt",
+        "expected",
+        "nullptr"
+      ],
       "erklaerung": "`std::optional<std::size_t>` heisst: vielleicht ein Index. `std::nullopt` ist der leere Zustand. Für „nicht gefunden“ braucht es keinen Grund, deshalb reicht `optional`. `nullptr` ist für Zeiger gedacht."
     },
     {
@@ -77,7 +113,11 @@
           "}"
         ]
       },
-      "optionen": ["`Division durch null`", "`0`", "Eine Exception beendet das Programm"],
+      "optionen": [
+        "`Division durch null`",
+        "`0`",
+        "Eine Exception beendet das Programm"
+      ],
       "korrekt": 0,
       "fest": true,
       "erklaerung": "`std::expected` enthält entweder einen Wert (`*r`, `r.value()`) oder einen Fehler (`r.error()`). `if (r)` prüft, was davon vorliegt. Mit `and_then` und `transform` lassen sich mehrere Schritte verketten, ohne nach jedem `if` zu schreiben.",
@@ -91,10 +131,22 @@
       "typ": "zuordnen",
       "frage": "Welcher Mechanismus passt am besten?",
       "paare": [
-        { "links": "Die Konfigurationsdatei fehlt beim Start eines Servers, er kann nicht laufen", "rechts": "Exception" },
-        { "links": "Eine Suche in einem Container findet nichts", "rechts": "`std::optional`" },
-        { "links": "Ein Parser soll mitteilen, was genau an der Eingabe falsch ist", "rechts": "`std::expected`" },
-        { "links": "Embedded-Code ohne Exceptions mit C-kompatibler Schnittstelle", "rechts": "Fehlercode mit `[[nodiscard]]`" }
+        {
+          "links": "Die Konfigurationsdatei fehlt beim Start eines Servers, er kann nicht laufen",
+          "rechts": "Exception"
+        },
+        {
+          "links": "Eine Suche in einem Container findet nichts",
+          "rechts": "`std::optional`"
+        },
+        {
+          "links": "Ein Parser soll mitteilen, was genau an der Eingabe falsch ist",
+          "rechts": "`std::expected`"
+        },
+        {
+          "links": "Embedded-Code ohne Exceptions mit C-kompatibler Schnittstelle",
+          "rechts": "Fehlercode mit `[[nodiscard]]`"
+        }
       ],
       "erklaerung": "Faustregel: Ist der Fehler selten und kann nur weit oben sinnvoll behandelt werden, eignet sich eine Exception. Ist er erwartbar und wird direkt beim Aufrufer behandelt, ein Rückgabetyp. Wichtiger als die Wahl ist, dass ein Projekt einheitlich bleibt."
     },
@@ -142,12 +194,30 @@
     "beobachtung": "`and_then` ruft den nächsten Schritt nur bei Erfolg auf und reicht einen Fehler sonst unverändert weiter. So entsteht ein Fehlerpfad ohne verschachtelte `if`-Abfragen."
   },
   "begriffe": [
-    { "begriff": "std::optional", "englisch": "optional", "erklaerung": "Enthält einen Wert oder nichts (`std::nullopt`)." },
-    { "begriff": "std::expected", "englisch": "expected", "erklaerung": "Seit C++23: enthält einen Wert oder eine Fehlerbeschreibung (`std::unexpected`)." },
-    { "begriff": "[[nodiscard]]", "englisch": "nodiscard attribute", "erklaerung": "Der Compiler warnt, wenn der Rückgabewert einer Funktion ignoriert wird." }
+    {
+      "begriff": "std::optional",
+      "englisch": "optional",
+      "erklaerung": "Enthält einen Wert oder nichts (`std::nullopt`)."
+    },
+    {
+      "begriff": "std::expected",
+      "englisch": "expected",
+      "erklaerung": "Seit C++23: enthält einen Wert oder eine Fehlerbeschreibung (`std::unexpected`)."
+    },
+    {
+      "begriff": "[[nodiscard]]",
+      "englisch": "nodiscard attribute",
+      "erklaerung": "Der Compiler warnt, wenn der Rückgabewert einer Funktion ignoriert wird."
+    }
   ],
   "weiterlesen": [
-    { "titel": "cppreference: std::expected", "url": "https://en.cppreference.com/w/cpp/utility/expected" },
-    { "titel": "cppreference: std::optional", "url": "https://en.cppreference.com/w/cpp/utility/optional" }
+    {
+      "titel": "cppreference: std::expected",
+      "url": "https://en.cppreference.com/w/cpp/utility/expected"
+    },
+    {
+      "titel": "cppreference: std::optional",
+      "url": "https://en.cppreference.com/w/cpp/utility/optional"
+    }
   ]
 }

@@ -1,129 +1,145 @@
 {
   "id": "p6-m4-l1",
   "phase": 6,
-  "modul": "6.4 Code-Reviews",
-  "titel": "Worauf man bei Struktur achtet",
+  "modul": "6.4 Interrupts",
+  "titel": "Interrupts und ISRs",
   "lernziele": [
-    "Ein Review nach Prioritäten gliedern",
-    "Architekturprobleme in einem Pull Request erkennen",
-    "Bei Schnittstellenänderungen die richtigen Fragen stellen"
+    "Den Ablauf eines Interrupts auf einem Cortex-M beschreiben",
+    "Die Regeln für gute Interrupt-Routinen anwenden",
+    "Prioritäten und Verschachtelung verstehen"
   ],
-  "dauerMinuten": 6,
+  "dauerMinuten": 7,
   "schritte": [
     {
       "typ": "multiple-choice",
-      "frage": "Worauf sollte sich ein Code-Review vor allem konzentrieren?",
+      "frage": "Die Hauptschleife rechnet gelegentlich 50 ms am Stück. Ein Tastendruck oder ein ankommendes Byte darf trotzdem nicht verloren gehen. Wie reagierst du darauf?",
       "optionen": [
-        "Ob das richtige Problem korrekt gelöst ist und ob Struktur, Schnittstellen und Tests stimmen",
-        "Ob Einrückung, Klammern und Leerzeilen dem Stil entsprechen",
-        "Ob der Autor genau so vorgegangen ist, wie man es selbst getan hätte"
+        "Mit einem Interrupt, der die CPU sofort unterbricht",
+        "Indem die Hauptschleife den Pin öfter abfragt (Polling)",
+        "Indem man die Berechnung schneller macht"
       ],
       "korrekt": 0,
-      "erklaerung": "Formatfragen erledigen Werkzeuge (Modul 3.5). Die wertvolle Arbeit eines Menschen im Review ist das, was Werkzeuge nicht können: Verstehen, ob die Lösung fachlich stimmt, an die richtige Stelle gehört und langfristig wartbar ist.",
+      "erklaerung": "Bei einem **Interrupt** meldet die Hardware ein Ereignis, und die CPU unterbricht ihre Arbeit, um eine **Interrupt Service Routine** (ISR) auszuführen. So reagiert das System innerhalb von Mikrosekunden, unabhängig davon, was die Hauptschleife gerade tut.",
       "begruendungen": [
         "Richtig.",
-        "Das sollte clang-format automatisch prüfen.",
-        "Es gibt oft mehrere gute Lösungen. „Anders als ich“ ist kein Fehler."
+        "Polling funktioniert nur, wenn die Schleife garantiert oft genug vorbeikommt. Hier nicht.",
+        "Schneller ist gut, aber keine Garantie für die Reaktionszeit."
       ]
     },
     {
       "typ": "erklaerung",
-      "titel": "Eine Reihenfolge fürs Review",
-      "text": "1. **Problem**: Löst der Pull Request das richtige Problem? Ist klar, warum?\n2. **Platz**: Gehört der Code an diese Stelle, in dieses Modul, in diese Schicht?\n3. **Schnittstellen und Abhängigkeiten**: Neue Abhängigkeiten in die richtige Richtung? Öffentliche Header geändert? API/ABI betroffen?\n4. **Korrektheit**: Ownership, Lebenszeiten, Fehlerbehandlung, Thread-Sicherheit, Grenzfälle.\n5. **Tests**: Wird das neue Verhalten geprüft, auch Fehlerfälle?\n6. **Lesbarkeit**: Namen, Länge, Kommentare zum Warum.\n\nWer oben ein grundlegendes Problem findet, braucht unten nicht ins Detail zu gehen."
+      "titel": "Was bei einem Interrupt passiert",
+      "text": "Auf einem Cortex-M sichert die Hardware selbst die wichtigsten Register auf dem Stack (*stacking*), etwa in 12 Takten. Die Adresse der ISR steht in der **Vektortabelle**. Der **NVIC** entscheidet anhand der Prioritäten, ob ein neuer Interrupt den laufenden unterbricht. Nach der ISR stellt die Hardware die Register wieder her, und das unterbrochene Programm läuft weiter, als wäre nichts gewesen.\n\nWichtig: Die ISR muss das **Interrupt-Flag** der Peripherie löschen. Sonst ist der Interrupt sofort wieder aktiv, und die CPU kommt aus der ISR nie heraus."
     },
     {
-      "typ": "fehler-finden",
-      "frage": "In einem Pull Request für den CAN-Treiber taucht diese Datei auf. Welche Zeile solltest du ansprechen?",
-      "code": {
-        "sprache": "cpp",
-        "datei": "drivers/can/can_treiber.cpp",
-        "zeilen": [
-          "#include \"can/can_treiber.h\"",
-          "#include \"can/register.h\"",
-          "#include \"ui/statusleiste.h\"",
-          "",
-          "void CanTreiber::beiFehler(Fehlercode c) {",
-          "    zaehler_.erhoehe(c);",
-          "    Statusleiste::zeige(\"CAN-Fehler\");",
-          "}"
-        ]
-      },
-      "fehlerZeile": 3,
-      "erklaerung": "Ein Treiber auf der untersten Schicht bindet einen Header der Oberfläche ein. Damit zeigt die Abhängigkeit von unten nach oben, und der Treiber ist ohne UI weder baubar noch testbar. Besser: Der Treiber meldet Fehler über einen Callback oder eine Schnittstelle (Dependency Inversion), und die Oberfläche entscheidet, was sie anzeigt."
+      "typ": "reihenfolge",
+      "frage": "Bringe den Ablauf in die richtige Reihenfolge.",
+      "elemente": [
+        "Die Peripherie setzt ein Interrupt-Flag",
+        "Der NVIC prüft Freigabe und Priorität",
+        "Die CPU sichert Register auf dem Stack",
+        "Die CPU springt über die Vektortabelle in die ISR",
+        "Die ISR bearbeitet das Ereignis und löscht das Flag",
+        "Rücksprung: Die Register werden wiederhergestellt"
+      ],
+      "erklaerung": "Die Zeit vom Ereignis bis zur ersten Zeile der ISR heisst **Interrupt-Latenz**. Sie wird länger, wenn gerade eine höher priorisierte ISR läuft oder Interrupts gesperrt sind. Darum ist es so wichtig, ISRs und gesperrte Abschnitte kurz zu halten."
     },
     {
       "typ": "zuordnen",
-      "frage": "Welche Art Befund ist das?",
+      "frage": "Ordne jeder Regel für ISRs ihren Grund zu.",
       "paare": [
-        { "links": "Eine neue Klasse heisst `DatenManagerHelper`", "rechts": "Unklare Verantwortung" },
-        { "links": "Eine Funktion gibt einen rohen Zeiger zurück, niemand weiss, wer ihn löscht", "rechts": "Unklare Ownership" },
-        { "links": "Ein Treiber bindet einen UI-Header ein", "rechts": "Falsche Abhängigkeitsrichtung" },
-        { "links": "Neue Logik ohne Test, auch der Fehlerfall ist ungeprüft", "rechts": "Fehlende Absicherung" }
+        { "links": "Kurz halten", "rechts": "Nur das Nötigste, die eigentliche Arbeit macht das Hauptprogramm" },
+        { "links": "Nicht blockierend warten", "rechts": "Sonst verzögern sich andere Interrupts und das ganze System" },
+        { "links": "Flag löschen", "rechts": "Sonst wird die ISR sofort erneut ausgelöst" },
+        { "links": "Kein Heap und kein `printf`", "rechts": "Nicht für Unterbrechungen ausgelegt, Laufzeit unvorhersehbar" }
       ],
-      "erklaerung": "Benennt man die Art des Befunds, wird das Gespräch sachlicher: „Hier ist mir die Ownership unklar“ statt „Das ist falsch“. Und man erkennt Muster, wenn derselbe Befund immer wieder auftaucht. Das kann ein Anlass für eine Team-Regel oder ein Werkzeug sein."
+      "erklaerung": "Ein bewährtes Muster: Die ISR holt die Daten aus der Hardware, legt sie in einen Puffer oder setzt ein Flag und kehrt zurück. Die Verarbeitung passiert im Hauptprogramm oder in einem RTOS-Task (Modul 7.2)."
     },
     {
-      "typ": "multiple-choice",
-      "frage": "Du bekommst einen Pull Request mit 1500 geänderten Zeilen in 40 Dateien zum Review. Wie gehst du am besten vor?",
-      "optionen": [
-        "Erst die Struktur ansehen und mit der Autorin besprechen, ob sich der PR in kleinere, einzeln prüfbare Schritte zerlegen lässt",
-        "Alles Zeile für Zeile durchgehen, egal wie lange es dauert",
-        "Mit „sieht gut aus“ freigeben, so viel kann man ohnehin nicht prüfen"
-      ],
-      "korrekt": 0,
-      "erklaerung": "Ein so grosser PR lässt sich kaum gründlich prüfen, und genau das ist das Problem. Ein kurzes Gespräch über die Struktur und eine Zerlegung bringen oft mehr als drei Stunden Detailarbeit. Ein blindes „sieht gut aus“ ist das Schlechteste: Es gibt eine Sicherheit vor, die es nicht gibt.",
-      "begruendungen": [
-        "Richtig.",
-        "Möglich, aber die Qualität eines Reviews nimmt mit der Grösse stark ab.",
-        "Damit wird das Review-Gate wertlos."
-      ]
-    },
-    {
-      "typ": "erklaerung",
-      "titel": "Design früh besprechen",
-      "text": "Die teuersten Review-Kommentare sind die, die eine Woche Arbeit verwerfen: „Das gehört eigentlich in ein anderes Modul.“ Grössere Entscheidungen bespricht man deshalb **vor** der Umsetzung: in einem kurzen Design-Dokument, einem Entwurf-PR mit nur den Schnittstellen oder einem Gespräch am Whiteboard. Das finale Review prüft dann die Umsetzung, nicht mehr die Grundidee."
+      "typ": "fehler-finden",
+      "frage": "Seit dieser ISR geht gelegentlich der Timer-Takt des Systems nach, und andere Bytes gehen verloren. Welche Zeile ist das grösste Problem?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "extern \"C\" void USART2_IRQHandler() {",
+          "    const char c = static_cast<char>(USART2->DR);",
+          "    puffer.push(c);",
+          "    HAL_Delay(10);          // kurz warten, bis die Gegenstelle bereit ist",
+          "    verarbeiteKommando();",
+          "}"
+        ]
+      },
+      "fehlerZeile": 4,
+      "erklaerung": "Zehn Millisekunden aktives Warten in einer ISR blockieren alle gleich und niedriger priorisierten Interrupts. Bei 115 200 Baud kommen in der Zeit über 100 Bytes an, die verloren gehen. `HAL_Delay` hängt zudem selbst am SysTick-Interrupt und kann je nach Priorität sogar für immer hängen. Auch Zeile 5 gehört nicht in die ISR: Sie sollte nur ein Flag setzen, verarbeitet wird im Hauptprogramm."
     },
     {
       "typ": "code-lesen",
-      "frage": "Ein Pull Request ändert eine Funktion in einem öffentlichen Header, den mehrere Module benutzen. Was solltest du fragen?",
+      "frage": "In einer `.cpp`-Datei steht diese ISR. Der Timer-Interrupt ist freigegeben. Was passiert, wenn er auslöst?",
       "code": {
         "sprache": "cpp",
-        "datei": "netz/include/netz/verbindung.h",
+        "datei": "timer.cpp",
         "zeilen": [
-          "-    void sende(const Paket& p);",
-          "+    bool sende(Paket p);"
+          "void TIM2_IRQHandler() {",
+          "    TIM2->SR = ~TIM_SR_UIF;",
+          "    ++ticks;",
+          "}"
         ]
       },
       "optionen": [
-        "Ob die Änderung für alle Nutzer abgestimmt ist, warum `p` jetzt als Wert übergeben wird und ob alle Aufrufer den neuen Rückgabewert prüfen (`[[nodiscard]]`)",
-        "Nichts, es ist nur eine kleine Änderung",
-        "Ob die Einrückung stimmt"
+        "Die CPU springt in den Standard-Handler aus dem Startcode und bleibt dort in einer Endlosschleife hängen",
+        "Die ISR läuft wie erwartet",
+        "Der Linker meldet einen Fehler"
       ],
       "korrekt": 0,
-      "erklaerung": "Zwei Zeichen Diff, aber eine Änderung am Vertrag: Alle Aufrufer müssen neu kompiliert werden, bei einer Shared Library ist die ABI gebrochen. Ohne `[[nodiscard]]` ignorieren alle bestehenden Aufrufer den neuen Fehlerwert still. Die Übergabe als Wert kann sinnvoll sein, wenn `sende` das Paket intern speichert, sollte aber begründet sein.",
+      "erklaerung": "Die Vektortabelle im Startcode verweist auf das Symbol `TIM2_IRQHandler`, vorbelegt als schwaches Symbol auf einen `Default_Handler`. In C++ wird der Name gemangelt (Modul 1.2), etwa zu `_Z16TIM2_IRQHandlerv`. Das schwache Symbol wird also nie ersetzt. Abhilfe: `extern \"C\" void TIM2_IRQHandler()`.",
+      "begruendungen": [
+        "Richtig. Eine tückische Falle beim Umstieg von C auf C++.",
+        "Nur mit `extern \"C\"` passt der Name zur Vektortabelle.",
+        "Weil der Standard-Handler das Symbol bereits schwach definiert, gibt es keinen Linkerfehler."
+      ]
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "ISR A hat die Priorität 1, ISR B die Priorität 3. B läuft gerade, als A ausgelöst wird. Was passiert auf einem Cortex-M?",
+      "optionen": [
+        "A unterbricht B, denn auf Cortex-M bedeutet ein kleinerer Wert eine höhere Priorität",
+        "A wartet, bis B fertig ist",
+        "B wird abgebrochen und nicht fortgesetzt"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Der NVIC unterstützt verschachtelte Interrupts (*nesting*): Eine höher priorisierte ISR unterbricht eine niedriger priorisierte, danach läuft B weiter. Die Prioritäten bewusst zu vergeben, gehört zum Systementwurf: Zeitkritisches wie eine Motorregelung bekommt eine höhere Priorität als z. B. eine Konsolenschnittstelle.",
       "begruendungen": [
         "Richtig.",
-        "Kleine Diffs in öffentlichen Headern haben oft grosse Wirkung.",
-        "Das prüft clang-format."
+        "Das wäre bei gleicher oder niedrigerer Priorität so.",
+        "B wird nur unterbrochen und läuft danach weiter."
       ]
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze.",
+      "text": "Auf einem Cortex-M bedeutet ein {{?}} Prioritätswert eine höhere Dringlichkeit. Damit eine ISR in C++ gefunden wird, braucht sie {{?}} \"C\".",
+      "luecken": [{ "loesungen": ["kleinerer"] }, { "loesungen": ["extern"] }],
+      "auswahl": ["kleinerer", "grösserer", "extern", "static"],
+      "erklaerung": "Die Prioritätswerte stehen in den oberen Bits eines 8-Bit-Felds, und wie viele Bits es gibt, hängt vom Chip ab (beim STM32F4 vier, also 16 Stufen). Die CMSIS-Funktion `NVIC_SetPriority` nimmt dir das Schieben ab."
     }
   ],
-  "praxis": "Gute Reviewer sind im Team sehr gefragt. Sie finden nicht die meisten Tippfehler, sondern die Stellen, an denen ein System über die nächsten Jahre schlechter würde: falsche Abhängigkeiten, unklare Ownership, Schnittstellen ohne Vertrag. Achte beim Review besonders auf Änderungen in öffentlichen Headern, `CMakeLists.txt` (neue Abhängigkeiten!) und überall dort, wo Threads beteiligt sind.",
+  "praxis": "Viele schwer reproduzierbare Embedded-Fehler haben mit Interrupts zu tun: vergessene Flags, zu lange ISRs, falsche Prioritäten, geteilte Daten ohne Schutz (nächste Lektion). Im Review jeder ISR fragst du: Wie lange läuft sie im schlimmsten Fall? Wird das Flag gelöscht? Ruft sie Funktionen auf, die blockieren oder Speicher anfordern? Ist sie `extern \"C\"`?",
   "labor": {
-    "titel": "Ein Review mit Checkliste",
-    "anleitung": "Nimm einen aktuellen Pull Request aus deinem Projekt oder einem Open-Source-Projekt und gehe ihn mit der Reihenfolge aus dieser Lektion durch. Notiere pro Stufe höchstens zwei Befunde.",
+    "titel": "Latenz messen",
+    "anleitung": "Toggle in einer ISR als Erstes einen freien Pin und miss mit einem Logikanalysator den Abstand zwischen dem auslösenden Signal und dem Pin-Wechsel. Füge dann in einer niedrigeren ISR eine lange Schleife ein und miss erneut.",
     "befehle": [
-      "gh pr checkout 123",
-      "git diff main --stat",
-      "git diff main -- '*.h' '**/CMakeLists.txt'"
+      "sigrok-cli -d fx2lafw --config samplerate=24m --channels D0,D1 --time 100ms -o latenz.sr",
+      "pulseview latenz.sr"
     ],
-    "beobachtung": "Der letzte Befehl zeigt nur die Änderungen an Headern und Build-Dateien. Dort stecken die Architektur-relevanten Änderungen. Oft lohnt es sich, damit anzufangen."
+    "beobachtung": "Ohne Last liegt die Latenz bei wenigen hundert Nanosekunden. Läuft eine gleich oder höher priorisierte ISR lange, wächst sie entsprechend. Das ist der Beweis, warum ISRs kurz sein müssen."
   },
   "begriffe": [
-    { "begriff": "Code-Review", "englisch": "code review", "erklaerung": "Prüfung einer Änderung durch andere, bevor sie in den Hauptzweig kommt." },
-    { "begriff": "Design-Review", "englisch": "design review", "erklaerung": "Besprechung eines Lösungsansatzes vor der Umsetzung." }
+    { "begriff": "Interrupt", "englisch": "interrupt", "erklaerung": "Hardwaresignal, das die CPU unterbricht, damit sie sofort auf ein Ereignis reagiert." },
+    { "begriff": "ISR", "englisch": "interrupt service routine", "erklaerung": "Funktion, die bei einem Interrupt ausgeführt wird." },
+    { "begriff": "Vektortabelle", "englisch": "vector table", "erklaerung": "Tabelle mit den Adressen aller Interrupt- und Exception-Handler." },
+    { "begriff": "Interrupt-Latenz", "englisch": "interrupt latency", "erklaerung": "Zeit vom auslösenden Ereignis bis zum Beginn der ISR." }
   ],
   "weiterlesen": [
-    { "titel": "Google Engineering Practices: What to look for in a code review", "url": "https://google.github.io/eng-practices/review/reviewer/looking-for.html" }
+    { "titel": "ARM: Cortex-M4 Devices Generic User Guide – Exception model", "url": "https://developer.arm.com/documentation/dui0553/latest/" }
   ]
 }

@@ -1,0 +1,166 @@
+{
+  "id": "p9-m2-l3",
+  "phase": 9,
+  "modul": "9.2 Interfaces und Header als Verträge",
+  "titel": "Include-Hygiene und Kompilierzeit",
+  "lernziele": [
+    "Erklären, warum Includes in grossen Projekten die Kompilierzeit dominieren",
+    "Versteckte Abhängigkeiten durch transitive Includes erkennen",
+    "Werkzeuge zur Analyse von Includes und Kompilierzeit einsetzen"
+  ],
+  "dauerMinuten": 5,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Eine Änderung an `konfig.h` löst einen Neubau von 1800 der 2000 `.cpp`-Dateien aus. Was ist die wahrscheinlichste Ursache?",
+      "optionen": [
+        "`konfig.h` wird direkt oder über andere Header fast überall eingebunden, auch dort, wo man es gar nicht braucht",
+        "Das Build-System ist falsch konfiguriert und baut immer alles",
+        "Header-Änderungen erzwingen in C++ immer einen vollständigen Neubau"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Jede Übersetzungseinheit, die `konfig.h` auch nur indirekt einbindet, muss neu übersetzt werden. Ein einziger häufig verwendeter Header mit einem unnötigen Include kann so die Hälfte des Projekts an sich binden. Typisch für sogenannte „Sammelheader“ wie `common.h` oder `alles.h`.",
+      "begruendungen": [
+        "Richtig.",
+        "Das Build-System macht genau das Richtige: Es baut neu, was davon abhängt.",
+        "Nur die Dateien, die den Header einbinden."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Gute Gewohnheiten",
+      "text": "- Öffentliche Header binden nur ein, was für die **Deklarationen** nötig ist. Alles für die Implementierung kommt in die `.cpp`.\n- **Vorwärtsdeklarationen** statt Includes, wo Zeiger und Referenzen genügen.\n- Keine Sammelheader, die „praktischerweise“ alles einbinden.\n- **Include what you use** in jeder Datei.\n- **Vorkompilierte Header** (`target_precompile_headers`) für grosse, selten geänderte Header wie die Standardbibliothek oder Boost.\n- Langfristig bieten **C++20-Module** einen Ausweg: Eine Schnittstelle wird nur einmal übersetzt und nicht bei jedem Import neu geparst."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "`main.cpp` kompiliert seit Jahren. Jetzt entfernt jemand in `sensor.h` das nicht mehr benötigte `#include <vector>`. Was passiert?",
+      "code": {
+        "sprache": "cpp",
+        "datei": "main.cpp",
+        "zeilen": [
+          "#include \"sensor.h\"   // brachte bisher <vector> mit",
+          "",
+          "std::vector<int> werte;",
+          "",
+          "int main() { werte.push_back(sensorWert()); }"
+        ]
+      },
+      "optionen": [
+        "`main.cpp` kompiliert nicht mehr: Es hat sich auf ein transitives Include verlassen",
+        "Nichts, der Compiler findet `<vector>` automatisch",
+        "Nur eine Warnung"
+      ],
+      "korrekt": 0,
+      "erklaerung": "`main.cpp` benutzt `std::vector`, also muss es `<vector>` selbst einbinden. Solche versteckten Abhängigkeiten machen jedes Aufräumen in Headern riskant. Deshalb behandeln Bibliotheken das Entfernen eines Includes aus einem öffentlichen Header als potenziell inkompatible Änderung.",
+      "begruendungen": [
+        "Richtig.",
+        "Der Compiler kennt nur, was eingebunden wurde.",
+        "Ein unbekannter Typ ist ein Fehler."
+      ]
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Welches Werkzeug hilft wobei?",
+      "paare": [
+        {
+          "links": "include-what-you-use",
+          "rechts": "Schlägt fehlende und überflüssige Includes vor"
+        },
+        {
+          "links": "`g++ -H`",
+          "rechts": "Zeigt den Include-Baum einer Übersetzungseinheit"
+        },
+        {
+          "links": "`clang++ -ftime-trace`",
+          "rechts": "Zeigt, welche Header und Templates wie viel Kompilierzeit kosten"
+        },
+        {
+          "links": "`target_precompile_headers`",
+          "rechts": "Häufig genutzte, selten geänderte Header nur einmal parsen"
+        }
+      ],
+      "erklaerung": "Für ganze Projekte fasst der *ClangBuildAnalyzer* die `-ftime-trace`-Dateien aller Übersetzungseinheiten zusammen und zeigt die teuersten Header. Oft sind es nur eine Handvoll."
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Welche Zeile im öffentlichen Header sollte in die `.cpp`-Datei wandern?",
+      "code": {
+        "sprache": "cpp",
+        "datei": "konfig/konfig.h",
+        "zeilen": [
+          "#pragma once",
+          "#include <string>",
+          "#include <nlohmann/json.hpp>",
+          "",
+          "class Konfig {",
+          "public:",
+          "    explicit Konfig(const std::string& pfad);",
+          "    int port() const;",
+          "private:",
+          "    int port_ = 0;",
+          "};"
+        ]
+      },
+      "fehlerZeile": 3,
+      "erklaerung": "Die JSON-Bibliothek wird nur zum Einlesen in der Implementierung gebraucht. In der Schnittstelle taucht sie nicht auf. Im Header zwingt sie jeden Nutzer, eine der grössten Header-only-Bibliotheken zu parsen, und koppelt alle an diese Wahl. In `konfig.cpp` ist sie richtig aufgehoben. Ein späterer Wechsel des Formats betrifft dann nur noch eine Datei."
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Zyklen zwischen Headern",
+      "text": "Wenn `a.h` `b.h` einbindet und `b.h` wiederum `a.h`, hilft auch ein Include Guard nicht. Eine der Klassen sieht die andere nur halb. Das zeigt sich mit Fehlern wie `incomplete type` oder `does not name a type`. Die Lösung ist fast immer eine Vorwärtsdeklaration in einem der beiden Header. Und oft ist der Zyklus ein Hinweis darauf, dass die beiden Klassen zu eng miteinander verflochten sind."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Warum gilt das Entfernen eines Includes aus einem öffentlichen Header als heikle Änderung?",
+      "optionen": [
+        "Nutzer verlassen sich womöglich unbewusst darauf und kompilieren danach nicht mehr",
+        "Weil der Linker dann Symbole nicht mehr findet",
+        "Weil sich dadurch die ABI ändert"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Die API des Headers ist streng genommen gleich geblieben, aber transitive Includes sind faktisch Teil davon geworden. Grosse Bibliotheken kündigen solche Aufräumarbeiten deshalb an und empfehlen Nutzern, selbst *include what you use* zu befolgen.",
+      "begruendungen": [
+        "Richtig.",
+        "Es ist ein Kompilier-, kein Linkproblem.",
+        "Includes beeinflussen das Binary nicht, die ABI bleibt gleich."
+      ]
+    }
+  ],
+  "praxis": "In grossen C++-Projekten ist die Kompilierzeit ein echter Kostenfaktor: Wer 20 Minuten auf jeden Build wartet, arbeitet anders, nämlich mit weniger Tests und grösseren Schritten. Aufgeräumte Includes sind eine der billigsten Möglichkeiten, das zu verbessern. Einmal im Quartal einen Blick mit `-ftime-trace` auf die teuersten Header zu werfen, lohnt sich fast immer.",
+  "labor": {
+    "titel": "Die teuersten Header finden",
+    "anleitung": "Baue ein Projekt mit Clang und `-ftime-trace` und werte die Ergebnisse mit dem ClangBuildAnalyzer aus.",
+    "befehle": [
+      "cmake -S . -B build -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_CXX_FLAGS=-ftime-trace && cmake --build build",
+      "ClangBuildAnalyzer --all build trace.bin && ClangBuildAnalyzer --analyze trace.bin | head -40"
+    ],
+    "beobachtung": "Der Abschnitt *Expensive headers* zeigt, welche Header insgesamt am meisten Zeit kosten und über welche Pfade sie eingebunden werden. Ein einziger zu breit eingebundener Header ist oft für einen grossen Teil verantwortlich."
+  },
+  "begriffe": [
+    {
+      "begriff": "Transitives Include",
+      "englisch": "transitive include",
+      "erklaerung": "Header, der nicht direkt, sondern über einen anderen Header in eine Datei gelangt."
+    },
+    {
+      "begriff": "Vorkompilierter Header",
+      "englisch": "precompiled header, PCH",
+      "erklaerung": "Bereits geparster Header, der beim Kompilieren wiederverwendet wird, um Zeit zu sparen."
+    },
+    {
+      "begriff": "C++20-Module",
+      "englisch": "C++20 modules",
+      "erklaerung": "Neuer Mechanismus, bei dem Schnittstellen einmal übersetzt und dann importiert statt per Text eingebunden werden."
+    }
+  ],
+  "weiterlesen": [
+    {
+      "titel": "ClangBuildAnalyzer",
+      "url": "https://github.com/aras-p/ClangBuildAnalyzer"
+    },
+    {
+      "titel": "CMake: target_precompile_headers",
+      "url": "https://cmake.org/cmake/help/latest/command/target_precompile_headers.html"
+    }
+  ]
+}

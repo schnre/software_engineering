@@ -1,0 +1,133 @@
+{
+  "id": "p11-m3-l1",
+  "phase": 11,
+  "modul": "11.3 Komponenten, Plugins und Pipelines",
+  "titel": "Komponenten und Plugin-Architekturen",
+  "lernziele": [
+    "Komponenten mit stabilen Schnittstellen schneiden",
+    "Eine Plugin-Architektur mit dynamisch geladenen Bibliotheken verstehen",
+    "Die ABI-Fallen bei C++-Schnittstellen über Bibliotheksgrenzen kennen"
+  ],
+  "dauerMinuten": 7,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Was macht eine gute **Komponente** aus?",
+      "optionen": [
+        "Eine klar umrissene Aufgabe, eine stabile Schnittstelle nach aussen und austauschbare Implementierung dahinter",
+        "Möglichst viele Klassen in einem Ordner",
+        "Zugriff auf alle anderen Komponenten"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Eine Komponente ist eine Einheit, die man getrennt entwickeln, testen und ersetzen kann. Ihre Schnittstelle ist ein Vertrag (Modul 9.2): bereitgestellte und benötigte Dienste. Kohäsion innen, lose Kopplung aussen.",
+      "begruendungen": [
+        "Richtig.",
+        "Die Grösse sagt nichts über die Qualität.",
+        "Je weniger Abhängigkeiten, desto besser."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Plugins",
+      "text": "Eine **Plugin-Architektur** (Microkernel-Stil) besteht aus einem Kern mit Grundfunktionen und Erweiterungspunkten. Plugins implementieren eine definierte Schnittstelle und werden zur Laufzeit gefunden und geladen, unter Linux mit `dlopen`/`dlsym`, unter Windows mit `LoadLibrary`/`GetProcAddress`.\n\nBeispiele: Treiber für verschiedene Messgeräte in einer Prüfstandsoftware, Codecs in GStreamer, Erweiterungen in Eclipse oder VS Code, Nodes in ROS 2 (als *Components*).\n\nAuf Mikrocontrollern gibt es selten dynamisches Laden. Dort entsteht dieselbe Struktur statisch: Plugins registrieren sich beim Linken, etwa über eine Tabelle in einem eigenen Linker-Abschnitt."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Warum hat diese Plugin-Schnittstelle eine `extern \"C\"`-Fabrikfunktion?",
+      "code": {
+        "sprache": "cpp",
+        "datei": "plugin_api.h",
+        "zeilen": [
+          "class IMessgeraet {",
+          "public:",
+          "    virtual ~IMessgeraet() = default;",
+          "    virtual const char* name() const = 0;",
+          "    virtual double messe() = 0;",
+          "};",
+          "",
+          "extern \"C\" {",
+          "    IMessgeraet* plugin_erzeuge();",
+          "    void plugin_zerstoere(IMessgeraet*);",
+          "    uint32_t plugin_api_version();",
+          "}"
+        ]
+      },
+      "optionen": [
+        "`dlsym` sucht Symbole nach Namen. Mit `extern \"C\"` ist der Name ungemangelt und vorhersagbar, unabhängig vom Compiler",
+        "Damit das Plugin in C geschrieben werden muss",
+        "Damit die Funktionen schneller sind"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Der Kern lädt die Bibliothek und holt sich `plugin_erzeuge` per Namen. Die API-Version erlaubt es, inkompatible Plugins abzulehnen. `plugin_zerstoere` sorgt dafür, dass das Objekt mit demselben Heap und derselben Laufzeitbibliothek freigegeben wird, mit der es erzeugt wurde. Unter Windows ist das bei verschiedenen CRT-Versionen entscheidend.",
+      "begruendungen": [
+        "Richtig.",
+        "Die Funktionen selbst können in C++ implementiert sein.",
+        "An der Geschwindigkeit ändert sich nichts."
+      ]
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Was bricht die **ABI** einer C++-Bibliothek, sodass alte Plugins abstürzen?",
+      "paare": [
+        { "links": "Neues Datenelement in einer öffentlichen Klasse", "rechts": "Grösse und Offsets ändern sich" },
+        { "links": "Neue virtuelle Funktion in der Mitte", "rechts": "Die vtable-Einträge verschieben sich" },
+        { "links": "Anderer Compiler oder andere Standardbibliothek", "rechts": "Layout von `std::string` und Co. kann sich unterscheiden" },
+        { "links": "Neue freie Funktion", "rechts": "Bricht die ABI nicht, alte Aufrufer merken nichts" }
+      ],
+      "erklaerung": "Die **ABI** (*application binary interface*) beschreibt, wie Code auf Maschinenebene zusammenpasst: Grössen, Layouts, Aufrufkonventionen, Namen. Stabile Plugin-Schnittstellen vermeiden daher Standardtypen und Klassen mit Daten an der Grenze. Sie verwenden reine Interfaces, PIMPL (Modul 10.6) oder gleich eine C-Schnittstelle."
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Diese Plugin-Schnittstelle führt zu Abstürzen, wenn das Plugin mit einer anderen Compiler-Version gebaut wurde. Welche Zeile ist am gefährlichsten?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "class IMessgeraet {",
+          "public:",
+          "    virtual ~IMessgeraet() = default;",
+          "    virtual std::vector<std::string> kanaele() const = 0;",
+          "    virtual double messe(int kanal) = 0;",
+          "};"
+        ]
+      },
+      "fehlerZeile": 4,
+      "erklaerung": "`std::vector<std::string>` wird im Plugin erzeugt und im Kern verwendet und freigegeben. Unterscheiden sich Layout oder Allokator der Standardbibliothek, ist das undefiniertes Verhalten. Bei libstdc++ ist das zum Beispiel bei der alten und neuen `std::string`-ABI passiert. Stabil wären z. B. `virtual std::size_t anzahlKanaele() const` und `virtual const char* kanalName(std::size_t) const`."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Ein Prüfstand soll Messgeräte von Drittherstellern unterstützen, ohne dass die Hauptanwendung neu gebaut wird. Was ist die robusteste Plugin-Grenze?",
+      "optionen": [
+        "Eine schmale C-Schnittstelle mit Versionsnummer, oder Plugins als eigene Prozesse mit IPC",
+        "Ein C++-Interface mit `std::function` und `std::map` in den Signaturen",
+        "Header-only-Templates"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Eine C-Schnittstelle ist über Compiler und sogar Sprachen hinweg stabil. Plugins als eigene Prozesse gehen noch weiter: Ein abstürzendes Plugin reisst die Hauptanwendung nicht mit, und Rechte lassen sich einschränken. Der Preis ist die IPC (Modul 11.4).",
+      "begruendungen": [
+        "Richtig.",
+        "Standardtypen an der Grenze sind die häufigste Quelle von ABI-Problemen.",
+        "Templates müssen mit der Anwendung übersetzt werden. Dann ist es kein Plugin mehr."
+      ]
+    }
+  ],
+  "praxis": "Plugin-Architekturen sind mächtig, aber teuer: Schnittstellen müssen über Jahre stabil bleiben, Versionen verwaltet und Fehler isoliert werden. Für interne Erweiterbarkeit reicht oft eine statische Registrierung beim Linken. Echte Laufzeit-Plugins lohnen sich, wenn Dritte erweitern oder wenn Kunden verschiedene Pakete installieren.",
+  "labor": {
+    "titel": "Ein Plugin laden",
+    "anleitung": "Baue eine Bibliothek `libdemo_geraet.so` mit der Schnittstelle aus der Übung und ein Hauptprogramm, das sie mit `dlopen` lädt, die Version prüft und `messe()` aufruft.",
+    "befehle": [
+      "g++ -std=c++20 -fPIC -shared demo_geraet.cpp -o libdemo_geraet.so",
+      "g++ -std=c++20 host.cpp -ldl -o host",
+      "./host ./libdemo_geraet.so",
+      "nm -D libdemo_geraet.so | grep plugin_"
+    ],
+    "beobachtung": "`nm -D` zeigt die exportierten Symbole ungemangelt: `plugin_erzeuge`, `plugin_zerstoere`, `plugin_api_version`. Entferne `extern \"C\"`, dann findet `dlsym` die Funktion nicht mehr."
+  },
+  "begriffe": [
+    { "begriff": "Komponente", "englisch": "component", "erklaerung": "Getrennt entwickel- und austauschbare Einheit mit definierter Schnittstelle." },
+    { "begriff": "Plugin", "englisch": "plugin", "erklaerung": "Erweiterung, die zur Laufzeit über eine definierte Schnittstelle geladen wird." },
+    { "begriff": "ABI", "englisch": "application binary interface", "erklaerung": "Regeln, wie übersetzter Code auf Maschinenebene zusammenarbeitet." }
+  ],
+  "weiterlesen": [
+    { "titel": "KDE: Policies/Binary Compatibility Issues With C++", "url": "https://community.kde.org/Policies/Binary_Compatibility_Issues_With_C%2B%2B" }
+  ]
+}

@@ -1,137 +1,256 @@
 {
   "id": "p4-m1-l2",
   "phase": 4,
-  "modul": "4.1 Threads und Data Races",
-  "titel": "Data Races und Mutexe",
+  "modul": "4.1 Unit-Tests mit GoogleTest",
+  "titel": "Fixtures und parametrisierte Tests",
   "lernziele": [
-    "Data Races sicher erkennen",
-    "Gemeinsame Daten mit einem Mutex schützen",
-    "Data Race und Race Condition unterscheiden"
+    "Gemeinsame Vorbereitung mit einer Test-Fixture lösen",
+    "Viele Eingaben mit parametrisierten Tests prüfen",
+    "Testfälle nach Äquivalenzklassen und Grenzwerten auswählen"
   ],
   "dauerMinuten": 6,
   "schritte": [
     {
       "typ": "multiple-choice",
-      "frage": "Welche Situationen sind Data Races?",
+      "frage": "Fünf Tests brauchen alle ein `Lager` mit denselben drei Artikeln. Wie löst du das am besten?",
       "optionen": [
-        "Zwei Threads lesen gleichzeitig dieselbe Variable",
-        "Ein Thread schreibt eine Variable, ein anderer liest sie gleichzeitig ohne Synchronisation",
-        "Zwei Threads schreiben gleichzeitig in **verschiedene** Elemente desselben `std::vector`, ohne dessen Grösse zu ändern",
-        "Zwei Threads rufen gleichzeitig `push_back` auf denselben `std::vector` auf"
+        "Mit einer Test-Fixture, die das Lager vor jedem Test frisch aufbaut",
+        "Mit einem globalen `Lager`, das alle Tests gemeinsam benutzen",
+        "Die Vorbereitung in jeden Test kopieren"
       ],
-      "korrekt": [1, 3],
-      "erklaerung": "Ein **Data Race** braucht drei Zutaten: derselbe Speicherort, mindestens ein Schreibzugriff, keine Synchronisation. Reines Lesen ist immer sicher. Verschiedene Elemente sind verschiedene Speicherorte. `push_back` dagegen verändert intern dieselben Verwaltungsdaten (Grösse, Zeiger).",
+      "korrekt": 0,
+      "erklaerung": "Eine **Fixture** ist eine Klasse, die die gemeinsame Vorbereitung enthält. GoogleTest erzeugt für **jeden** Test ein neues Fixture-Objekt. So ist die Vorbereitung an einer Stelle, und trotzdem beeinflussen sich die Tests nicht.",
       "begruendungen": [
-        "Nur Lesen erzeugt kein Data Race.",
         "Richtig.",
-        "Verschiedene Elemente sind verschiedene Speicherorte, das ist erlaubt (Achtung: `std::vector<bool>` ist eine Ausnahme).",
-        "Richtig. Beide verändern Grösse und eventuell den Speicherblock."
+        "Dann hängt das Ergebnis eines Tests davon ab, was andere Tests vorher verändert haben.",
+        "Funktioniert, aber jede Änderung muss fünfmal gemacht werden."
       ]
     },
     {
       "typ": "erklaerung",
-      "titel": "Der Mutex",
-      "text": "Ein **Mutex** (mutual exclusion) lässt immer nur einen Thread in einen geschützten Bereich, den **kritischen Abschnitt**. Gesperrt wird nie von Hand mit `lock()`/`unlock()`, sondern per RAII mit `std::lock_guard` oder `std::scoped_lock`.\n\nWichtiger als „Variable X schützen“ ist: **Invarianten schützen**. Gehören mehrere Werte zusammen (z. B. Saldo und Buchungsliste), müssen sie unter derselben Sperre gelesen und geschrieben werden. Faustregel: Der Mutex gehört als Member in die Klasse, deren Daten er schützt. Die Daten sind `private`."
-    },
-    {
-      "typ": "lueckentext",
-      "frage": "Ergänze die thread-sichere Klasse.",
+      "titel": "Eine Fixture",
       "code": {
         "sprache": "cpp",
         "zeilen": [
-          "class Konto {",
-          "public:",
-          "    void einzahlen(int betrag) {",
-          "        std::{{?}} lock(m_);",
-          "        saldo_ += betrag;",
+          "class LagerTest : public ::testing::Test {",
+          "protected:",
+          "    void SetUp() override {",
+          "        lager.hinzufuegen(\"Schraube\", 100);",
+          "        lager.hinzufuegen(\"Mutter\", 50);",
           "    }",
-          "private:",
-          "    mutable std::{{?}} m_;",
-          "    int saldo_ = 0;",
-          "};"
+          "    Lager lager;",
+          "};",
+          "",
+          "TEST_F(LagerTest, EntnahmeVerringertBestand) {",
+          "    lager.entnehmen(\"Schraube\", 30);",
+          "    EXPECT_EQ(lager.bestand(\"Schraube\"), 70);",
+          "}"
+        ],
+        "anmerkungen": [
+          {
+            "zeile": 3,
+            "text": "`SetUp` läuft vor jedem Test, `TearDown` danach (falls nötig)."
+          },
+          {
+            "zeile": 10,
+            "text": "`TEST_F` statt `TEST`: Der erste Parameter ist die Fixture-Klasse."
+          }
         ]
       },
-      "luecken": [{ "loesungen": ["lock_guard"] }, { "loesungen": ["mutex"] }],
-      "auswahl": ["lock_guard", "mutex", "atomic", "thread"],
-      "erklaerung": "`mutable` erlaubt, den Mutex auch in `const`-Memberfunktionen zu sperren, etwa in einem Getter. Das ist eine der wenigen guten Verwendungen von `mutable`: Die Sperre verändert den logischen Zustand des Objekts nicht."
-    },
-    {
-      "typ": "fehler-finden",
-      "frage": "ThreadSanitizer meldet ein Data Race in dieser Klasse. Welche Zeile ist schuld?",
-      "code": {
-        "sprache": "cpp",
-        "zeilen": [
-          "class Zaehler {",
-          "public:",
-          "    void erhoehe() { std::lock_guard lock(m_); ++wert_; }",
-          "    int wert() const { return wert_; }",
-          "private:",
-          "    mutable std::mutex m_;",
-          "    int wert_ = 0;",
-          "};"
-        ]
-      },
-      "fehlerZeile": 4,
-      "erklaerung": "Auch das **Lesen** muss gesperrt werden, wenn gleichzeitig geschrieben werden kann. Sonst ist es ein Data Race, auch wenn „nur ein `int` gelesen wird“. Richtig: `int wert() const { std::lock_guard lock(m_); return wert_; }`."
+      "text": "Die Member der Fixture stehen in jedem `TEST_F` direkt zur Verfügung."
     },
     {
       "typ": "code-lesen",
-      "frage": "`enthaelt` und `einfuegen` sperren jeweils intern einen Mutex. Ist dieser Code thread-sicher?",
+      "frage": "Test `A` läuft vor Test `B`. Welchen Bestand an Schrauben sieht `B`?",
       "code": {
         "sprache": "cpp",
         "zeilen": [
-          "if (!cache.enthaelt(schluessel)) {",
-          "    cache.einfuegen(schluessel, lade(schluessel));",
+          "TEST_F(LagerTest, A) {",
+          "    lager.entnehmen(\"Schraube\", 30);",
+          "}",
+          "",
+          "TEST_F(LagerTest, B) {",
+          "    std::cout << lager.bestand(\"Schraube\");",
           "}"
         ]
       },
       "optionen": [
-        "Nein: Zwischen Prüfen und Einfügen kann ein anderer Thread denselben Schlüssel einfügen",
-        "Ja, beide Funktionen sind ja gesperrt",
-        "Nein, weil `lade` nicht gesperrt ist"
+        "`100`",
+        "`70`",
+        "Das hängt von der Reihenfolge ab"
       ],
       "korrekt": 0,
-      "erklaerung": "Das ist kein Data Race, denn jeder einzelne Zugriff ist gesperrt. Es ist aber eine **Race Condition**: Das Ergebnis hängt vom Timing ab. Zwei Threads können beide „nicht enthalten“ sehen und beide laden. Die Lösung ist eine Operation, die Prüfen und Einfügen unter **einer** Sperre erledigt, z. B. `holeOderLade(schluessel)`.",
+      "fest": true,
+      "erklaerung": "Jeder Test bekommt ein eigenes, frisch aufgebautes `LagerTest`-Objekt. Was `A` verändert, verschwindet mit dessen Fixture. Genau diese Isolation macht Tests reproduzierbar.",
       "begruendungen": [
-        "Richtig. Das Muster heisst *check-then-act*.",
-        "Einzelne gesperrte Aufrufe ergeben zusammen keine atomare Operation.",
-        "`lade` muss nicht gesperrt sein, wenn es nur mit eigenen Daten arbeitet."
+        "Richtig.",
+        "Das wäre bei geteiltem Zustand so.",
+        "Gerade nicht. Die Fixture macht die Reihenfolge egal."
       ]
     },
     {
       "typ": "erklaerung",
-      "titel": "Data Race vs. Race Condition",
-      "text": "- Ein **Data Race** ist ein unsynchronisierter Zugriff auf denselben Speicher. Das ist Undefined Behavior, und TSan findet es.\n- Eine **Race Condition** ist ein Logikfehler: Das Ergebnis hängt von der zeitlichen Abfolge ab, auch wenn jeder Zugriff korrekt gesperrt ist. Werkzeuge finden das kaum, da hilft nur gutes Design.\n\nDaraus folgt: Thread-sichere Klassen bieten Operationen an, die fachlich vollständig sind (`ueberweise(von, nach, betrag)`), statt Einzelschritte (`saldo()`, `setzeSaldo()`), die der Aufrufer selbst zusammensetzen muss."
+      "titel": "Parametrisierte Tests",
+      "text": "Wenn dieselbe Prüfung für viele Eingaben laufen soll, schreibt man sie einmal mit `TEST_P` und liefert die Daten mit `INSTANTIATE_TEST_SUITE_P`. Jeder Datensatz erscheint als eigener Test.",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "class SchaltjahrTest : public ::testing::TestWithParam<std::pair<int, bool>> {};",
+          "",
+          "TEST_P(SchaltjahrTest, ErkenntSchaltjahre) {",
+          "    auto [jahr, erwartet] = GetParam();",
+          "    EXPECT_EQ(istSchaltjahr(jahr), erwartet) << \"Jahr \" << jahr;",
+          "}",
+          "",
+          "INSTANTIATE_TEST_SUITE_P(Jahre, SchaltjahrTest, ::testing::Values(",
+          "    std::pair{2024, true}, std::pair{1900, false},",
+          "    std::pair{2000, true}, std::pair{2023, false}));"
+        ],
+        "anmerkungen": [
+          {
+            "zeile": 5,
+            "text": "Mit `<<` hängt man eine Erklärung an, die bei einem Fehlschlag erscheint."
+          }
+        ]
+      }
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Ein Jahr ist ein Schaltjahr, wenn es durch 4 teilbar ist, ausser es ist durch 100 teilbar, es sei denn, es ist auch durch 400 teilbar. Welche drei Jahre prüfen je einen **anderen** Fall der Regel?",
+      "optionen": [
+        "2024",
+        "1900",
+        "2000",
+        "2028"
+      ],
+      "korrekt": [
+        0,
+        1,
+        2
+      ],
+      "erklaerung": "Gute Testfälle wählt man nach **Äquivalenzklassen**: Alle Werte einer Klasse verhalten sich gleich, einer pro Klasse genügt. 2024 und 2028 fallen in dieselbe Klasse („durch 4, nicht durch 100“). Ergänzend lohnen sich **Grenzwerte** wie 0, negative Werte oder `INT_MAX`, denn an Grenzen passieren die meisten Fehler.",
+      "begruendungen": [
+        "Richtig: durch 4, nicht durch 100.",
+        "Richtig: durch 100, nicht durch 400, also kein Schaltjahr.",
+        "Richtig: durch 400, also doch ein Schaltjahr.",
+        "Gleicher Fall wie 2024, bringt keine neue Information."
+      ]
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze die Makros für einen parametrisierten Test.",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "{{?}}(CrcTest, BerechnetPruefsumme) {",
+          "    auto [eingabe, erwartet] = GetParam();",
+          "    EXPECT_EQ(crc8(eingabe), erwartet);",
+          "}",
+          "",
+          "{{?}}(Bekannt, CrcTest, ::testing::Values(",
+          "    std::pair{std::string(\"\"), 0x00}, std::pair{std::string(\"123456789\"), 0xF4}));"
+        ]
+      },
+      "luecken": [
+        {
+          "loesungen": [
+            "TEST_P"
+          ]
+        },
+        {
+          "loesungen": [
+            "INSTANTIATE_TEST_SUITE_P"
+          ]
+        }
+      ],
+      "auswahl": [
+        "TEST_P",
+        "TEST_F",
+        "INSTANTIATE_TEST_SUITE_P",
+        "TEST"
+      ],
+      "erklaerung": "`TEST_P` definiert das Muster, `INSTANTIATE_TEST_SUITE_P` die Daten. `0xF4` ist der Prüfwert der Standard-CRC-8 für den Text \"123456789\". Solche bekannten Werte aus Normen oder Datenblättern sind ideale Testfälle."
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Einzeln laufen beide Tests grün, zusammen schlägt `LeeresLager` fehl. Welche Zeile ist die Ursache?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "static Lager gLager;",
+          "",
+          "TEST(LagerTest, Hinzufuegen) {",
+          "    gLager.hinzufuegen(\"Mutter\", 10);",
+          "    EXPECT_EQ(gLager.bestand(\"Mutter\"), 10);",
+          "}",
+          "",
+          "TEST(LagerTest, LeeresLager) {",
+          "    EXPECT_EQ(gLager.anzahlArtikel(), 0);",
+          "}"
+        ]
+      },
+      "fehlerZeile": 1,
+      "erklaerung": "Ein globales Objekt teilt Zustand zwischen Tests. Das Ergebnis hängt dann von der Reihenfolge ab. Mit `--gtest_shuffle` würde der Fehler mal auftreten, mal nicht. Abhilfe: das Lager in eine Fixture oder lokal in jeden Test verschieben."
     },
     {
       "typ": "zuordnen",
-      "frage": "Welche Sperre passt wofür?",
+      "frage": "Wofür sind diese Optionen des Testprogramms?",
       "paare": [
-        { "links": "`std::lock_guard`", "rechts": "Einfachste Sperre für genau einen Block" },
-        { "links": "`std::scoped_lock`", "rechts": "Sperrt mehrere Mutexe gleichzeitig, ohne Deadlock" },
-        { "links": "`std::unique_lock`", "rechts": "Flexibel: später sperren, früher freigeben, nötig für Condition Variables" },
-        { "links": "`std::shared_mutex` mit `std::shared_lock`", "rechts": "Viele Leser gleichzeitig, Schreiber exklusiv" }
+        {
+          "links": "`--gtest_filter=Lager*`",
+          "rechts": "Nur passende Tests ausführen"
+        },
+        {
+          "links": "`--gtest_shuffle`",
+          "rechts": "Zufällige Reihenfolge, deckt Abhängigkeiten auf"
+        },
+        {
+          "links": "`--gtest_repeat=200`",
+          "rechts": "Wiederholen, um sporadische Fehlschläge zu finden"
+        },
+        {
+          "links": "`--gtest_break_on_failure`",
+          "rechts": "Beim ersten Fehlschlag im Debugger anhalten"
+        }
       ],
-      "erklaerung": "`std::shared_mutex` lohnt sich nur bei vielen Lesern und seltenen Schreibern mit längeren Lesezugriffen. Bei kurzen kritischen Abschnitten ist ein einfacher `std::mutex` oft schneller, weil er weniger Verwaltungsaufwand hat."
+      "erklaerung": "`--gtest_repeat` zusammen mit `--gtest_shuffle` ist ein schneller Weg, um *flaky* Tests zu entlarven, also Tests, die ohne Code-Änderung mal grün und mal rot sind."
     }
   ],
-  "praxis": "Bei Klassen, die von mehreren Threads benutzt werden, prüfst du im Review: Ist dokumentiert, welche Methoden thread-sicher sind? Werden alle Zugriffe auf geschützte Daten gesperrt, auch Getter? Gibt Code Zeiger oder Referenzen auf geschützte Daten nach aussen, die dann ungesperrt benutzt werden? Und gibt es check-then-act-Muster über mehrere Aufrufe?",
+  "praxis": "Im Review sind globale Objekte und `static`-Variablen in Testdateien ein Warnsignal. Ebenso Tests mit fünf fast identischen Kopien: Das schreit nach einem parametrisierten Test. Bei Testdaten fragst du: Deckt jede Klasse von Eingaben genau ein Fall ab? Sind die Grenzen dabei, also leer, eins, maximal, negativ?",
   "labor": {
-    "titel": "Data Race und Race Condition",
-    "anleitung": "Baue den `Zaehler` mit ungesperrtem Getter und lass ihn mit TSan laufen. Baue dann den Cache mit check-then-act und zähle, wie oft `lade` für denselben Schlüssel aufgerufen wird.",
+    "titel": "Reihenfolgeabhängigkeit aufdecken",
+    "anleitung": "Baue die beiden Tests mit `gLager` und lass sie mehrfach in zufälliger Reihenfolge laufen.",
     "befehle": [
-      "g++ -std=c++20 -g -fsanitize=thread zaehler.cpp -o zaehler && ./zaehler",
-      "g++ -std=c++20 -O2 -pthread cache.cpp -o cache && ./cache"
+      "./lager_test --gtest_repeat=20 --gtest_shuffle | grep -E 'PASSED|FAILED' | sort | uniq -c"
     ],
-    "beobachtung": "TSan meldet den ungesperrten Getter sofort. Die Race Condition im Cache meldet TSan nicht, aber dein Zähler zeigt, dass `lade` manchmal doppelt aufgerufen wird."
+    "beobachtung": "In manchen Durchläufen scheitert `LeeresLager`, in anderen nicht. Nach der Umstellung auf eine Fixture laufen alle Durchläufe grün."
   },
   "begriffe": [
-    { "begriff": "Mutex", "englisch": "mutex, mutual exclusion", "erklaerung": "Sperre, die immer nur einen Thread in einen kritischen Abschnitt lässt." },
-    { "begriff": "Kritischer Abschnitt", "englisch": "critical section", "erklaerung": "Code, der auf gemeinsame Daten zugreift und deshalb geschützt werden muss." },
-    { "begriff": "Race Condition", "englisch": "race condition", "erklaerung": "Logikfehler, bei dem das Ergebnis von der zeitlichen Abfolge der Threads abhängt." }
+    {
+      "begriff": "Test-Fixture",
+      "englisch": "test fixture",
+      "erklaerung": "Gemeinsame Vorbereitung mehrerer Tests. Jeder Test bekommt ein frisches Exemplar."
+    },
+    {
+      "begriff": "Parametrisierter Test",
+      "englisch": "parameterized test",
+      "erklaerung": "Ein Test, der mit vielen Datensätzen ausgeführt wird (`TEST_P`)."
+    },
+    {
+      "begriff": "Äquivalenzklasse",
+      "englisch": "equivalence class",
+      "erklaerung": "Menge von Eingaben, für die sich das Programm gleich verhält. Ein Testfall pro Klasse genügt."
+    },
+    {
+      "begriff": "Grenzwertanalyse",
+      "englisch": "boundary value analysis",
+      "erklaerung": "Gezieltes Testen an den Rändern der Äquivalenzklassen, wo Fehler am häufigsten sind."
+    }
   ],
   "weiterlesen": [
-    { "titel": "cppreference: std::mutex", "url": "https://en.cppreference.com/w/cpp/thread/mutex" },
-    { "titel": "cppreference: Memory model (Threads and data races)", "url": "https://en.cppreference.com/w/cpp/language/memory_model" }
+    {
+      "titel": "GoogleTest: Value-Parameterized Tests",
+      "url": "https://google.github.io/googletest/advanced.html#value-parameterized-tests"
+    }
   ]
 }

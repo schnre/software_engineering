@@ -31,12 +31,32 @@
       "titel": "Zwei Arten von Bibliotheken",
       "text": "Eine **statische Bibliothek** (static library, `.a`) ist ein Archiv von Object-Files. Der Linker kopiert daraus die Object-Files, die das Programm braucht, ins Binary.\n\nEine **dynamische Bibliothek** (shared library, `.so` unter Linux, `.dll` unter Windows) bleibt eine eigene Datei. Der **dynamische Loader** lädt sie beim Programmstart. Mehrere Programme können sich dieselbe Bibliothek im RAM teilen.",
       "tabelle": {
-        "kopf": ["", "statisch", "dynamisch"],
+        "kopf": [
+          "",
+          "statisch",
+          "dynamisch"
+        ],
         "zeilen": [
-          ["Bibliothek beim Start nötig", "nein", "ja"],
-          ["Update der Bibliothek", "neu linken", "Datei austauschen"],
-          ["Binary-Grösse", "grösser", "kleiner"],
-          ["Start", "etwas schneller", "Loader muss Symbole auflösen"]
+          [
+            "Bibliothek beim Start nötig",
+            "nein",
+            "ja"
+          ],
+          [
+            "Update der Bibliothek",
+            "neu linken",
+            "Datei austauschen"
+          ],
+          [
+            "Binary-Grösse",
+            "grösser",
+            "kleiner"
+          ],
+          [
+            "Start",
+            "etwas schneller",
+            "Loader muss Symbole auflösen"
+          ]
         ]
       }
     },
@@ -44,11 +64,26 @@
       "typ": "zuordnen",
       "frage": "Ordne die Dateiendungen zu.",
       "paare": [
-        { "links": "`.a`", "rechts": "Statische Bibliothek unter Linux und macOS" },
-        { "links": "`.so`", "rechts": "Dynamische Bibliothek unter Linux" },
-        { "links": "`.dylib`", "rechts": "Dynamische Bibliothek unter macOS" },
-        { "links": "`.dll`", "rechts": "Dynamische Bibliothek unter Windows" },
-        { "links": "`.lib`", "rechts": "Windows: statische Bibliothek oder Import-Bibliothek einer DLL" }
+        {
+          "links": "`.a`",
+          "rechts": "Statische Bibliothek unter Linux und macOS"
+        },
+        {
+          "links": "`.so`",
+          "rechts": "Dynamische Bibliothek unter Linux"
+        },
+        {
+          "links": "`.dylib`",
+          "rechts": "Dynamische Bibliothek unter macOS"
+        },
+        {
+          "links": "`.dll`",
+          "rechts": "Dynamische Bibliothek unter Windows"
+        },
+        {
+          "links": "`.lib`",
+          "rechts": "Windows: statische Bibliothek oder Import-Bibliothek einer DLL"
+        }
       ],
       "erklaerung": "Unter Windows ist `.lib` doppeldeutig: Es kann eine echte statische Bibliothek sein oder eine kleine **Import-Bibliothek**, die dem Linker nur sagt, welche Funktionen in welcher DLL liegen. Ob du eine DLL brauchst, siehst du an den Abhängigkeiten der `.lib`."
     },
@@ -61,7 +96,10 @@
         "Ein Sicherheitsupdate der Bibliothek erfordert neues Linken",
         "Das Binary wird kleiner als beim dynamischen Linken"
       ],
-      "korrekt": [0, 2],
+      "korrekt": [
+        0,
+        2
+      ],
       "erklaerung": "Statisch gelinkte Programme sind in sich geschlossen. Das ist praktisch für die Auslieferung, z. B. als einzelne Datei in einem Container oder auf einem Embedded-System. Dafür wächst jedes Binary, und Updates erfordern einen neuen Build.",
       "begruendungen": [
         "Richtig. Der Code ist im Binary enthalten.",
@@ -81,8 +119,24 @@
           "g++ main.cpp -L. {{?}} -o app"
         ]
       },
-      "luecken": [{ "loesungen": ["rcs"] }, { "loesungen": ["-lmathe"] }],
-      "auswahl": ["rcs", "-lmathe", "-llibmathe", "-shared"],
+      "luecken": [
+        {
+          "loesungen": [
+            "rcs"
+          ]
+        },
+        {
+          "loesungen": [
+            "-lmathe"
+          ]
+        }
+      ],
+      "auswahl": [
+        "rcs",
+        "-lmathe",
+        "-llibmathe",
+        "-shared"
+      ],
       "erklaerung": "`ar rcs` fügt Dateien ins Archiv ein (`r`), legt es bei Bedarf an (`c`) und schreibt einen Symbolindex (`s`), damit der Linker schnell suchen kann. `-lmathe` sucht nach `libmathe.a` oder `libmathe.so`. Das Präfix `lib` und die Endung ergänzt der Linker selbst. `-L.` fügt das aktuelle Verzeichnis zum Suchpfad hinzu."
     },
     {
@@ -98,9 +152,18 @@
           "ldd app"
         ],
         "anmerkungen": [
-          { "zeile": 1, "text": "`-fPIC`: position independent code." },
-          { "zeile": 2, "text": "`-shared` erzeugt eine `.so` statt eines ausführbaren Programms." },
-          { "zeile": 3, "text": "Liegen `.so` und `.a` im selben Verzeichnis, bevorzugt der Linker die `.so`." }
+          {
+            "zeile": 1,
+            "text": "`-fPIC`: position independent code."
+          },
+          {
+            "zeile": 2,
+            "text": "`-shared` erzeugt eine `.so` statt eines ausführbaren Programms."
+          },
+          {
+            "zeile": 3,
+            "text": "Liegen `.so` und `.a` im selben Verzeichnis, bevorzugt der Linker die `.so`."
+          }
         ]
       }
     },
@@ -140,13 +203,35 @@
     "beobachtung": "Das statische Binary enthält die Vektor-Funktionen mit `T`. Das dynamische hat sie als `U` und listet `libmathe.so` bei `ldd`. Ohne `LD_LIBRARY_PATH=.` startet das dynamische Programm nicht."
   },
   "begriffe": [
-    { "begriff": "Statische Bibliothek", "englisch": "static library", "erklaerung": "Archiv von Object-Files (`.a`, `.lib`). Der benötigte Code wird beim Linken ins Programm kopiert." },
-    { "begriff": "Dynamische Bibliothek", "englisch": "shared library", "erklaerung": "Eigene Datei (`.so`, `.dll`, `.dylib`), die beim Programmstart geladen und von mehreren Prozessen geteilt wird." },
-    { "begriff": "Dynamischer Loader", "englisch": "dynamic loader", "erklaerung": "Teil des Betriebssystems (`ld-linux.so`), der beim Start Shared Libraries lädt und deren Symbole auflöst." },
-    { "begriff": "Positionsunabhängiger Code", "englisch": "position independent code, PIC", "erklaerung": "Maschinencode, der an jeder Adresse funktioniert. Nötig für Shared Libraries (`-fPIC`)." }
+    {
+      "begriff": "Statische Bibliothek",
+      "englisch": "static library",
+      "erklaerung": "Archiv von Object-Files (`.a`, `.lib`). Der benötigte Code wird beim Linken ins Programm kopiert."
+    },
+    {
+      "begriff": "Dynamische Bibliothek",
+      "englisch": "shared library",
+      "erklaerung": "Eigene Datei (`.so`, `.dll`, `.dylib`), die beim Programmstart geladen und von mehreren Prozessen geteilt wird."
+    },
+    {
+      "begriff": "Dynamischer Loader",
+      "englisch": "dynamic loader",
+      "erklaerung": "Teil des Betriebssystems (`ld-linux.so`), der beim Start Shared Libraries lädt und deren Symbole auflöst."
+    },
+    {
+      "begriff": "Positionsunabhängiger Code",
+      "englisch": "position independent code, PIC",
+      "erklaerung": "Maschinencode, der an jeder Adresse funktioniert. Nötig für Shared Libraries (`-fPIC`)."
+    }
   ],
   "weiterlesen": [
-    { "titel": "GNU Binutils: ar", "url": "https://sourceware.org/binutils/docs/binutils/ar.html" },
-    { "titel": "Ulrich Drepper: How To Write Shared Libraries", "url": "https://www.akkadia.org/drepper/dsohowto.pdf" }
+    {
+      "titel": "GNU Binutils: ar",
+      "url": "https://sourceware.org/binutils/docs/binutils/ar.html"
+    },
+    {
+      "titel": "Ulrich Drepper: How To Write Shared Libraries",
+      "url": "https://www.akkadia.org/drepper/dsohowto.pdf"
+    }
   ]
 }

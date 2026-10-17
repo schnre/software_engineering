@@ -1,142 +1,259 @@
 {
   "id": "p4-m1-l1",
   "phase": 4,
-  "modul": "4.1 Threads und Data Races",
-  "titel": "std::thread und std::jthread",
+  "modul": "4.1 Unit-Tests mit GoogleTest",
+  "titel": "Aufbau eines Tests",
   "lernziele": [
-    "Threads starten und korrekt beenden",
-    "Lebenszeit-Fehler bei Threads erkennen",
-    "Mit dem Gesetz von Amdahl den möglichen Gewinn abschätzen"
+    "Einen Test nach dem Muster Arrange, Act, Assert schreiben",
+    "`EXPECT_*` und `ASSERT_*` gezielt einsetzen",
+    "Die Ausgabe eines fehlgeschlagenen Tests lesen"
   ],
   "dauerMinuten": 6,
   "schritte": [
     {
-      "typ": "code-lesen",
-      "frage": "Was passiert am Ende von `main`?",
-      "code": {
-        "sprache": "cpp",
-        "zeilen": [
-          "void arbeite() { std::cout << \"fertig\\n\"; }",
-          "",
-          "int main() {",
-          "    std::thread t(arbeite);",
-          "}"
-        ]
-      },
+      "typ": "multiple-choice",
+      "frage": "`parse()` liefert einen Zeiger. Der Test soll sofort abbrechen, wenn er `nullptr` ist, weil die folgenden Prüfungen ihn dereferenzieren. Welches Makro nimmst du?",
       "optionen": [
-        "Das Programm wird mit `std::terminate` beendet, weil `t` beim Zerstören noch nicht `join`ed wurde",
-        "`main` wartet automatisch auf den Thread und gibt `fertig` aus",
-        "Compilerfehler"
+        "`ASSERT_NE(p, nullptr)`",
+        "`EXPECT_NE(p, nullptr)`",
+        "`EXPECT_TRUE(p)`"
       ],
       "korrekt": 0,
-      "erklaerung": "Ein `std::thread`, der noch *joinable* ist, ruft in seinem Destruktor `std::terminate` auf. Der Standard zwingt dich so, dich zu entscheiden: warten (`join`) oder loslassen (`detach`). Ob vorher noch `fertig` erscheint, ist Zufall.",
+      "erklaerung": "`ASSERT_*` bricht den aktuellen Test bei einem Fehlschlag ab. `EXPECT_*` meldet den Fehler und läuft weiter. Das ist gut, um mehrere Abweichungen auf einmal zu sehen, aber gefährlich, wenn die nächste Zeile von der Prüfung abhängt.",
       "begruendungen": [
-        "Richtig.",
-        "Das macht erst `std::jthread` (C++20).",
-        "Der Code kompiliert. Der Fehler passiert zur Laufzeit."
+        "Richtig. Ohne Abbruch würde der Test beim Dereferenzieren abstürzen.",
+        "Der Test liefe weiter und würde danach `nullptr` dereferenzieren.",
+        "Prüft dasselbe, bricht aber ebenfalls nicht ab."
       ]
     },
     {
       "typ": "erklaerung",
-      "titel": "Threads in C++",
-      "text": "`std::thread t(f, args...)` startet sofort einen neuen Thread, der `f(args...)` ausführt. Die Argumente werden **kopiert**. Für Referenzen braucht es `std::ref(x)`.\n\nVor dem Ende der Lebenszeit muss man `t.join()` (warten) oder `t.detach()` (loslassen) aufrufen. `detach` ist selten richtig: Der Thread läuft dann weiter, auch wenn die Objekte, die er benutzt, längst zerstört sind.\n\n`std::jthread` (C++20) ist die bessere Wahl. Er ruft im Destruktor selbst `join` auf (RAII) und unterstützt kooperatives Beenden über ein `std::stop_token`."
+      "titel": "Ein Test mit GoogleTest",
+      "text": "**GoogleTest** ist das verbreitetste Test-Framework für C++. Ein Test ist eine Funktion mit dem Makro `TEST(Suite, Name)`. Gut lesbare Tests folgen dem Muster **Arrange, Act, Assert**: vorbereiten, ausführen, prüfen.",
+      "code": {
+        "sprache": "cpp",
+        "datei": "rechner_test.cpp",
+        "zeilen": [
+          "#include <gtest/gtest.h>",
+          "#include \"rechner.h\"",
+          "",
+          "TEST(RechnerTest, AddiertZweiZahlen) {",
+          "    Rechner r;                          // Arrange",
+          "    int ergebnis = r.addiere(2, 3);     // Act",
+          "    EXPECT_EQ(ergebnis, 5);             // Assert",
+          "}"
+        ],
+        "anmerkungen": [
+          {
+            "zeile": 4,
+            "text": "Suite und Name ergeben zusammen `RechnerTest.AddiertZweiZahlen`. Der Name beschreibt das erwartete Verhalten."
+          },
+          {
+            "zeile": 7,
+            "text": "Schlägt die Prüfung fehl, zeigt GoogleTest beide Werte an."
+          }
+        ]
+      }
     },
     {
       "typ": "lueckentext",
-      "frage": "Ergänze: Ein Hintergrund-Thread soll arbeiten, bis er zum Aufhören aufgefordert wird, und beim Zerstören automatisch beendet werden.",
+      "frage": "Ergänze die Prüfungen: erst sicherstellen, dass ein Objekt da ist, dann den Wert prüfen.",
       "code": {
         "sprache": "cpp",
         "zeilen": [
-          "std::{{?}} t([](std::stop_token st) {",
-          "    while (!st.{{?}}()) {",
-          "        verarbeiteNaechstes();",
-          "    }",
-          "});",
-          "// ... später, z. B. im Destruktor des Besitzers:",
-          "t.request_stop();"
+          "TEST(ParserTest, LiestPort) {",
+          "    auto konfig = parse(\"port=8080\");",
+          "    {{?}}(konfig, nullptr);",
+          "    {{?}}(konfig->port, 8080);",
+          "}"
         ]
       },
-      "luecken": [{ "loesungen": ["jthread"] }, { "loesungen": ["stop_requested"] }],
-      "auswahl": ["jthread", "stop_requested", "thread", "join"],
-      "erklaerung": "Der `jthread` übergibt das `stop_token` automatisch, wenn die Funktion eines als ersten Parameter erwartet. Im Destruktor ruft er erst `request_stop()` und dann `join()` auf. Der explizite Aufruf am Ende ist deshalb nur nötig, wenn man früher anhalten will."
+      "luecken": [
+        {
+          "loesungen": [
+            "ASSERT_NE"
+          ]
+        },
+        {
+          "loesungen": [
+            "EXPECT_EQ"
+          ]
+        }
+      ],
+      "auswahl": [
+        "ASSERT_NE",
+        "EXPECT_EQ",
+        "EXPECT_NE",
+        "ASSERT_TRUE"
+      ],
+      "erklaerung": "Erst `ASSERT_NE`, weil Zeile 4 ohne gültiges `konfig` abstürzen würde. Dann `EXPECT_EQ` für den eigentlichen Wert. Gibt es mehrere Werte zu prüfen, zeigt `EXPECT_*` alle Abweichungen in einem Durchlauf."
+    },
+    {
+      "typ": "terminal-deuten",
+      "frage": "Was sagt diese Ausgabe?",
+      "terminal": {
+        "befehl": "./rechner_test",
+        "ausgabe": [
+          "[ RUN      ] RechnerTest.TeiltGanzzahlig",
+          "rechner_test.cpp:14: Failure",
+          "Expected equality of these values:",
+          "  r.teile(7, 2)",
+          "    Which is: 3",
+          "  4",
+          "[  FAILED  ] RechnerTest.TeiltGanzzahlig (0 ms)"
+        ]
+      },
+      "optionen": [
+        "`teile(7, 2)` lieferte 3, der Test erwartete 4. Zu klären ist, ob der Code oder der Test falsch ist",
+        "Der Test ist abgestürzt",
+        "Zeile 14 von `rechner.cpp` enthält einen Syntaxfehler"
+      ],
+      "korrekt": 0,
+      "erklaerung": "GoogleTest zeigt den Ausdruck, seinen tatsächlichen Wert (*Which is*) und den erwarteten Wert. Ganzzahlige Division von 7 durch 2 ergibt in C++ 3. Ein fehlschlagender Test heisst nicht automatisch, dass der Code falsch ist. Vielleicht ist die Erwartung falsch. Die Entscheidung trifft die Spezifikation.",
+      "begruendungen": [
+        "Richtig. Erst prüfen, was gewollt ist, dann korrigieren.",
+        "Ein Absturz sähe anders aus, ohne `Failure` mit Werten.",
+        "Die Zeile gehört zur Testdatei `rechner_test.cpp`, und es ist ein Prüfungsfehler, kein Syntaxfehler."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Tests in CMake einbinden",
+      "text": "Mit `FetchContent` holt CMake GoogleTest in einer festen Version. `gtest_discover_tests` meldet jeden einzelnen Test bei CTest an, `ctest` führt dann alle aus.",
+      "code": {
+        "sprache": "cmake",
+        "zeilen": [
+          "include(FetchContent)",
+          "FetchContent_Declare(googletest",
+          "  URL https://github.com/google/googletest/archive/refs/tags/v1.15.2.zip)",
+          "FetchContent_MakeAvailable(googletest)",
+          "",
+          "enable_testing()",
+          "add_executable(rechner_test rechner_test.cpp)",
+          "target_link_libraries(rechner_test PRIVATE rechner GTest::gtest_main)",
+          "",
+          "include(GoogleTest)",
+          "gtest_discover_tests(rechner_test)"
+        ],
+        "anmerkungen": [
+          {
+            "zeile": 3,
+            "text": "Feste Version, damit der Build reproduzierbar bleibt."
+          },
+          {
+            "zeile": 8,
+            "text": "`gtest_main` bringt eine fertige `main()`, die alle Tests ausführt."
+          }
+        ]
+      }
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Was prüft welches Makro?",
+      "paare": [
+        {
+          "links": "`EXPECT_EQ(a, b)`",
+          "rechts": "Gleichheit, der Test läuft bei Fehler weiter"
+        },
+        {
+          "links": "`ASSERT_TRUE(x)`",
+          "rechts": "Bedingung, der Test bricht bei Fehler ab"
+        },
+        {
+          "links": "`EXPECT_THROW(f(), std::invalid_argument)`",
+          "rechts": "Erwartet eine bestimmte Exception"
+        },
+        {
+          "links": "`EXPECT_NEAR(a, b, 1e-9)`",
+          "rechts": "Gleitkommavergleich mit Toleranz"
+        }
+      ],
+      "erklaerung": "Für Fehlerfälle gibt es `EXPECT_THROW` und `EXPECT_NO_THROW`. Für `std::expected` und `std::optional` prüft man einfach mit `ASSERT_TRUE(r.has_value())` und dann den Inhalt."
     },
     {
       "typ": "code-lesen",
-      "frage": "Was ist hier das Problem?",
+      "frage": "Besteht dieser Test?",
       "code": {
         "sprache": "cpp",
         "zeilen": [
-          "void starte() {",
-          "    std::string name = \"Sensor 1\";",
-          "    std::thread t([&] { log(name); });",
-          "    t.detach();",
+          "TEST(MathTest, Summe) {",
+          "    EXPECT_EQ(0.1 + 0.2, 0.3);",
           "}"
         ]
       },
       "optionen": [
-        "Undefined Behavior: `starte()` kann enden und `name` zerstören, bevor der Thread `name` benutzt",
-        "`detach` beendet den Thread sofort",
-        "Kein Problem, das Lambda hält `name` am Leben"
+        "Nein: `0.1 + 0.2` ist als `double` nicht exakt `0.3`",
+        "Ja, die Summe ist 0.3",
+        "Compilerfehler: `EXPECT_EQ` geht nicht mit `double`"
       ],
       "korrekt": 0,
-      "erklaerung": "`[&]` fängt `name` per Referenz. Nach `detach` läuft der Thread unabhängig weiter, `starte()` kehrt zurück, und `name` ist weg. Die Referenz im Thread hängt. Abhilfe: per Wert fangen (`[name]`) und auf `detach` verzichten, sodass jemand für das Ende des Threads verantwortlich bleibt.",
+      "fest": true,
+      "erklaerung": "0.1 und 0.2 sind im Binärsystem nicht exakt darstellbar. Die Summe ist `0.30000000000000004`. Für Gleitkommazahlen nimmt man `EXPECT_DOUBLE_EQ` (erlaubt wenige Rundungsschritte Abstand) oder `EXPECT_NEAR` mit einer fachlich begründeten Toleranz.",
       "begruendungen": [
         "Richtig.",
-        "`detach` trennt nur die Verbindung zum `std::thread`-Objekt. Der Thread läuft weiter.",
-        "Ein Lambda mit `[&]` hält gar nichts am Leben, es speichert nur Referenzen."
+        "Mathematisch ja, als `double` nicht.",
+        "`EXPECT_EQ` funktioniert mit `double`, vergleicht aber exakt."
       ]
-    },
-    {
-      "typ": "zuordnen",
-      "frage": "Was macht was?",
-      "paare": [
-        { "links": "`join()`", "rechts": "Wartet, bis der Thread fertig ist" },
-        { "links": "`detach()`", "rechts": "Thread läuft unabhängig weiter, warten ist nicht mehr möglich" },
-        { "links": "`joinable()`", "rechts": "Prüft, ob noch `join` oder `detach` nötig ist" },
-        { "links": "`request_stop()`", "rechts": "Bittet einen `jthread`, kooperativ aufzuhören" },
-        { "links": "`std::thread::hardware_concurrency()`", "rechts": "Hinweis auf die Anzahl gleichzeitig laufender Hardware-Threads" }
-      ],
-      "erklaerung": "„Kooperativ“ heisst: Der Thread muss selbst regelmässig nachsehen. C++ kann Threads nicht von aussen abbrechen. Das wäre auch gefährlich, weil sie dabei Sperren halten oder Daten halb geschrieben zurücklassen könnten."
-    },
-    {
-      "typ": "erklaerung",
-      "titel": "Threads sind nicht gratis",
-      "text": "Jeder Thread braucht einen eigenen Stack (unter Linux standardmässig 8 MB reserviert), und das Erzeugen kostet einige Mikrosekunden. Für viele kleine Aufgaben nimmt man deshalb einen **Thread-Pool**: eine feste Zahl von Threads, die Aufgaben aus einer Warteschlange abarbeiten.\n\nWie viel Parallelisierung überhaupt bringen kann, beschreibt das **Gesetz von Amdahl**: Ist ein Anteil *s* des Programms zwingend sequenziell, ist die Beschleunigung auf höchstens 1/*s* begrenzt, egal wie viele Kerne man hat."
     },
     {
       "typ": "multiple-choice",
-      "frage": "20 % eines Programms lassen sich nicht parallelisieren. Wie viel schneller kann es mit beliebig vielen Kernen höchstens werden?",
-      "optionen": ["5-mal", "20-mal", "unbegrenzt", "1,25-mal"],
-      "korrekt": 0,
-      "fest": true,
-      "erklaerung": "Selbst wenn die übrigen 80 % auf null Zeit schrumpfen, bleiben 20 % der ursprünglichen Laufzeit, also höchstens Faktor 1/0,2 = 5. In der Praxis kommen Kosten für Synchronisation und Datenaustausch hinzu. Deshalb lohnt es sich oft mehr, den sequenziellen Teil zu verkleinern, als weitere Kerne einzusetzen.",
+      "frage": "Was macht einen guten Unit-Test aus?",
+      "optionen": [
+        "Er läuft in Millisekunden",
+        "Er hängt nicht von anderen Tests oder deren Reihenfolge ab",
+        "Er prüft ein Verhalten und sagt das in seinem Namen",
+        "Er greift auf die echte Firmendatenbank zu, damit er realistisch ist"
+      ],
+      "korrekt": [
+        0,
+        1,
+        2
+      ],
+      "erklaerung": "Unit-Tests sollen bei jedem Build laufen. Das klappt nur, wenn sie schnell, unabhängig und eindeutig sind. Ein Name wie `EntnahmeUeberBestandWirftException` sagt beim Fehlschlag schon, was kaputt ist. Externe Systeme gehören in Integrationstests.",
       "begruendungen": [
-        "Richtig: 1 / 0,2 = 5.",
-        "20 ist der sequenzielle Anteil in Prozent, nicht der Faktor.",
-        "Der sequenzielle Teil begrenzt den Gewinn.",
-        "1,25 wäre der Faktor, wenn nur der sequenzielle Teil wegfiele."
+        "Richtig. Tausende Tests in wenigen Sekunden.",
+        "Richtig. Sonst sind Fehlschläge nicht reproduzierbar.",
+        "Richtig.",
+        "Langsam, unzuverlässig und gefährlich. Das ist kein Unit-Test mehr."
       ]
     }
   ],
-  "praxis": "Im Review fallen bei Threads immer wieder dieselben Muster auf: `detach` (wer ist verantwortlich für das Ende?), Lambdas mit `[&]`, die an Threads gehen, und Threads ohne Möglichkeit zum sauberen Beenden. Ein Programm, das sich nicht in wenigen Millisekunden geordnet herunterfahren lässt, hat fast immer einen dieser Fehler.",
+  "praxis": "Im Alltag liest du Testausgaben vor allem in der CI. Die wichtigste Zeile ist `Datei:Zeile: Failure` mit den beiden Werten. Mit `--gtest_filter=RechnerTest.*` führst du lokal nur die betroffenen Tests aus. Im Review prüfst du bei neuen Funktionen: Gibt es Tests, auch für Fehlerfälle und Grenzwerte, und beschreiben die Namen das Verhalten?",
   "labor": {
-    "titel": "Threads beobachten",
-    "anleitung": "Starte vier `jthread`s, die je eine Sekunde rechnen, und beobachte sie im System.",
+    "titel": "Ein erstes Testprojekt",
+    "anleitung": "Lege ein CMake-Projekt mit einer Bibliothek `rechner` und dem Test aus der Lektion an und führe die Tests aus.",
     "befehle": [
-      "g++ -std=c++20 -O2 -pthread threads.cpp -o threads && ./threads &",
-      "ps -L -p $! -o pid,lwp,pcpu,comm",
-      "gdb -p $! -batch -ex 'info threads'"
+      "cmake -S . -B build && cmake --build build",
+      "ctest --test-dir build --output-on-failure",
+      "./build/rechner_test --gtest_filter='RechnerTest.*' --gtest_color=yes"
     ],
-    "beobachtung": "`ps -L` zeigt jeden Thread mit eigener ID (LWP). Mit `pthread_setname_np` kannst du Threads benennen. Dann erscheinen die Namen in `ps`, `top` und im Debugger, was das Debugging enorm erleichtert."
+    "beobachtung": "`ctest` zeigt jeden Test einzeln, weil `gtest_discover_tests` sie angemeldet hat. Mit `--output-on-failure` siehst du bei Fehlern die GoogleTest-Ausgabe."
   },
   "begriffe": [
-    { "begriff": "Thread", "englisch": "thread", "erklaerung": "Ausführungsstrang innerhalb eines Prozesses mit eigenem Stack, teilt sich den Speicher mit den anderen Threads." },
-    { "begriff": "join", "englisch": "join", "erklaerung": "Auf das Ende eines Threads warten." },
-    { "begriff": "Thread-Pool", "englisch": "thread pool", "erklaerung": "Feste Menge von Threads, die Aufgaben aus einer Warteschlange abarbeiten." },
-    { "begriff": "Gesetz von Amdahl", "englisch": "Amdahl's law", "erklaerung": "Der sequenzielle Anteil eines Programms begrenzt die mögliche Beschleunigung durch Parallelisierung." }
+    {
+      "begriff": "Unit-Test",
+      "englisch": "unit test",
+      "erklaerung": "Schneller, isolierter Test einer kleinen Einheit, z. B. einer Funktion oder Klasse."
+    },
+    {
+      "begriff": "Arrange, Act, Assert",
+      "englisch": "arrange, act, assert",
+      "erklaerung": "Aufbau eines Tests in drei Teilen: vorbereiten, ausführen, prüfen."
+    },
+    {
+      "begriff": "GoogleTest",
+      "englisch": "GoogleTest",
+      "erklaerung": "Verbreitetes C++-Test-Framework mit Makros wie `TEST`, `EXPECT_EQ` und `ASSERT_TRUE`."
+    }
   ],
   "weiterlesen": [
-    { "titel": "cppreference: std::jthread", "url": "https://en.cppreference.com/w/cpp/thread/jthread" },
-    { "titel": "C++ Core Guidelines: CP – Concurrency and parallelism", "url": "https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#S-concurrency" }
+    {
+      "titel": "GoogleTest Primer",
+      "url": "https://google.github.io/googletest/primer.html"
+    },
+    {
+      "titel": "GoogleTest: Quickstart with CMake",
+      "url": "https://google.github.io/googletest/quickstart-cmake.html"
+    }
   ]
 }

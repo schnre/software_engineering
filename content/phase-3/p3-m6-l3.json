@@ -1,0 +1,120 @@
+{
+  "id": "p3-m6-l3",
+  "phase": 3,
+  "modul": "3.6 Neue Sprachmittel",
+  "titel": "C++-Standards im Überblick",
+  "lernziele": [
+    "Die wichtigsten Neuerungen von C++11 bis C++26 zuordnen",
+    "Den Standardisierungsprozess und Feature-Test-Makros kennen",
+    "Für ein Projekt einen passenden Sprachstandard begründen"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "zuordnen",
+      "frage": "Ordne die Neuerungen dem Standard zu.",
+      "paare": [
+        { "links": "C++11", "rechts": "Move-Semantik, `auto`, Lambdas, `unique_ptr`, `std::thread`" },
+        { "links": "C++17", "rechts": "`optional`, `variant`, `string_view`, `if constexpr`, Fold Expressions" },
+        { "links": "C++20", "rechts": "Concepts, Ranges, Koroutinen, Module, `<=>`, `std::span`" },
+        { "links": "C++23", "rechts": "`std::expected`, `std::print`, *deducing this*, `import std`" }
+      ],
+      "erklaerung": "C++11 war der grosse Neuanfang („modernes C++“), C++14 eine Ergänzung (generische Lambdas, `make_unique`). Seitdem kommt alle drei Jahre ein neuer Standard. C++26 bringt unter anderem **statische Reflexion**, **Contracts**, `std::execution`, `std::inplace_vector` und Härtungen der Standardbibliothek."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Was ist die wichtigste Neuerung von C++26 für Bibliotheksautoren und Serialisierung?",
+      "optionen": [
+        "**Statische Reflexion**: Code kann zur Übersetzungszeit die Member eines Typs durchlaufen und daraus Code erzeugen",
+        "Ein Garbage Collector",
+        "Die Abschaffung von Zeigern"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Mit Reflexion (`^^T` liefert eine Beschreibung eines Typs) kann man Serialisierer, Enum-zu-String-Umwandlungen, Bindings und Vergleiche generisch schreiben, ohne Makros oder Codegeneratoren. Das wird viel Boilerplate in Embedded- und Kommunikationscode ersetzen, sobald die Compiler es unterstützen.",
+      "begruendungen": [
+        "Richtig.",
+        "C++ hat keinen Garbage Collector und bekommt auch keinen.",
+        "Zeiger bleiben, Rückwärtskompatibilität ist ein Grundprinzip."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Wie ein Standard entsteht",
+      "text": "C++ wird von der ISO-Arbeitsgruppe **WG21** entwickelt. Vorschläge heissen *Papers* (z. B. P2996 für Reflexion) und durchlaufen Studiengruppen und die Gruppen für Sprache und Bibliothek. Ein Standard erscheint im Drei-Jahres-Takt (*train model*): Was nicht fertig ist, fährt mit dem nächsten Zug.\n\nCompiler setzen Neuerungen oft schon vor der Veröffentlichung um, andere erst Jahre danach. Ob ein Sprachmittel verfügbar ist, prüft man mit **Feature-Test-Makros** wie `__cpp_concepts` oder `__cpp_lib_expected`. Eine aktuelle Übersicht der Compilerunterstützung bietet cppreference."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Wozu dient dieser Code?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "#include <version>",
+          "",
+          "#if defined(__cpp_lib_expected) && __cpp_lib_expected >= 202202L",
+          "  #include <expected>",
+          "  template <class T, class E> using Ergebnis = std::expected<T, E>;",
+          "#else",
+          "  #include <tl/expected.hpp>",
+          "  template <class T, class E> using Ergebnis = tl::expected<T, E>;",
+          "#endif"
+        ]
+      },
+      "optionen": [
+        "Er verwendet `std::expected`, wenn die Standardbibliothek es anbietet, und sonst eine kompatible Bibliothek",
+        "Er prüft, ob der Code Exceptions verwendet",
+        "Er wählt die C++-Version beim Übersetzen"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Der Header `<version>` stellt alle Bibliotheks-Feature-Makros bereit. Das Muster erlaubt es, neue Typen früh zu verwenden und mit älteren Toolchains kompatibel zu bleiben. In Embedded-Projekten mit mehreren Compilern (GCC für das Ziel, Clang für Tests) ist das häufig nötig.",
+      "begruendungen": [
+        "Richtig.",
+        "Es geht um die Verfügbarkeit eines Bibliothekstyps.",
+        "Die Sprachversion wird mit `-std=` gewählt, nicht im Code."
+      ]
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Ein Embedded-Projekt verwendet einen zertifizierten Compiler, der C++17 unterstützt. Das Team möchte Concepts verwenden. Was ist die beste Reaktion?",
+      "optionen": [
+        "Die Vorteile gegen die Kosten eines Toolchain-Wechsels und einer neuen Zertifizierung abwägen. Bis dahin `if constexpr` und `static_assert` mit Type Traits verwenden",
+        "Sofort auf den neuesten GCC wechseln",
+        "Concepts mit Makros nachbauen"
+      ],
+      "korrekt": 0,
+      "erklaerung": "In regulierten Branchen (Modul 12.1) ist die Toolchain Teil der Qualifizierung. Ein Wechsel kostet Zeit und Geld. Viele Vorteile neuer Standards lassen sich mit älteren Mitteln teilweise erreichen. Eine solche Entscheidung gehört in einen ADR (Modul 10.7), mit Begründung und Zeitpunkt für die Überprüfung.",
+      "begruendungen": [
+        "Richtig.",
+        "Das kann eine Zertifizierung ungültig machen.",
+        "Das ergibt schwer lesbaren Code ohne die eigentlichen Vorteile."
+      ]
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze.",
+      "text": "Ein neuer C++-Standard erscheint alle {{?}} Jahre. Ob ein Sprachmittel verfügbar ist, prüft man mit {{?}}.",
+      "luecken": [{ "loesungen": ["drei"] }, { "loesungen": ["Feature-Test-Makros"] }],
+      "auswahl": ["drei", "Feature-Test-Makros", "zwei", "Compilerwarnungen"],
+      "erklaerung": "Der Rhythmus seit C++11: 2011, 2014, 2017, 2020, 2023, 2026."
+    }
+  ],
+  "praxis": "Als Senior-Entwickler gestaltest du mit, welcher Standard im Projekt gilt und welche Sprachmittel erwünscht sind. Wichtig ist nicht, jede Neuerung sofort einzusetzen, sondern die wirksamsten: `span`, `optional`, `variant`, Concepts und `constexpr` machen Code sicherer und klarer. Ein Blick in die Konferenzvorträge (CppCon, Meeting C++, C++Now) hält dich auf dem Laufenden.",
+  "labor": {
+    "titel": "Was kann mein Compiler?",
+    "anleitung": "Schreibe ein Programm, das eine Reihe von Feature-Test-Makros ausgibt, und übersetze es mit verschiedenen `-std=`-Optionen und Compilern, auch mit deiner Embedded-Toolchain.",
+    "befehle": [
+      "g++ -std=c++20 features.cpp -o f20 && ./f20",
+      "g++ -std=c++23 features.cpp -o f23 && ./f23",
+      "arm-none-eabi-g++ -std=c++20 -E -dM -x c++ /dev/null | grep __cpp_ | sort"
+    ],
+    "beobachtung": "Der letzte Befehl zeigt alle vordefinierten Sprach-Makros, ohne ein Programm auf dem Ziel auszuführen. Vergleiche die Ausgabe der Toolchains."
+  },
+  "begriffe": [
+    { "begriff": "WG21", "englisch": "ISO/IEC JTC1/SC22/WG21", "erklaerung": "Die ISO-Arbeitsgruppe, die den C++-Standard entwickelt." },
+    { "begriff": "Feature-Test-Makro", "englisch": "feature-test macro", "erklaerung": "Makro, das anzeigt, ob und in welcher Version ein Sprach- oder Bibliotheksmerkmal verfügbar ist." },
+    { "begriff": "Statische Reflexion", "englisch": "static reflection", "erklaerung": "Zugriff auf Typinformationen zur Übersetzungszeit, um daraus Code zu erzeugen (C++26)." }
+  ],
+  "weiterlesen": [
+    { "titel": "cppreference: Compiler support for C++", "url": "https://en.cppreference.com/w/cpp/compiler_support" },
+    { "titel": "isocpp.org: Current Status", "url": "https://isocpp.org/std/status" }
+  ]
+}

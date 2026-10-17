@@ -24,7 +24,11 @@
           "int main() { Hund h; rufe(h); }"
         ]
       },
-      "optionen": ["`Wuff`", "`...`", "Compilerfehler"],
+      "optionen": [
+        "`Wuff`",
+        "`...`",
+        "Compilerfehler"
+      ],
       "korrekt": 0,
       "fest": true,
       "erklaerung": "`rufe` kennt beim Kompilieren nur `Tier`. Trotzdem wird zur Laufzeit `Hund::sprich` aufgerufen. Wie kann das gehen, wenn der Compiler den echten Typ gar nicht kennt? Ohne `virtual` wäre die Ausgabe `...`.",
@@ -39,7 +43,11 @@
       "titel": "Die Maschinerie",
       "text": "Für jede Klasse mit virtuellen Funktionen erzeugt der Compiler eine **vtable**: eine Tabelle von Funktionszeigern, eine pro Klasse, abgelegt in `.rodata`. Jedes Objekt einer solchen Klasse bekommt einen versteckten Zeiger, den **vptr**, der auf die vtable seiner Klasse zeigt. Der Konstruktor setzt ihn.\n\nEin Aufruf `t.sprich()` wird zu: vptr aus dem Objekt lesen, Eintrag für `sprich` aus der vtable lesen, indirekt dorthin springen. Der Standard schreibt diese Umsetzung nicht vor, aber alle verbreiteten Compiler machen es so.",
       "diagramm": {
-        "knoten": ["Objekt `h`: [vptr | Daten]", "vtable `Hund`: [&Hund::sprich, …]", "Code `Hund::sprich`"],
+        "knoten": [
+          "Objekt `h`: [vptr | Daten]",
+          "vtable `Hund`: [&Hund::sprich, …]",
+          "Code `Hund::sprich`"
+        ],
         "beschriftung": "Ein virtueller Aufruf folgt zwei Zeigern."
       }
     },
@@ -55,7 +63,12 @@
           "std::cout << sizeof(A) << ' ' << sizeof(B);"
         ]
       },
-      "optionen": ["`4 4`", "`4 8`", "`4 16`", "`8 16`"],
+      "optionen": [
+        "`4 4`",
+        "`4 8`",
+        "`4 16`",
+        "`8 16`"
+      ],
       "korrekt": 2,
       "fest": true,
       "erklaerung": "`B` enthält zusätzlich den vptr (8 Byte). Damit der Zeiger richtig ausgerichtet ist, wird `B` auf ein Vielfaches von 8 aufgefüllt: 8 (vptr) + 4 (`x`) + 4 (Padding) = 16. Bei Millionen kleiner Objekte ist das spürbar.",
@@ -93,7 +106,11 @@
           "int main() { Abgeleitet a; }"
         ]
       },
-      "optionen": ["`B`", "`A`", "`BA`"],
+      "optionen": [
+        "`B`",
+        "`A`",
+        "`BA`"
+      ],
       "korrekt": 0,
       "fest": true,
       "erklaerung": "Während der Konstruktor von `Basis` läuft, ist das Objekt noch kein `Abgeleitet`. Dessen Member sind noch nicht initialisiert. Deshalb zeigt der vptr in dieser Phase auf die vtable von `Basis`, und virtuelle Aufrufe gehen an `Basis::init`. Dasselbe gilt im Destruktor. Virtuelle Aufrufe in Konstruktoren und Destruktoren sind daher fast immer ein Designfehler.",
@@ -156,12 +173,30 @@
     "beobachtung": "Die vtable enthält neben den Funktionszeigern einen Offset und einen Zeiger auf die Typinformation (für `dynamic_cast` und `typeid`). `nm` zeigt `V vtable for Hund`."
   },
   "begriffe": [
-    { "begriff": "vtable", "englisch": "virtual method table", "erklaerung": "Tabelle mit Funktionszeigern, eine pro polymorpher Klasse." },
-    { "begriff": "vptr", "englisch": "virtual table pointer", "erklaerung": "Versteckter Zeiger in jedem polymorphen Objekt, der auf die vtable seiner Klasse zeigt." },
-    { "begriff": "Devirtualisierung", "englisch": "devirtualization", "erklaerung": "Optimierung, die einen virtuellen Aufruf durch einen direkten ersetzt, wenn der Typ feststeht." }
+    {
+      "begriff": "vtable",
+      "englisch": "virtual method table",
+      "erklaerung": "Tabelle mit Funktionszeigern, eine pro polymorpher Klasse."
+    },
+    {
+      "begriff": "vptr",
+      "englisch": "virtual table pointer",
+      "erklaerung": "Versteckter Zeiger in jedem polymorphen Objekt, der auf die vtable seiner Klasse zeigt."
+    },
+    {
+      "begriff": "Devirtualisierung",
+      "englisch": "devirtualization",
+      "erklaerung": "Optimierung, die einen virtuellen Aufruf durch einen direkten ersetzt, wenn der Typ feststeht."
+    }
   ],
   "weiterlesen": [
-    { "titel": "cppreference: virtual function specifier", "url": "https://en.cppreference.com/w/cpp/language/virtual" },
-    { "titel": "Itanium C++ ABI: Virtual Table Layout", "url": "https://itanium-cxx-abi.github.io/cxx-abi/abi.html#vtable" }
+    {
+      "titel": "cppreference: virtual function specifier",
+      "url": "https://en.cppreference.com/w/cpp/language/virtual"
+    },
+    {
+      "titel": "Itanium C++ ABI: Virtual Table Layout",
+      "url": "https://itanium-cxx-abi.github.io/cxx-abi/abi.html#vtable"
+    }
   ]
 }

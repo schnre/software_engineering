@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { erreichteAbzeichen, neueAbzeichen } from '../src/progress/abzeichen';
 import { lektionAbschliessen, wiederholungAbschliessen } from '../src/progress/aktionen';
 import { plusTage, tageZwischen } from '../src/progress/datum';
 import { importText, exportText } from '../src/progress/export';
@@ -35,9 +36,9 @@ describe('Streak', () => {
 describe('Level', () => {
   it('ordnet XP den Stufen zu', () => {
     expect(levelFuer(0).level.name).toBe('Junior');
-    expect(levelFuer(300).level.name).toBe('Mid');
+    expect(levelFuer(450).level.name).toBe('Mid');
     expect(levelFuer(5000).level.name).toBe('Principal');
-    expect(levelFuer(150).anteil).toBeCloseTo(0.5);
+    expect(levelFuer(225).anteil).toBeCloseTo(0.5);
   });
 });
 
@@ -96,6 +97,24 @@ describe('Leitner', () => {
   });
 });
 
+describe('Abzeichen', () => {
+  it('werden aus dem Fortschritt berechnet und neue erkannt', () => {
+    const f = leererFortschritt();
+    const k = { fertigePhasen: new Set<number>(), lektionenGesamt: 3 };
+    const vorher = erreichteAbzeichen(f, k);
+    expect(vorher.size).toBe(0);
+    lektionAbschliessen(f, 'p1-m1-l1', [{ schluessel: 'a', korrekt: true }], '2026-05-01');
+    const nachher = erreichteAbzeichen(f, { ...k, fertigePhasen: new Set([1]) });
+    expect(neueAbzeichen(vorher, nachher).map((a) => a.id)).toEqual(['erste', 'perfekt1', 'phase1']);
+    expect(f.perfekt).toBe(1);
+  });
+
+  it('Tagesziel wird beim Import nur mit erlaubten Werten übernommen', () => {
+    expect(normalisieren({ version: 1, einstellungen: { tagesziel: 35 } }).einstellungen.tagesziel).toBe(35);
+    expect(normalisieren({ version: 1, einstellungen: { tagesziel: 999 } }).einstellungen.tagesziel).toBe(20);
+  });
+});
+
 describe('Export und Import', () => {
   it('überträgt den Fortschritt verlustfrei', () => {
     const f = leererFortschritt();
@@ -114,5 +133,18 @@ describe('Export und Import', () => {
     const f = normalisieren({ version: 1, xp: -5, leitner: { a: { box: 9, faellig: '2026-01-01' }, b: { box: 1, faellig: 'gestern' } } });
     expect(f.xp).toBe(0);
     expect(f.leitner).toEqual({ a: { box: 5, faellig: '2026-01-01' } });
+  });
+
+  it('übernimmt Fortschritt aus Version 1 mit der alten Phasen-Nummerierung', () => {
+    const l = { abgeschlossenAm: '2026-10-16', besteGenauigkeit: 1, durchgaenge: 1 };
+    const f = normalisieren({
+      version: 1,
+      lektionen: { 'p1-m1-l1': l, 'p3-m2-l1': l, 'p8-m1-l2': l },
+      leitner: { 'p5-m3-l1#2': { box: 2, faellig: '2026-10-18' } },
+    });
+    expect(f.version).toBe(2);
+    expect(Object.keys(f.lektionen).sort()).toEqual(['p1-m1-l1', 'p13-m1-l2', 'p4-m2-l1']);
+    expect(Object.keys(f.leitner)).toEqual(['p8-m3-l1#2']);
+    expect(Object.keys(normalisieren({ version: 2, lektionen: { 'p3-m2-l1': l } }).lektionen)).toEqual(['p3-m2-l1']);
   });
 });

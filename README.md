@@ -1,14 +1,15 @@
 # Engineering Academy
 
-Software Engineering für C++-Entwickler in kurzen, spielerischen Lektionen, ähnlich wie Mimo oder Duolingo. Der Lernpfad führt von Compiler, Linker und Build-Systemen über C++-Fundamente, Testen, Nebenläufigkeit und CI/CD bis zu Architektur und den Kompetenzen, die einen Senior ausmachen.
+Software Engineering für C++- und Embedded-Entwickler in kurzen, spielerischen Lektionen, ähnlich wie Mimo oder Duolingo. Der Lernpfad führt von Compiler, Linker und Build-Systemen über modernes C++, Testen und Nebenläufigkeit zu Mikrocontrollern, RTOS und Embedded Linux, weiter zu CI/CD, Architektur auf allen Ebenen, funktionaler Sicherheit und Security bis zu den Kompetenzen, die einen Senior ausmachen.
 
 **Live:** https://schnre.github.io/software_engineering/
 
 - Lektionen von 3 bis 7 Minuten, mindestens die Hälfte jeder Lektion sind Übungen
 - 8 Übungstypen, alle per Antippen, Maus oder Tastatur bedienbar
-- XP, Tages-Streak, Level (Junior → Mid → Senior → Principal)
+- XP, Tages-Streak, einstellbares Tagesziel, Level (Junior → Mid → Senior → Principal), 17 Abzeichen
 - Wiederholung nach dem Leitner-System (5 Boxen) und Mischtraining über Module hinweg
 - Labor-Aufgaben für den eigenen Rechner, Glossar, Links auf Primärquellen
+- Modernes, verspieltes Design: Lernpfad im Zickzack, Farbe pro Phase, Fortschrittsringe, Aktivitätskalender, Konfetti bei Erfolgen
 - Kein Backend, keine Konten, keine Tracker. Der Fortschritt bleibt im Browser und lässt sich als JSON exportieren
 - Funktioniert offline, installierbar als App, heller und dunkler Modus
 
@@ -17,17 +18,22 @@ Software Engineering für C++-Entwickler in kurzen, spielerischen Lektionen, äh
 | Phase | Inhalt | Lektionen |
 |---|---|---|
 | 1 Unter der Haube | Präprozessor, Compiler, Linker, ODR, Linkage, Mangling, Bibliotheken, ELF, Linker-Skripte, Toolchains, Cross-Kompilierung, Make, CMake, Ninja, Bazel, reproduzierbare Builds | 18 |
-| 2 C++-Fundamente | Speicherlayout, Lebenszeit, RAII, Smart Pointers, Wertkategorien, Move-Semantik, Rule of Zero, vtable, Slicing, Templates, `constexpr`, Undefined Behavior, Fehlerbehandlung, fremde Codebases lesen | 19 |
-| 3 Testen, Debuggen, Analysieren | GoogleTest, Fixtures, GoogleMock, Testpyramide, TDD, gdb, Core Dumps, `git bisect`, Sanitizer, Valgrind, Warnungen, clang-tidy, clang-format | 12 |
-| 4 Nebenläufigkeit und Performance | Threads, Data Races, Mutexe, Deadlocks, Condition Variables, Futures, Atomics, Speichermodell, Caches, Profiling, Allokationen | 10 |
-| 5 CI/CD | CI, Continuous Delivery, Pipeline-Stufen, Quality Gates, Jenkins, Jenkinsfile, Shared Libraries, GitHub Actions, die Pipeline dieser App, Branching, Rebase | 13 |
-| 6 Architektur in grossen Projekten | Kohäsion und Kopplung, Module schneiden, Header als Verträge, API/ABI, Include-Hygiene, Dependency Injection, Zyklen, Paketmanager, Code-Reviews | 10 |
-| 7 Architektur-Konzepte in C++ | SOLID, Law of Demeter, Komposition, Schichten, HAL, Ports & Adapters, State Machine, Observer, Strategy, Adapter, Facade, Singleton, Templates vs. `virtual`, CRTP, PIMPL, starke Typen, MISRA, ADRs | 17 |
-| 8 Senior-Kompetenzen | Technische Schulden, Legacy-Code, Trade-offs, umkehrbare Entscheidungen, Schätzen, Risiken, Kommunikation, Mentoring | 8 |
+| 2 C++-Fundamente | Speicherlayout, Lebenszeit, RAII, Smart Pointers, Wertkategorien, Move-Semantik, Rule of Zero, vtable, Slicing, Templates, `constexpr`, Undefined Behavior, Fehlerbehandlung, fremde Codebases lesen | 18 |
+| 3 Fortgeschrittenes C++ | Variadische Templates, Fold Expressions, Type Traits, SFINAE, `if constexpr`, Concepts, Lambdas, Ranges, Wertsemantik, `<=>`, Operatoren, `span`, `variant`, PMR, Alignment, `bit_cast`, Koroutinen, Module, C++11 bis C++26 | 14 |
+| 4 Testen, Debuggen, Analysieren | GoogleTest, Fixtures, GoogleMock, Testpyramide, TDD, gdb, Core Dumps, `git bisect`, Sanitizer, Valgrind, Warnungen, clang-tidy, clang-format | 12 |
+| 5 Nebenläufigkeit und Performance | Threads, Data Races, Mutexe, Deadlocks, Condition Variables, Futures, Atomics, Speichermodell, Caches, Profiling, Allokationen | 10 |
+| 6 Embedded: Hardware verstehen | Mikrocontroller, Memory-mapped I/O, `volatile`, Bitmanipulation, Register in C++, Takt, GPIO, Timer, PWM, Interrupts, ISR-Daten, UART, SPI, I²C, CAN, ADC, DMA, Startcode, Bootloader, Updates, Watchdog, Low Power | 15 |
+| 7 Embedded-Software und RTOS | Superloop, Echtzeit, WCET, RMS, Tasks, Scheduler, Queues, Mutexe, Prioritätsinversion, Speicher ohne Heap, ETL, Kosten von Sprachmitteln, Zero-Cost-Abstraktionen, Embedded Linux, Device Tree, Yocto, PREEMPT_RT, SWD, GDB, HardFaults, Tracing | 13 |
+| 8 CI/CD | CI, Continuous Delivery, Pipeline-Stufen, Quality Gates, Jenkins, Jenkinsfile, Shared Libraries, GitHub Actions, die Pipeline dieser App, Branching, Rebase | 13 |
+| 9 Architektur in grossen Projekten | Kohäsion und Kopplung, Module schneiden, Header als Verträge, API/ABI, Include-Hygiene, Dependency Injection, Zyklen, Paketmanager, Code-Reviews | 10 |
+| 10 Architektur-Konzepte in C++ | SOLID, Law of Demeter, Komposition, Schichten, HAL, Ports & Adapters, State Machine, Observer, Strategy, Adapter, Facade, Singleton, Templates vs. `virtual`, CRTP, PIMPL, starke Typen, MISRA, ADRs | 17 |
+| 11 Architekturstile und Systemarchitektur | Architekturstile, Publish-Subscribe, Active Objects, HSM, Plugins, ABI, Pipes & Filters, IPC, Shared Memory, Serialisierung, Endianness, Protobuf, AUTOSAR Classic und Adaptive, SOME/IP, ROS 2, DDS, datenorientiertes Design, ECS, arc42, C4, ATAM | 13 |
+| 12 Funktionale Sicherheit und Security | IEC 61508, ISO 26262, IEC 62304, ASIL/SIL, V-Modell, Traceability, MC/DC, sichere Zustände, Redundanz, Contracts, MISRA C++:2023, STRIDE, Cyber Resilience Act, SBOM, Secure Boot, Schlüssel, Härtung, Fuzzing | 7 |
+| 13 Senior-Kompetenzen | Technische Schulden, Legacy-Code, Trade-offs, umkehrbare Entscheidungen, Schätzen, Risiken, Kommunikation, Mentoring | 8 |
 
-Zusammen 106 Lektionen. Neue Lektionen lassen sich jederzeit ergänzen, siehe unten.
+Zusammen 168 Lektionen. Neue Lektionen lassen sich jederzeit ergänzen, siehe unten.
 
-Warum es acht statt der ursprünglich fünf Phasen sind und welche Lernprinzipien die App umsetzt, steht in [ADR 0005](docs/adr/0005-lerndidaktik.md).
+Welche Lernprinzipien die App umsetzt, steht in [ADR 0005](docs/adr/0005-lerndidaktik.md). Warum Embedded, Systemarchitektur und Sicherheit dazugekommen sind und wie das Design aufgebaut ist, steht in [ADR 0008](docs/adr/0008-embedded-architektur-und-neues-design.md).
 
 ## Lokal starten
 
@@ -49,11 +55,11 @@ npm run preview    # gebaute Version ansehen
 ├─ src/
 │  ├─ engine/      Curriculum laden, Sitzungsablauf, Freischaltung
 │  ├─ exercises/   ein Modul pro Übungstyp
-│  ├─ progress/    XP, Streak, Leitner-Boxen, localStorage, Export/Import
-│  └─ ui/          Lernpfad, Lektion, Ergebnis, Wiederholen, Glossar, Profil
+│  ├─ progress/    XP, Streak, Tagesziel, Abzeichen, Leitner-Boxen, localStorage, Export/Import
+│  └─ ui/          Lernpfad, Lektion, Ergebnis, Wiederholen, Glossar, Profil, Icons, Konfetti
 ├─ content/
 │  ├─ curriculum.json   Reihenfolge von Phasen, Modulen und Lektionen
-│  └─ phase-1 … phase-8 eine JSON-Datei pro Lektion
+│  └─ phase-1 … phase-13 eine JSON-Datei pro Lektion
 ├─ schema/lesson.schema.json
 ├─ scripts/validate-content.mjs
 ├─ tests/
@@ -120,7 +126,7 @@ Optionale Felder pro Schritt: `hinweis` (Tipp-Knopf) und `id`. Vergib eine `id`,
 
 Code steht als Array von Zeilen: `"code": { "sprache": "cpp", "datei": "main.cpp", "zeilen": ["int main() {", "}"], "anmerkungen": [{ "zeile": 1, "text": "…" }] }`. Sprachen: `cpp`, `c`, `bash`, `cmake`, `make`, `yaml`, `groovy`, `json`, `asm`, `starlark`, `python`, `linker`, `text`.
 
-Texte unterstützen `Code`, **fett**, *kursiv*, Aufzählungen mit `- ` und Absätze (Leerzeile).
+Texte unterstützen `Code`, **fett**, *kursiv*, Aufzählungen mit `- `, nummerierte Listen, Absätze (Leerzeile) und in Erklärungen Codeblöcke mit drei Backticks (ohne Leerzeilen im Block).
 
 ### Weitere Felder einer Lektion
 

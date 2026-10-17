@@ -1,0 +1,97 @@
+{
+  "id": "p12-m1-l1",
+  "phase": 12,
+  "modul": "12.1 Normen und Prozesse",
+  "titel": "Funktionale Sicherheit und ihre Normen",
+  "lernziele": [
+    "Funktionale Sicherheit von Security unterscheiden",
+    "Die wichtigsten Normen und ihre Sicherheitsstufen kennen",
+    "Verstehen, wie aus einer Gefährdungsanalyse Anforderungen an die Software entstehen"
+  ],
+  "dauerMinuten": 7,
+  "schritte": [
+    {
+      "typ": "zuordnen",
+      "frage": "Safety oder Security? Ordne zu.",
+      "paare": [
+        { "links": "Funktionale Sicherheit (Safety)", "rechts": "Schutz von Menschen vor Fehlfunktionen des Systems" },
+        { "links": "Informationssicherheit (Security)", "rechts": "Schutz des Systems vor absichtlichen Angriffen" },
+        { "links": "Zufälliger Hardwarefehler", "rechts": "Ein Bit im RAM kippt durch Strahlung" },
+        { "links": "Systematischer Fehler", "rechts": "Ein Softwarefehler, der in jedem Gerät unter denselben Bedingungen auftritt" }
+      ],
+      "erklaerung": "Beide hängen zusammen: Ein Angreifer, der die Bremse beeinflussen kann, ist auch ein Safety-Problem. Darum gibt es zunehmend gemeinsame Analysen (z. B. ISO 26262 und ISO/SAE 21434 im Fahrzeug). Software hat übrigens nur **systematische** Fehler: Sie nutzt sich nicht ab, sie ist von Anfang an falsch oder richtig."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Welche Norm gilt wo?",
+      "paare": [
+        { "links": "IEC 61508", "rechts": "Grundnorm für sicherheitsbezogene elektronische Systeme, Industrie" },
+        { "links": "ISO 26262", "rechts": "Strassenfahrzeuge" },
+        { "links": "IEC 62304", "rechts": "Software in Medizinprodukten" },
+        { "links": "DO-178C", "rechts": "Software in der Luftfahrt" },
+        { "links": "EN 50128 / EN 50716", "rechts": "Software für Bahnanwendungen" }
+      ],
+      "erklaerung": "Die Branchennormen sind meist von IEC 61508 abgeleitet und teilen Grundideen: Gefährdungsanalyse, Sicherheitsstufen, definierter Lebenszyklus, Nachweise und Unabhängigkeit der Prüfung. Für Maschinen gibt es zusätzlich ISO 13849 und IEC 62061."
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Von der Gefährdung zur Sicherheitsstufe",
+      "text": "Am Anfang steht eine **Gefährdungs- und Risikoanalyse** (im Fahrzeug HARA): Welche Fehlfunktionen können wen gefährden? Für jede Gefährdung bewertet man:\n\n- **Schwere** (Severity): von leichten Verletzungen bis tödlich\n- **Häufigkeit der Situation** (Exposure)\n- **Beherrschbarkeit** (Controllability) durch Fahrer oder Bediener\n\nDaraus ergibt sich eine Sicherheitsstufe: **ASIL** A bis D in ISO 26262 (D ist am strengsten, QM heisst ohne besondere Anforderung), **SIL** 1 bis 4 in IEC 61508, Software-Sicherheitsklasse A bis C in IEC 62304. Die Stufe bestimmt, welche Methoden in Entwurf, Code und Test vorgeschrieben oder empfohlen sind."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Eine Fehlfunktion der elektrischen Lenkung kann bei hoher Geschwindigkeit zu tödlichen Unfällen führen, die Situation ist häufig, und der Fahrer kann sie kaum beherrschen. Welche Stufe ist zu erwarten?",
+      "optionen": ["ASIL D", "ASIL A", "QM"],
+      "korrekt": 0,
+      "erklaerung": "Höchste Schwere, hohe Häufigkeit und geringe Beherrschbarkeit ergeben ASIL D. Typische ASIL-D-Funktionen sind Lenkung, Bremse und Airbag. Für die Software heisst das unter anderem: formal geprüfte Anforderungen, eingeschränkte Sprachmittel (MISRA), hohe Testabdeckung bis MC/DC, unabhängige Reviews und ein qualifizierter Compiler.",
+      "begruendungen": [
+        "Richtig.",
+        "ASIL A gilt für deutlich geringere Risiken.",
+        "QM bedeutet: keine sicherheitsrelevante Gefährdung."
+      ]
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Wie kann man vermeiden, dass die gesamte Software eines Steuergeräts nach ASIL D entwickelt werden muss?",
+      "optionen": [
+        "Durch **Freiheit von Rückwirkung** (*freedom from interference*): Sicherheitskritische Teile werden räumlich und zeitlich von den anderen getrennt, etwa mit MPU, getrennten Kernen oder Partitionen",
+        "Indem man die Sicherheitsstufe im Dokument herabsetzt",
+        "Indem man nur die Hauptfunktion testet"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Läuft QM-Code im selben Adressraum, könnte er durch einen Speicherfehler die ASIL-Funktion beschädigen. Dann gilt die höchste Stufe für alles. Mit Speicherschutz (MPU), zeitlicher Überwachung und geprüften Kommunikationswegen (E2E-Schutz) kann man **gemischt kritische** Systeme bauen. Das ist eine zentrale Architekturaufgabe.",
+      "begruendungen": [
+        "Richtig.",
+        "Die Stufe folgt aus der Analyse, nicht aus dem Wunsch.",
+        "Die Norm verlangt Nachweise für alle Teile."
+      ]
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze.",
+      "text": "In ISO 26262 ist ASIL {{?}} die strengste Stufe. In IEC 61508 heissen die Stufen {{?}} 1 bis 4.",
+      "luecken": [{ "loesungen": ["D"] }, { "loesungen": ["SIL"] }],
+      "auswahl": ["D", "SIL", "A", "PL"],
+      "erklaerung": "PL (Performance Level a bis e) ist die Einteilung aus ISO 13849 für Maschinensteuerungen."
+    }
+  ],
+  "praxis": "Als Entwickler in einem Safety-Projekt merkst du die Norm vor allem an Prozessen: Anforderungen mit IDs, Reviews mit Protokoll, Code nach Richtlinien, Testabdeckung, Werkzeuge mit Qualifizierung, Änderungen nur über Change Requests. Das wirkt anfangs schwerfällig. Es dient aber dazu, systematische Fehler zu verhindern, und die Disziplin macht dich auch in anderen Projekten besser.",
+  "labor": {
+    "titel": "Eine kleine Gefährdungsanalyse",
+    "anleitung": "Nimm ein Gerät deiner Wahl (z. B. einen elektrischen Rasenmäher-Roboter) und erstelle eine Tabelle mit fünf Fehlfunktionen, ihren Gefährdungen und einer Bewertung von Schwere, Häufigkeit und Beherrschbarkeit. Leite für die kritischste ein Sicherheitsziel ab.",
+    "befehle": [
+      "mkdir -p doc/safety && touch doc/safety/gefaehrdungsanalyse.md"
+    ],
+    "beobachtung": "Ein Sicherheitsziel lautet zum Beispiel: „Das Messer muss innerhalb von 1 s stoppen, wenn das Gerät angehoben wird.“ Daraus folgen technische Anforderungen an Sensoren, Software und Abschaltpfad."
+  },
+  "begriffe": [
+    { "begriff": "Funktionale Sicherheit", "englisch": "functional safety", "erklaerung": "Freiheit von unvertretbaren Risiken durch Fehlfunktionen elektrischer und elektronischer Systeme." },
+    { "begriff": "ASIL", "englisch": "automotive safety integrity level", "erklaerung": "Sicherheitsstufe A bis D nach ISO 26262." },
+    { "begriff": "SIL", "englisch": "safety integrity level", "erklaerung": "Sicherheitsstufe 1 bis 4 nach IEC 61508." },
+    { "begriff": "Freiheit von Rückwirkung", "englisch": "freedom from interference", "erklaerung": "Nachweis, dass weniger kritische Teile die kritischen nicht beeinträchtigen können." }
+  ],
+  "weiterlesen": [
+    { "titel": "IEC: Functional safety and IEC 61508", "url": "https://www.iec.ch/functional-safety" },
+    { "titel": "ISO 26262-1:2018 Road vehicles – Functional safety", "url": "https://www.iso.org/standard/68383.html" }
+  ]
+}

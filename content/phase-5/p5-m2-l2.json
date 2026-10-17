@@ -1,152 +1,211 @@
 {
   "id": "p5-m2-l2",
   "phase": 5,
-  "modul": "5.2 Pipeline-Stufen und Quality Gates",
-  "titel": "Quality Gates",
+  "modul": "5.2 Synchronisation",
+  "titel": "Futures, std::async und parallele Algorithmen",
   "lernziele": [
-    "Erklären, was ein Quality Gate ist",
-    "Sinnvolle Bedingungen für Gates auswählen",
-    "Gates mit Abhängigkeiten zwischen Jobs und Branch Protection umsetzen"
+    "Ergebnisse mit `std::future` aus einem anderen Thread abholen",
+    "Fallen von `std::async` kennen",
+    "Parallele Algorithmen der Standardbibliothek korrekt einsetzen"
   ],
   "dauerMinuten": 6,
   "schritte": [
     {
-      "typ": "multiple-choice",
-      "frage": "Was ist ein **Quality Gate**?",
-      "optionen": [
-        "Eine automatisch geprüfte Bedingung, die erfüllt sein muss, bevor eine Änderung die nächste Stufe erreicht",
-        "Ein Meeting, in dem das Team über die Qualität eines Releases spricht",
-        "Ein Tool, das die Code-Qualität in Prozent angibt"
-      ],
-      "korrekt": 0,
-      "erklaerung": "Ein Gate ist eine Schranke mit klarer, objektiver Bedingung: alle Tests grün, keine neuen Warnungen, mindestens ein Review. Ist sie nicht erfüllt, geht es nicht weiter, weder zum Merge noch zur Auslieferung.",
-      "begruendungen": [
-        "Richtig.",
-        "Ein Meeting kann eine Freigabe sein, ist aber kein automatisches Gate.",
-        "Kennzahlen können Teil eines Gates sein, das Gate ist aber die Regel, die darauf aufbaut."
-      ]
-    },
-    {
-      "typ": "erklaerung",
-      "titel": "Wo Gates stehen",
-      "text": "- **Vor dem Merge**: Der Pull Request braucht grüne Pflichtprüfungen (*required status checks*) und ein Review. Umgesetzt mit **Branch Protection** auf `main`, oft zusätzlich mit einer Merge Queue.\n- **Vor dem Release**: Systemtests bestanden, keine offenen kritischen Fehler, keine Abhängigkeit mit bekannter kritischer Sicherheitslücke, bei regulierten Produkten zusätzlich eine dokumentierte Freigabe.\n\nGute Gates sind **objektiv**, **automatisch** und **zuverlässig**. Ein Gate, das oft ohne Grund rot ist, wird umgangen, und dann schützt es nichts mehr."
-    },
-    {
-      "typ": "zuordnen",
-      "frage": "Wovor schützt welches Gate?",
-      "paare": [
-        { "links": "Alle Tests grün", "rechts": "Regressionen in bestehendem Verhalten" },
-        { "links": "Keine neuen Warnungen oder clang-tidy-Funde", "rechts": "Schleichende Verschlechterung der Codequalität" },
-        { "links": "Mindestens ein Review-Approval", "rechts": "Design-Fehler und Wissen, das nur eine Person hat" },
-        { "links": "Keine Abhängigkeit mit bekannter kritischer Sicherheitslücke", "rechts": "Ausnutzbare Schwachstellen in Drittbibliotheken" }
-      ],
-      "erklaerung": "Das Review-Gate hat einen Nebeneffekt, der oft wichtiger ist als die gefundenen Fehler: Mindestens zwei Personen kennen jede Änderung. Das reduziert den *Bus-Faktor*."
-    },
-    {
-      "typ": "multiple-choice",
-      "frage": "Ein Legacy-Projekt hat 30 % Testabdeckung. Das Management will ein Gate „Abdeckung mindestens 80 %“. Was ist sinnvoller?",
-      "optionen": [
-        "Das Gate auf **neuen und geänderten** Code anwenden: Neuer Code braucht Tests, die alte Abdeckung darf nicht sinken",
-        "Das Gate sofort für das ganze Projekt einschalten",
-        "Ganz auf Abdeckung als Kriterium verzichten"
-      ],
-      "korrekt": 0,
-      "erklaerung": "Ein Gate für das Gesamtprojekt würde jeden Pull Request blockieren, bis jemand monatelang Tests nachgerüstet hat, oft wertlose. Das Prinzip „neuer Code ist sauber“ (*clean as you code*) verbessert die Codebasis stetig dort, wo gearbeitet wird. Werkzeuge wie SonarQube unterstützen das direkt.",
-      "begruendungen": [
-        "Richtig.",
-        "Das blockiert alle und fördert Tests, die nur Zeilen ausführen, ohne etwas zu prüfen.",
-        "Als Signal für ungetesteten neuen Code ist Abdeckung nützlich."
-      ]
-    },
-    {
-      "typ": "erklaerung",
-      "titel": "Gates in der Pipeline",
-      "text": "In einer Pipeline entsteht ein Gate durch **Abhängigkeiten**: Ein Job startet nur, wenn die Jobs, von denen er abhängt, erfolgreich waren.",
-      "code": {
-        "sprache": "yaml",
-        "zeilen": [
-          "jobs:",
-          "  build:",
-          "    runs-on: ubuntu-latest",
-          "  test:",
-          "    needs: build",
-          "    runs-on: ubuntu-latest",
-          "  deploy:",
-          "    needs: [build, test]",
-          "    if: github.ref == 'refs/heads/main'",
-          "    runs-on: ubuntu-latest"
-        ],
-        "anmerkungen": [
-          { "zeile": 5, "text": "`test` wartet auf `build` und läuft nur, wenn `build` erfolgreich war." },
-          { "zeile": 9, "text": "Ausgeliefert wird nur von `main`." }
-        ]
-      }
-    },
-    {
       "typ": "code-lesen",
-      "frage": "Auf `main` schlägt der Job `test` fehl. Läuft `deploy`?",
+      "frage": "Was macht `f.get()` in Zeile 3?",
       "code": {
-        "sprache": "yaml",
+        "sprache": "cpp",
         "zeilen": [
-          "deploy:",
-          "  needs: [build, test]",
-          "  if: github.ref == 'refs/heads/main'"
+          "auto f = std::async(std::launch::async, [] { return berechne(); });",
+          "bereiteAnzeigeVor();          // läuft parallel zu berechne()",
+          "int ergebnis = f.get();"
         ]
       },
       "optionen": [
-        "Nein. Ohne besondere Angabe läuft ein Job nur, wenn alle Jobs unter `needs` erfolgreich waren",
-        "Ja, die Bedingung `if` ist ja erfüllt",
-        "Ja, aber mit einer Warnung"
+        "Es wartet, bis `berechne()` fertig ist, und liefert das Ergebnis oder wirft dessen Exception weiter",
+        "Es startet `berechne()` erst jetzt",
+        "Es bricht `berechne()` ab, falls es noch läuft"
       ],
       "korrekt": 0,
-      "erklaerung": "Eine `if`-Bedingung ohne Statusfunktion wird implizit mit `success()` verknüpft. Nur mit `always()` oder `failure()` in der Bedingung würde der Job trotzdem laufen. Genau so entsteht das Gate: Ohne grüne Tests keine Auslieferung.",
+      "erklaerung": "Ein **Future** ist ein Platzhalter für ein Ergebnis, das später kommt. `get()` blockiert, bis es da ist, und darf nur einmal aufgerufen werden. Mit `std::launch::async` ist garantiert, dass die Aufgabe in einem eigenen Thread läuft.",
       "begruendungen": [
         "Richtig.",
-        "Die Bedingung wird implizit mit „alle Abhängigkeiten erfolgreich“ verknüpft.",
-        "Der Job wird übersprungen, nicht mit Warnung ausgeführt."
+        "Das wäre bei `std::launch::deferred` so.",
+        "Ein Future kann eine Aufgabe nicht abbrechen."
       ]
     },
     {
-      "typ": "multiple-choice",
-      "frage": "Ein Gate ist oft ohne echten Grund rot, deshalb mergen Admins regelmässig an ihm vorbei. Was tust du?",
+      "typ": "erklaerung",
+      "titel": "Futures und Promises",
+      "text": "- `std::async(policy, f)` führt `f` aus und liefert ein `std::future` für das Ergebnis.\n- `std::launch::async` heisst: neuer Thread. `std::launch::deferred` heisst: erst beim `get()` im aufrufenden Thread. Ohne Angabe darf die Bibliothek wählen, und das ist selten, was man will.\n- Wirft `f`, wird die Exception im Future gespeichert und beim `get()` erneut geworfen.\n- `std::promise` ist das Gegenstück zum Future: Ein Thread setzt damit von Hand den Wert (`set_value`) oder einen Fehler (`set_exception`)."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Der Log-Eintrag soll im Hintergrund geschrieben werden. Was passiert tatsächlich?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "void speichere(const Daten& d) {",
+          "    schreibeDatei(d);",
+          "    std::async(std::launch::async, schreibeLog, \"gespeichert\");",
+          "    zeigeErfolg();",
+          "}"
+        ]
+      },
       "optionen": [
-        "Das Gate zuverlässig machen, z. B. flaky Tests beheben. Ein Gate, das man umgeht, schützt nicht",
-        "Allen Entwicklern Admin-Rechte geben, damit niemand warten muss",
-        "Das Gate behalten und das Umgehen dulden"
+        "Zeile 3 blockiert, bis `schreibeLog` fertig ist: Das temporäre Future wartet in seinem Destruktor",
+        "`schreibeLog` läuft im Hintergrund, `zeigeErfolg` sofort",
+        "Compilerfehler, weil das Ergebnis nicht verwendet wird"
       ],
       "korrekt": 0,
-      "erklaerung": "Jedes Umgehen trainiert das Team, rote Signale zu ignorieren. Irgendwann geht ein echter Fehler durch. Entweder wird das Gate zuverlässig, oder man schafft es bewusst ab. Ein dauerhaft umgangenes Gate ist schlechter als keines, weil es falsche Sicherheit vortäuscht.",
+      "erklaerung": "Ein Future aus `std::async` wartet in seinem Destruktor auf das Ende der Aufgabe. Wird es nicht gespeichert, wird es am Ende der Anweisung zerstört, und der Aufruf ist faktisch synchron. Für echtes „abschicken und vergessen“ braucht man eine Warteschlange oder einen Thread-Pool.",
+      "begruendungen": [
+        "Richtig. Eine bekannte Überraschung.",
+        "Das würde passieren, wenn man das Future speichert und erst später zerstört.",
+        "Es kompiliert. Viele Standardbibliotheken warnen inzwischen wegen `[[nodiscard]]`."
+      ]
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Ordne zu.",
+      "paare": [
+        {
+          "links": "`std::future<T>`",
+          "rechts": "Ergebnis, das später verfügbar ist und einmal abgeholt wird"
+        },
+        {
+          "links": "`std::promise<T>`",
+          "rechts": "Gegenstück, mit dem ein Thread das Ergebnis setzt"
+        },
+        {
+          "links": "`std::shared_future<T>`",
+          "rechts": "Ergebnis, das mehrere Threads lesen können"
+        },
+        {
+          "links": "`std::launch::deferred`",
+          "rechts": "Aufgabe läuft erst beim `get()`, im aufrufenden Thread"
+        }
+      ],
+      "erklaerung": "Mit `wait_for(0s)` kann man prüfen, ob ein Ergebnis schon da ist, ohne zu blockieren. Bei `deferred` liefert das allerdings immer `future_status::deferred`."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Was gibt dieser Code aus?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "auto f = std::async(std::launch::async, []() -> int {",
+          "    throw std::runtime_error(\"Sensor antwortet nicht\");",
+          "});",
+          "try {",
+          "    f.get();",
+          "} catch (const std::exception& e) {",
+          "    std::cout << e.what();",
+          "}"
+        ]
+      },
+      "optionen": [
+        "`Sensor antwortet nicht`",
+        "Nichts, die Exception geht im anderen Thread verloren",
+        "Das Programm wird mit `std::terminate` beendet"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Das Future transportiert die Exception über die Thread-Grenze, `get()` wirft sie im aufrufenden Thread erneut. Das ist ein grosser Vorteil gegenüber einem rohen `std::thread`: Dort beendet eine nicht gefangene Exception das ganze Programm.",
       "begruendungen": [
         "Richtig.",
-        "Damit gäbe es faktisch kein Gate mehr.",
-        "Das ist der schlechteste Zustand: Aufwand ohne Schutz."
+        "Genau das verhindert das Future.",
+        "Das wäre bei einem `std::thread` ohne `try`/`catch` der Fall."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Parallele Algorithmen",
+      "text": "Seit C++17 nehmen viele Algorithmen eine **Ausführungsrichtlinie** (execution policy): `std::sort(std::execution::par, v.begin(), v.end());` sortiert parallel. Die Bibliothek verteilt die Arbeit selbst. Mit GCC braucht das unter Linux Intel TBB (`-ltbb`).\n\nWichtig: Die übergebene Funktion läuft dann in mehreren Threads gleichzeitig. Sie darf keine gemeinsamen Daten ohne Synchronisation verändern. Für Summen und ähnliches gibt es dafür eigene Algorithmen wie `std::reduce` und `std::transform_reduce`."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Was ist hier falsch?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "long summe = 0;",
+          "std::for_each(std::execution::par, v.begin(), v.end(),",
+          "              [&](int x) { summe += x; });"
+        ]
+      },
+      "optionen": [
+        "Mehrere Threads erhöhen `summe` gleichzeitig: ein Data Race",
+        "`std::for_each` kennt keine Ausführungsrichtlinie",
+        "Nichts, `par` synchronisiert automatisch"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Die Richtlinie verteilt die Aufrufe auf Threads, synchronisiert aber nichts. Ein `std::atomic<long>` würde das Race beheben, aber alle Threads würden um dieselbe Variable kämpfen und wären womöglich langsamer als seriell. Richtig ist ein Algorithmus, der Teilsummen bildet und am Ende zusammenführt.",
+      "begruendungen": [
+        "Richtig.",
+        "Doch, seit C++17.",
+        "Die Richtlinie synchronisiert nicht."
       ]
     },
     {
       "typ": "lueckentext",
-      "frage": "Ergänze die Begriffe.",
-      "text": "Ein {{?}} ist eine automatisch geprüfte Bedingung, die erfüllt sein muss, bevor eine Änderung weitergeht. Auf GitHub legt man mit {{?}} fest, dass ohne grüne Pflichtprüfungen nicht nach `main` gemergt werden kann.",
-      "luecken": [{ "loesungen": ["Quality Gate"] }, { "loesungen": ["Branch Protection"] }],
-      "auswahl": ["Quality Gate", "Branch Protection", "Runner", "Artefakt"],
-      "erklaerung": "Neuere GitHub-Projekte nutzen dafür auch *Rulesets*, die mehrere Branches auf einmal abdecken. Das Prinzip ist dasselbe."
+      "frage": "Ergänze die korrekte parallele Summe.",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "long summe = std::{{?}}(std::execution::par, v.begin(), v.end(), 0L);"
+        ]
+      },
+      "luecken": [
+        {
+          "loesungen": [
+            "reduce"
+          ]
+        }
+      ],
+      "auswahl": [
+        "reduce",
+        "accumulate",
+        "for_each",
+        "sort"
+      ],
+      "erklaerung": "`std::reduce` darf die Elemente in beliebiger Reihenfolge und Gruppierung zusammenfassen. Deshalb kann es parallel arbeiten. `std::accumulate` rechnet streng von links nach rechts und hat keine Variante mit Ausführungsrichtlinie. Achtung: Bei Gleitkommazahlen kann `reduce` wegen der anderen Reihenfolge minimal andere Ergebnisse liefern."
     }
   ],
-  "praxis": "Gates sind Teamvereinbarungen in Code-Form. Als Senior schlägst du sie vor, begründest sie und sorgst dafür, dass sie zuverlässig sind. Typische Einführung: erst messen und anzeigen, dann für neuen Code verbindlich machen, dann langsam verschärfen. Und: Jede Ausnahme wird dokumentiert, nicht still übergangen.",
+  "praxis": "Im Alltag begegnet dir `std::async` vor allem für gelegentliche Hintergrundarbeiten, parallele Algorithmen für rechenintensive Schleifen. Für Server und Echtzeitsysteme nutzt man meist eigene Thread-Pools oder Bibliotheken wie Intel TBB. Mit C++26 kommt `std::execution` (Senders und Receivers) als Standardmodell. Im Review achtest du auf ungespeicherte Futures und auf Lambdas in parallelen Algorithmen, die gemeinsame Daten verändern.",
   "labor": {
-    "titel": "Branch Protection einrichten",
-    "anleitung": "Richte in einem eigenen GitHub-Repository Branch Protection für `main` ein: Pull Request erforderlich, Prüfung *Validate* muss grün sein. Versuche dann, einen PR mit fehlschlagendem Test zu mergen.",
+    "titel": "Seriell gegen parallel",
+    "anleitung": "Sortiere 50 Millionen Zufallszahlen einmal seriell und einmal mit `std::execution::par` und vergleiche die Laufzeit.",
     "befehle": [
-      "gh api repos/{owner}/{repo}/branches/main/protection",
-      "gh pr create --fill && gh pr checks"
+      "sudo apt install libtbb-dev",
+      "g++ -std=c++20 -O2 parallel.cpp -ltbb -o parallel && ./parallel"
     ],
-    "beobachtung": "Der Merge-Knopf bleibt gesperrt, solange die Pflichtprüfung rot ist. `gh pr checks` zeigt den Status aller Prüfungen auf der Kommandozeile."
+    "beobachtung": "Auf einem Rechner mit 8 Kernen ist die parallele Variante typischerweise 3- bis 6-mal schneller, nicht 8-mal. Das zeigt Amdahl, den Aufwand fürs Verteilen und die begrenzte Speicherbandbreite."
   },
   "begriffe": [
-    { "begriff": "Quality Gate", "englisch": "quality gate", "erklaerung": "Automatisch geprüfte Bedingung, die erfüllt sein muss, bevor eine Änderung die nächste Stufe erreicht." },
-    { "begriff": "Branch Protection", "englisch": "branch protection", "erklaerung": "Regeln für einen Branch, z. B. Pflicht zu Pull Request, Review und grünen Prüfungen." },
-    { "begriff": "Bus-Faktor", "englisch": "bus factor", "erklaerung": "Wie viele Personen ausfallen dürfen, bevor Wissen über einen Teil des Systems verloren ist." }
+    {
+      "begriff": "Future",
+      "englisch": "future",
+      "erklaerung": "Platzhalter für ein Ergebnis, das ein anderer Thread später liefert."
+    },
+    {
+      "begriff": "Promise",
+      "englisch": "promise",
+      "erklaerung": "Gegenstück zum Future, mit dem ein Wert oder eine Exception gesetzt wird."
+    },
+    {
+      "begriff": "Ausführungsrichtlinie",
+      "englisch": "execution policy",
+      "erklaerung": "Parameter wie `std::execution::par`, der einen Algorithmus parallel laufen lässt."
+    }
   ],
   "weiterlesen": [
-    { "titel": "GitHub Docs: About protected branches", "url": "https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches" }
+    {
+      "titel": "cppreference: std::async",
+      "url": "https://en.cppreference.com/w/cpp/thread/async"
+    },
+    {
+      "titel": "cppreference: Execution policies",
+      "url": "https://en.cppreference.com/w/cpp/algorithm/execution_policy_tag_t"
+    }
   ]
 }

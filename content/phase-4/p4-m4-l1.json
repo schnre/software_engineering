@@ -1,178 +1,195 @@
 {
   "id": "p4-m4-l1",
   "phase": 4,
-  "modul": "4.4 Performance verstehen",
-  "titel": "Caches und Datenlayout",
+  "modul": "4.4 Sanitizer und Valgrind",
+  "titel": "AddressSanitizer und UBSan",
   "lernziele": [
-    "Die Speicherhierarchie und ihre Grössenordnungen kennen",
-    "Zugriffsmuster nach ihrer Cache-Freundlichkeit beurteilen",
-    "Padding und False Sharing erkennen"
+    "Erklären, wie AddressSanitizer Speicherfehler findet",
+    "Einen ASan-Bericht lesen und die Ursache finden",
+    "Sanitizer sinnvoll in Build und CI einbinden"
   ],
-  "dauerMinuten": 7,
+  "dauerMinuten": 6,
   "schritte": [
     {
-      "typ": "code-lesen",
-      "frage": "Beide Varianten summieren dieselbe 4096 × 4096-Matrix. Welche ist schneller?",
-      "code": {
-        "sprache": "cpp",
-        "zeilen": [
-          "constexpr int N = 4096;",
-          "static int m[N][N];",
-          "long summe = 0;",
-          "",
-          "// Variante A",
-          "for (int i = 0; i < N; ++i)",
-          "    for (int j = 0; j < N; ++j) summe += m[i][j];",
-          "",
-          "// Variante B",
-          "for (int j = 0; j < N; ++j)",
-          "    for (int i = 0; i < N; ++i) summe += m[i][j];"
-        ]
-      },
+      "typ": "multiple-choice",
+      "frage": "Was macht `-fsanitize=address`?",
       "optionen": [
-        "A, oft um ein Vielfaches",
-        "B, weil die äussere Schleife über die Spalten läuft",
-        "Beide gleich schnell, sie machen dieselbe Anzahl Additionen"
+        "Der Compiler baut vor jedem Speicherzugriff eine Prüfung ein und meldet ungültige Zugriffe zur Laufzeit",
+        "Der Compiler analysiert den Quelltext und meldet mögliche Fehler schon beim Kompilieren",
+        "Das Programm wird so gebaut, dass Speicherfehler nicht mehr abstürzen"
       ],
       "korrekt": 0,
-      "fest": true,
-      "erklaerung": "In C++ liegen Zeilen eines Arrays hintereinander im Speicher (*row-major*). A liest also fortlaufend, B springt bei jedem Zugriff 16 KB weiter. Bei A nutzt jede geladene Cache-Zeile 16 Werte, und der Prozessor kann vorausladen. Bei B wird pro Wert eine neue Zeile geladen. Gleich viele Rechenschritte, aber völlig unterschiedlich viele Speicherzugriffe.",
+      "erklaerung": "**AddressSanitizer** (ASan) instrumentiert jeden Lese- und Schreibzugriff. Eine Laufzeitbibliothek merkt sich in einem **Schattenspeicher** (shadow memory), welche Bytes gültig sind. Ein ungültiger Zugriff beendet das Programm sofort mit einem genauen Bericht. Gefunden wird nur, was zur Laufzeit tatsächlich passiert. Deshalb braucht ASan gute Tests.",
       "begruendungen": [
-        "Richtig. Typisch sind Faktoren von 5 bis 10.",
-        "Genau umgekehrt: B springt im Speicher.",
-        "Die Rechenarbeit ist gleich, die Speicherzugriffe nicht."
+        "Richtig.",
+        "Das wäre statische Analyse. ASan prüft zur Laufzeit.",
+        "Im Gegenteil: ASan beendet das Programm beim ersten Fehler gezielt."
       ]
     },
     {
       "typ": "erklaerung",
-      "titel": "Die Speicherhierarchie",
-      "text": "Die CPU rechnet viel schneller, als der Hauptspeicher liefern kann. Dazwischen liegen **Caches**, die Daten in Blöcken von meist 64 Byte laden, den **Cache-Zeilen** (cache lines). Wer fortlaufend auf Speicher zugreift, bekommt die Folgedaten gratis mit. Ausserdem erkennt der Prozessor das Muster und lädt voraus (*prefetching*).",
-      "tabelle": {
-        "kopf": ["Ebene", "typische Grösse", "Zugriffszeit"],
-        "zeilen": [
-          ["L1-Cache", "32–64 KB pro Kern", "~1 ns"],
-          ["L2-Cache", "0,5–2 MB pro Kern", "~4 ns"],
-          ["L3-Cache", "8–64 MB geteilt", "~10–20 ns"],
-          ["Hauptspeicher", "GB", "~80–100 ns"]
+      "titel": "So arbeitet ASan",
+      "text": "- Um jeden Heap-Block und jedes lokale Array legt ASan **Schutzzonen** (redzones). Ein Zugriff darauf ist ein Überlauf.\n- Freigegebener Speicher kommt in eine **Quarantäne** und wird nicht sofort wiederverwendet. So fällt ein späterer Zugriff auf.\n- Am Programmende meldet der integrierte **LeakSanitizer** Speicherlecks.\n\nKosten: etwa doppelte Laufzeit, zwei- bis dreifacher Speicherbedarf. Gebaut wird mit `-fsanitize=address -fno-omit-frame-pointer -g`. **UBSan** (`-fsanitize=undefined`) ist deutlich günstiger und lässt sich mit ASan kombinieren. Mit `-fno-sanitize-recover=all` bricht UBSan beim ersten Fund ab, statt nur zu melden."
+    },
+    {
+      "typ": "terminal-deuten",
+      "frage": "Was ist passiert?",
+      "terminal": {
+        "befehl": "./sitzung_test",
+        "ausgabe": [
+          "==12345==ERROR: AddressSanitizer: heap-use-after-free on address 0x602000000010",
+          "READ of size 4 at 0x602000000010 thread T0",
+          "    #0 0x55d4a1 in Sitzung::nutzerId() const sitzung.cpp:27",
+          "    #1 0x55d4b7 in main main.cpp:15",
+          "freed by thread T0 here:",
+          "    #0 0x7f1c22 in operator delete(void*, unsigned long)",
+          "    #1 0x55d4c3 in Sitzung::abmelden() sitzung.cpp:40",
+          "previously allocated by thread T0 here:",
+          "    #0 0x7f1c10 in operator new(unsigned long)",
+          "    #1 0x55d4d9 in Sitzung::anmelden() sitzung.cpp:33"
         ]
-      }
+      },
+      "optionen": [
+        "`abmelden()` gibt den Nutzer frei, danach liest `nutzerId()` noch aus diesem Speicher",
+        "`anmelden()` reserviert zu wenig Speicher",
+        "In `main.cpp` Zeile 15 fehlt ein `delete`"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Ein ASan-Bericht hat drei Teile: **wo** der fehlerhafte Zugriff passiert (`nutzerId`, Zeile 27), **wo** der Speicher freigegeben wurde (`abmelden`, Zeile 40) und **wo** er angelegt wurde (`anmelden`, Zeile 33). Damit ist die Geschichte vollständig: Nach dem Abmelden hält jemand noch einen Zeiger auf den alten Nutzer.",
+      "begruendungen": [
+        "Richtig.",
+        "Dann hiesse der Fehler `heap-buffer-overflow`.",
+        "Ein fehlendes `delete` wäre ein Leck. Hier wurde im Gegenteil zu früh freigegeben."
+      ]
     },
     {
       "typ": "zuordnen",
-      "frage": "Ordne die Grössenordnungen zu. Die Werte sind gerundete Richtwerte.",
+      "frage": "Was bedeuten die Fehlerarten im ASan-Bericht?",
       "paare": [
-        { "links": "Zugriff auf den L1-Cache", "rechts": "~1 ns" },
-        { "links": "Zugriff auf den Hauptspeicher", "rechts": "~100 ns" },
-        { "links": "Zufälliger Lesezugriff auf eine SSD", "rechts": "~10–100 µs" },
-        { "links": "Netzwerk-Roundtrip im selben Rechenzentrum", "rechts": "~0,5 ms" }
+        {
+          "links": "`heap-buffer-overflow`",
+          "rechts": "Zugriff hinter das Ende eines Heap-Blocks"
+        },
+        {
+          "links": "`stack-buffer-overflow`",
+          "rechts": "Zugriff hinter das Ende eines lokalen Arrays"
+        },
+        {
+          "links": "`heap-use-after-free`",
+          "rechts": "Zugriff auf bereits freigegebenen Heap-Speicher"
+        },
+        {
+          "links": "`detected memory leaks`",
+          "rechts": "Speicher wurde nie freigegeben (LeakSanitizer)"
+        }
       ],
-      "erklaerung": "Zwischen L1 und Hauptspeicher liegt Faktor 100, zwischen Hauptspeicher und SSD noch einmal Faktor 100 bis 1000. Wer diese Grössenordnungen im Kopf hat, kann schon im Design abschätzen, wo ein System Zeit verlieren wird."
-    },
-    {
-      "typ": "multiple-choice",
-      "frage": "Du iterierst über eine Million Objekte. Welcher Container ist dafür meist am schnellsten?",
-      "optionen": [
-        "`std::vector<Objekt>`",
-        "`std::list<Objekt>`",
-        "`std::vector<std::unique_ptr<Objekt>>`"
-      ],
-      "korrekt": 0,
-      "erklaerung": "Nur im `std::vector<Objekt>` liegen die Objekte direkt hintereinander. Bei `std::list` und bei einem Vektor von Zeigern ist jedes Objekt einzeln auf dem Heap verstreut, und fast jeder Schritt kostet einen Cache-Miss. Darum ist `std::vector` in der Praxis oft selbst dann schneller, wenn eine Liste theoretisch die bessere Komplexität hätte, etwa beim Einfügen in der Mitte.",
-      "begruendungen": [
-        "Richtig.",
-        "Jeder Knoten liegt woanders im Speicher. Das ist für die CPU der schlechteste Fall.",
-        "Die Zeiger liegen hintereinander, die Objekte selbst nicht."
-      ]
-    },
-    {
-      "typ": "erklaerung",
-      "titel": "Datenlayout",
-      "text": "- **Padding**: Der Compiler richtet Member nach ihrer Grösse aus und füllt Lücken auf. Wer Member nach absteigender Grösse ordnet, spart oft Platz und damit Cache.\n- **AoS vs. SoA**: Ein Array von Strukturen (*array of structs*) ist bequem. Braucht eine Schleife aber nur ein Feld, lädt sie alle anderen unnötig mit. Eine Struktur von Arrays (*struct of arrays*) legt jedes Feld in einen eigenen Vektor.\n- **False Sharing**: Zwei Threads schreiben auf **verschiedene** Variablen, die zufällig in **derselben** Cache-Zeile liegen. Die Zeile wandert ständig zwischen den Kernen hin und her, obwohl logisch nichts geteilt wird."
-    },
-    {
-      "typ": "code-lesen",
-      "frage": "Was gibt dieser Code auf einem typischen 64-Bit-System aus?",
-      "code": {
-        "sprache": "cpp",
-        "zeilen": [
-          "struct A { char a; double b; char c; };",
-          "struct B { double b; char a; char c; };",
-          "",
-          "std::cout << sizeof(A) << ' ' << sizeof(B);"
-        ]
-      },
-      "optionen": ["`24 16`", "`10 10`", "`16 16`", "`24 24`"],
-      "korrekt": 0,
-      "fest": true,
-      "erklaerung": "In `A` muss `b` auf 8 Byte ausgerichtet sein: 1 Byte `a`, 7 Byte Lücke, 8 Byte `b`, 1 Byte `c`, 7 Byte Auffüllung bis zum nächsten Vielfachen von 8 = 24. In `B` stehen die beiden `char` direkt hinter `b`: 8 + 1 + 1 + 6 Auffüllung = 16. Gleiche Daten, ein Drittel weniger Speicher.",
-      "begruendungen": [
-        "Richtig.",
-        "Ohne Ausrichtung wären es 10, aber `double` muss ausgerichtet sein.",
-        "In `A` erzwingt die Lage von `b` eine Lücke vorne und eine hinten.",
-        "In `B` passen die beiden `char` in die Auffüllung nach `b`."
-      ]
-    },
-    {
-      "typ": "multiple-choice",
-      "frage": "Thread 1 erhöht ständig `z.a`, Thread 2 ständig `z.b`. Das Programm ist mit zwei Threads langsamer als mit einem. Warum?",
-      "code": {
-        "sprache": "cpp",
-        "zeilen": [
-          "struct Zaehler {",
-          "    std::atomic<long> a;",
-          "    std::atomic<long> b;",
-          "};"
-        ]
-      },
-      "optionen": [
-        "False Sharing: `a` und `b` liegen in derselben Cache-Zeile, die zwischen den Kernen hin- und herwandert",
-        "`std::atomic` ist grundsätzlich zu langsam für Zähler",
-        "Zwei Threads können nie schneller sein als einer"
-      ],
-      "korrekt": 0,
-      "erklaerung": "Die beiden Zähler liegen 8 Byte auseinander, also in einer 64-Byte-Zeile. Jeder Schreibzugriff eines Kerns macht die Zeile im Cache des anderen ungültig. Logisch teilen die Threads nichts, physisch alles.",
-      "begruendungen": [
-        "Richtig.",
-        "Ohne gemeinsame Cache-Zeile wären die beiden Atomics nahezu so schnell wie normale Variablen.",
-        "Mit getrennten Cache-Zeilen skaliert dieser Code gut."
-      ]
+      "erklaerung": "Dazu kommen z. B. `stack-use-after-return` (Zugriff auf eine lokale Variable einer beendeten Funktion) und `double-free`. Die Fehlerart steht immer in der ersten Zeile des Berichts."
     },
     {
       "typ": "lueckentext",
-      "frage": "Ergänze die Lösung: Jeder Zähler bekommt eine eigene Cache-Zeile.",
+      "frage": "Ergänze die CMake-Option: Mit `-DSANITIZE=ON` soll das Projekt mit ASan und UBSan gebaut werden.",
+      "code": {
+        "sprache": "cmake",
+        "zeilen": [
+          "option(SANITIZE \"Mit ASan und UBSan bauen\" OFF)",
+          "if(SANITIZE)",
+          "  add_compile_options(-fsanitize=address,undefined -fno-omit-frame-pointer)",
+          "  add_link_options(-fsanitize={{?}})",
+          "endif()"
+        ]
+      },
+      "luecken": [
+        {
+          "loesungen": [
+            "address,undefined"
+          ]
+        }
+      ],
+      "auswahl": [
+        "address,undefined",
+        "thread",
+        "memory"
+      ],
+      "erklaerung": "Die Option muss auch beim **Linken** stehen, damit die Laufzeitbibliothek der Sanitizer eingebunden wird. Fehlt sie dort, kommen Linkerfehler wie `undefined reference to __asan_report_load4`. Hier sind globale Optionen ausnahmsweise passend, weil der ganze Build instrumentiert werden soll."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Warum liefert man keine ASan-Builds an Kunden aus?",
+      "optionen": [
+        "Sie sind deutlich langsamer, brauchen mehr Speicher, und die Laufzeitbibliothek ist nicht für den Einsatz in sicherheitskritischen Umgebungen gehärtet",
+        "ASan-Builds funktionieren nur auf dem Rechner, auf dem sie gebaut wurden",
+        "ASan ist nur für Open-Source-Projekte lizenziert"
+      ],
+      "korrekt": 0,
+      "erklaerung": "ASan ist ein Werkzeug für Tests und Fuzzing. In der CI sollte ein Job alle Tests mit ASan und UBSan ausführen. Für Härtung in Produktion gibt es andere Mittel, z. B. `-D_GLIBCXX_ASSERTIONS`, `-fstack-protector-strong` oder `-D_FORTIFY_SOURCE=3`.",
+      "begruendungen": [
+        "Richtig.",
+        "ASan-Builds laufen überall, wo die Laufzeitbibliothek vorhanden ist.",
+        "ASan ist Teil von GCC und Clang und frei nutzbar."
+      ]
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Was meldet ASan hier?",
       "code": {
         "sprache": "cpp",
         "zeilen": [
-          "struct Zaehler {",
-          "    alignas({{?}}) std::atomic<long> a;",
-          "    alignas({{?}}) std::atomic<long> b;",
-          "};"
+          "int main() {",
+          "    int werte[4] = {1, 2, 3, 4};",
+          "    int i = 4;",
+          "    return werte[i];",
+          "}"
         ]
       },
-      "luecken": [{ "loesungen": ["64"] }, { "loesungen": ["64"] }],
-      "auswahl": ["64", "64", "8", "4096"],
-      "erklaerung": "64 Byte ist die Cache-Zeilengrösse der meisten x86- und ARM-Prozessoren. Portabler ist `std::hardware_destructive_interference_size` aus `<new>`, das allerdings nicht jede Standardbibliothek gleich gut unterstützt. Der Preis: Die Struktur wird 128 statt 16 Byte gross. Das lohnt sich nur bei stark umkämpften Variablen."
+      "optionen": [
+        "`stack-buffer-overflow`",
+        "`heap-buffer-overflow`",
+        "Nichts, Zugriffe auf den Stack prüft ASan nicht"
+      ],
+      "korrekt": 0,
+      "erklaerung": "`werte` ist ein lokales Array, liegt also auf dem Stack. ASan legt auch um lokale Arrays Schutzzonen, deshalb fällt der Zugriff auf `werte[4]` auf. Ohne ASan würde das Programm meist einfach einen zufälligen Wert zurückgeben.",
+      "begruendungen": [
+        "Richtig.",
+        "Das Array liegt nicht auf dem Heap.",
+        "ASan prüft Stack, Heap und globale Variablen."
+      ]
     }
   ],
-  "praxis": "Bei Performance-Problemen in Schleifen über grosse Datenmengen ist das Speicherlayout fast immer wichtiger als die Rechenoperationen selbst. Im Design fragst du: Welche Daten werden zusammen gelesen? Liegen sie zusammen? Im Review: Werden riesige Objekte mit `std::list` oder Vektoren von `unique_ptr` verwaltet, obwohl ein einfacher `std::vector` genügen würde?",
+  "praxis": "Viele Teams entdecken beim ersten ASan-Lauf über die bestehenden Tests sofort mehrere echte Fehler, die seit Jahren unbemerkt waren. Ein ASan/UBSan-Job in der CI ist eine der wirksamsten Massnahmen für die Codequalität. Wenn du in ein Projekt kommst, das das nicht hat, ist das ein guter Vorschlag für deine ersten Wochen.",
   "labor": {
-    "titel": "Den Cache messen",
-    "anleitung": "Miss die beiden Varianten der Matrixsumme und zähle die Cache-Misses.",
+    "titel": "ASan in ein Projekt einbauen",
+    "anleitung": "Nimm ein eigenes Projekt mit Tests, ergänze die `SANITIZE`-Option aus der Lektion und lass die Tests laufen.",
     "befehle": [
-      "g++ -O2 matrix.cpp -o matrix && ./matrix",
-      "perf stat -e cycles,instructions,cache-misses,L1-dcache-load-misses ./matrix A",
-      "perf stat -e cycles,instructions,cache-misses,L1-dcache-load-misses ./matrix B"
+      "cmake -S . -B build-asan -DSANITIZE=ON -DCMAKE_BUILD_TYPE=Debug && cmake --build build-asan",
+      "ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 ctest --test-dir build-asan --output-on-failure"
     ],
-    "beobachtung": "Die Anzahl Instruktionen ist fast gleich, die Cache-Misses unterscheiden sich um Grössenordnungen, und mit ihnen die Laufzeit. `perf` gibt es unter Linux im Paket `linux-tools` bzw. `perf`."
+    "beobachtung": "Findet ASan nichts, baue absichtlich einen Fehler ein, z. B. `v[v.size()]`. Bei `std::vector` meldet ASan das nur, wenn der Zugriff über den reservierten Speicher hinausgeht. Mit `-D_GLIBCXX_ASSERTIONS` prüft die Standardbibliothek zusätzlich jeden Index."
   },
   "begriffe": [
-    { "begriff": "Cache-Zeile", "englisch": "cache line", "erklaerung": "Kleinste Einheit, die zwischen Hauptspeicher und Cache übertragen wird, meist 64 Byte." },
-    { "begriff": "Cache-Miss", "englisch": "cache miss", "erklaerung": "Die benötigten Daten liegen nicht im Cache und müssen aus einer langsameren Ebene geladen werden." },
-    { "begriff": "Padding", "englisch": "padding", "erklaerung": "Füllbytes, die der Compiler zur Ausrichtung von Membern einfügt." },
-    { "begriff": "False Sharing", "englisch": "false sharing", "erklaerung": "Verschiedene Threads schreiben auf verschiedene Variablen in derselben Cache-Zeile und bremsen sich gegenseitig." }
+    {
+      "begriff": "AddressSanitizer",
+      "englisch": "AddressSanitizer, ASan",
+      "erklaerung": "Laufzeitprüfung für Speicherfehler wie Überläufe und use after free."
+    },
+    {
+      "begriff": "UndefinedBehaviorSanitizer",
+      "englisch": "UndefinedBehaviorSanitizer, UBSan",
+      "erklaerung": "Laufzeitprüfung für Undefined Behavior wie Überläufe, ungültige Shifts oder Nullzeiger."
+    },
+    {
+      "begriff": "Schattenspeicher",
+      "englisch": "shadow memory",
+      "erklaerung": "Von ASan verwalteter Speicher, der für jedes Byte vermerkt, ob ein Zugriff erlaubt ist."
+    }
   ],
   "weiterlesen": [
-    { "titel": "Ulrich Drepper: What Every Programmer Should Know About Memory", "url": "https://people.freebsd.org/~lstewart/articles/cpumemory.pdf" },
-    { "titel": "cppreference: std::hardware_destructive_interference_size", "url": "https://en.cppreference.com/w/cpp/thread/hardware_destructive_interference_size" }
+    {
+      "titel": "Clang: AddressSanitizer",
+      "url": "https://clang.llvm.org/docs/AddressSanitizer.html"
+    },
+    {
+      "titel": "google/sanitizers Wiki",
+      "url": "https://github.com/google/sanitizers/wiki"
+    }
   ]
 }

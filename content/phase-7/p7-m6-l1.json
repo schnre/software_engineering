@@ -1,169 +1,129 @@
 {
   "id": "p7-m6-l1",
   "phase": 7,
-  "modul": "7.6 PIMPL, starke Typen und enum class",
-  "titel": "PIMPL",
+  "modul": "7.6 Debugging auf der Zielhardware",
+  "titel": "JTAG, SWD und GDB auf dem Mikrocontroller",
   "lernziele": [
-    "Das PIMPL-Idiom korrekt umsetzen",
-    "Den typischen Fehler mit `unique_ptr` und unvollständigem Typ vermeiden",
-    "Nutzen und Kosten von PIMPL abwägen"
+    "Den Aufbau einer Debug-Kette aus Probe, Server und GDB verstehen",
+    "Einen HardFault mit den Fault-Registern analysieren",
+    "Hardware-Breakpoints und Watchpoints gezielt einsetzen"
   ],
-  "dauerMinuten": 6,
+  "dauerMinuten": 7,
   "schritte": [
     {
-      "typ": "multiple-choice",
-      "frage": "Was macht das **PIMPL**-Idiom?",
-      "optionen": [
-        "Es verschiebt alle privaten Member in eine Klasse, die nur in der `.cpp` definiert ist. Der Header enthält nur einen Zeiger darauf",
-        "Es macht alle Memberfunktionen `inline`",
-        "Es ersetzt Vererbung durch Templates"
-      ],
-      "korrekt": 0,
-      "erklaerung": "PIMPL steht für *pointer to implementation*. Weil Nutzer die privaten Member nicht mehr sehen, ändern sich Grösse und Layout der Klasse nie, und der Header bindet die Abhängigkeiten der Implementierung nicht ein. Erinnere dich an die ABI-Lektion in Modul 6.2.",
-      "begruendungen": [
-        "Richtig.",
-        "Im Gegenteil, mit PIMPL steht weniger im Header.",
-        "Mit Vererbung hat PIMPL nichts zu tun."
-      ]
-    },
-    {
-      "typ": "erklaerung",
-      "titel": "PIMPL im Code",
-      "code": {
-        "sprache": "cpp",
-        "datei": "sensor.h",
-        "zeilen": [
-          "#pragma once",
-          "#include <memory>",
-          "",
-          "class Sensor {",
-          "public:",
-          "    Sensor();",
-          "    ~Sensor();",
-          "    Sensor(Sensor&&) noexcept;",
-          "    Sensor& operator=(Sensor&&) noexcept;",
-          "    double lies();",
-          "private:",
-          "    struct Impl;",
-          "    std::unique_ptr<Impl> impl_;",
-          "};"
-        ],
-        "anmerkungen": [
-          { "zeile": 7, "text": "Der Destruktor wird nur **deklariert** und in der `.cpp` definiert. Warum, zeigt die nächste Übung." },
-          { "zeile": 12, "text": "Nur eine Vorwärtsdeklaration. Wie `Impl` aussieht, weiss nur `sensor.cpp`." }
-        ]
-      },
-      "text": "In `sensor.cpp` steht `struct Sensor::Impl { … };` mit allen Membern und allen Includes, die dafür nötig sind."
-    },
-    {
-      "typ": "code-lesen",
-      "frage": "Jemand entfernt die Zeile `~Sensor();` aus dem Header, damit der Compiler den Destruktor selbst erzeugt. Was passiert?",
-      "code": {
-        "sprache": "cpp",
-        "zeilen": [
-          "class Sensor {",
-          "public:",
-          "    Sensor();",
-          "    double lies();",
-          "private:",
-          "    struct Impl;",
-          "    std::unique_ptr<Impl> impl_;",
-          "};",
-          "",
-          "// main.cpp",
-          "int main() { Sensor s; }"
-        ]
-      },
-      "optionen": [
-        "Compilerfehler in `main.cpp`: Der automatisch erzeugte Destruktor muss `Impl` löschen, kennt aber dessen Definition nicht",
-        "Alles funktioniert wie vorher",
-        "Speicherleck, weil `Impl` nie gelöscht wird"
-      ],
-      "korrekt": 0,
-      "erklaerung": "Der automatisch erzeugte Destruktor ist `inline` und entsteht dort, wo er gebraucht wird, also in `main.cpp`. Dort ist `Impl` unvollständig, und `std::unique_ptr` verweigert das Löschen eines unvollständigen Typs mit einem Fehler wie `invalid application of 'sizeof' to incomplete type`. Abhilfe: Destruktor im Header deklarieren und in der `.cpp` nach der Definition von `Impl` mit `= default` definieren. Dasselbe gilt für die Move-Operationen.",
-      "begruendungen": [
-        "Richtig. Ein Klassiker.",
-        "Das ist genau der Fehler, den die Deklaration verhindert.",
-        "`unique_ptr` verhindert das Leck, indem es gar nicht erst kompiliert."
-      ]
-    },
-    {
-      "typ": "lueckentext",
-      "frage": "Ergänze die Implementierungsdatei.",
-      "code": {
-        "sprache": "cpp",
-        "datei": "sensor.cpp",
-        "zeilen": [
-          "#include \"sensor.h\"",
-          "#include \"i2c_bus.h\"     // nur hier nötig",
-          "",
-          "struct Sensor::Impl {",
-          "    I2cBus bus{0x48};",
-          "    double letzter = 0.0;",
-          "};",
-          "",
-          "Sensor::Sensor() : impl_(std::make_unique<{{?}}>()) {}",
-          "Sensor::~Sensor() = {{?}};",
-          "Sensor::Sensor(Sensor&&) noexcept = default;",
-          "Sensor& Sensor::operator=(Sensor&&) noexcept = default;",
-          "",
-          "double Sensor::lies() { return impl_->letzter = impl_->bus.lies16() * 0.1; }"
-        ]
-      },
-      "luecken": [{ "loesungen": ["Impl"] }, { "loesungen": ["default"] }],
-      "auswahl": ["Impl", "default", "delete", "Sensor"],
-      "erklaerung": "Hier, nach der Definition von `Impl`, kann der Compiler den Destruktor korrekt erzeugen. `i2c_bus.h` steht nur in der `.cpp`. Nutzer von `sensor.h` hängen also nicht davon ab."
-    },
-    {
       "typ": "zuordnen",
-      "frage": "Ordne Vor- und Nachteile zu.",
+      "frage": "Ordne die Teile der Debug-Kette zu.",
       "paare": [
-        { "links": "Vorteil für die ABI", "rechts": "Neue private Member ändern Grösse und Layout der Klasse nicht" },
-        { "links": "Vorteil für die Kompilierzeit", "rechts": "Der Header bindet die Abhängigkeiten der Implementierung nicht ein" },
-        { "links": "Nachteil zur Laufzeit", "rechts": "Eine Heap-Allokation pro Objekt und eine Indirektion pro Zugriff" },
-        { "links": "Nachteil beim Aufwand", "rechts": "Konstruktoren, Destruktor und Moves müssen in der `.cpp` definiert werden" }
+        { "links": "SWD/JTAG", "rechts": "Debug-Schnittstelle des Chips, bei SWD nur zwei Leitungen" },
+        { "links": "Debug-Probe", "rechts": "Adapter zwischen PC und Chip, z. B. ST-LINK, J-Link oder CMSIS-DAP" },
+        { "links": "OpenOCD / J-Link GDB Server", "rechts": "Übersetzt GDB-Befehle in Zugriffe über die Probe" },
+        { "links": "`arm-none-eabi-gdb`", "rechts": "Der eigentliche Debugger mit Breakpoints und Variablen" }
       ],
-      "erklaerung": "Es gibt Varianten ohne Heap (*fast PIMPL*), bei denen ein ausreichend grosser, ausgerichteter Speicherblock im Objekt liegt. Sie sind aber fehleranfällig und lohnen sich nur, wenn die Allokation nachweislich stört."
+      "erklaerung": "IDEs wie VS Code mit Cortex-Debug, STM32CubeIDE oder CLion verpacken genau diese Kette. Wer sie von Hand bedienen kann, kommt auch weiter, wenn die IDE einmal streikt."
+    },
+    {
+      "typ": "terminal-deuten",
+      "frage": "Du verbindest GDB mit OpenOCD. Was bewirken diese Befehle?",
+      "terminal": {
+        "befehl": "arm-none-eabi-gdb firmware.elf",
+        "ausgabe": [
+          "(gdb) target extended-remote :3333",
+          "(gdb) monitor reset halt",
+          "(gdb) load",
+          "Loading section .isr_vector, size 0x1ac lma 0x8000000",
+          "Loading section .text, size 0xbc40 lma 0x80001ac",
+          "(gdb) break main",
+          "(gdb) continue"
+        ]
+      },
+      "optionen": [
+        "Verbinden, Chip anhalten, Firmware flashen, Breakpoint auf `main` setzen und starten",
+        "Die Firmware wird nur im RAM simuliert",
+        "GDB liest die Firmware vom Chip zurück"
+      ],
+      "korrekt": 0,
+      "erklaerung": "`monitor` reicht einen Befehl direkt an OpenOCD weiter. `load` schreibt die Abschnitte aus dem ELF in den Flash. Die Debug-Informationen im ELF (`-g`) erlauben danach die Zuordnung zu Quellzeilen, auch wenn sie selbst nie auf den Chip kommen.",
+      "begruendungen": [
+        "Richtig.",
+        "Es läuft auf echter Hardware.",
+        "`load` schreibt, statt zu lesen."
+      ]
     },
     {
       "typ": "erklaerung",
-      "titel": "Wann PIMPL sinnvoll ist",
-      "text": "PIMPL lohnt sich an Stellen, wo Stabilität wichtiger ist als die letzte Nanosekunde:\n\n- öffentliche Klassen in Bibliotheken mit stabiler ABI (SDKs, Shared Libraries)\n- Klassen, deren Implementierung schwere Header braucht (Hersteller-SDKs, Boost, Windows-Header)\n- Klassen an Modulgrenzen, die sich intern oft ändern\n\nFür kleine Werttypen, die millionenfach in Schleifen benutzt werden, ist PIMPL dagegen die falsche Wahl."
+      "titel": "HardFault analysieren",
+      "text": "Ein **HardFault** ist die Reaktion des Cortex-M auf schwere Fehler: ungültiger Speicherzugriff, unausgerichteter Zugriff, Division durch null (falls aktiviert), ungültige Instruktion. Die Ursache steht in Registern:\n\n- **CFSR** (Configurable Fault Status Register) sagt, was passiert ist\n- **MMFAR**/**BFAR** enthalten die fehlerhafte Adresse, wenn das passende Valid-Bit gesetzt ist\n- Auf dem Stack liegt der **gesicherte Kontext**: Der gespeicherte PC zeigt auf die Instruktion, die den Fehler ausgelöst hat\n\nEin guter Fault-Handler sichert diese Werte und schreibt sie in einen Bereich, der einen Reset übersteht."
     },
     {
       "typ": "multiple-choice",
-      "frage": "Was passiert bei `Sensor b = a;` mit der PIMPL-Klasse aus dieser Lektion?",
+      "frage": "Nach einem HardFault zeigt das CFSR das Bit `PRECISERR` und `BFARVALID`, BFAR enthält `0x00000004`. Was ist die wahrscheinlichste Ursache?",
       "optionen": [
-        "Compilerfehler: Der Kopierkonstruktor ist gelöscht, weil `std::unique_ptr` nicht kopierbar ist. Für Kopien braucht es einen eigenen Kopierkonstruktor, der `Impl` dupliziert",
-        "`b` und `a` teilen sich dieselbe Implementierung",
-        "`a` wird automatisch nach `b` verschoben"
+        "Ein Zugriff über einen Nullzeiger auf ein Element mit Offset 4, etwa `p->zweitesFeld` mit `p == nullptr`",
+        "Ein Stacküberlauf",
+        "Die Taktkonfiguration ist falsch"
       ],
       "korrekt": 0,
-      "erklaerung": "Das ist meist sogar gewollt, denn ein Sensor sollte nicht kopiert werden. Soll eine PIMPL-Klasse Wertsemantik haben, schreibt man einen Kopierkonstruktor wie `Sensor::Sensor(const Sensor& o) : impl_(std::make_unique<Impl>(*o.impl_)) {}`. Mit `std::shared_ptr<Impl>` würden sich Kopien unbemerkt eine Implementierung teilen, und das ist fast nie gewollt.",
+      "erklaerung": "Ein präziser Busfehler nennt die exakte Adresse. Adressen knapp über 0 sind fast immer Nullzeiger mit Feldoffset. Auf manchen Chips ist Adresse 0 allerdings lesbar (Flash-Spiegelung), dann fällt der Fehler erst beim Schreiben auf. Mit dem gesicherten PC findest du die Codezeile: `addr2line -e firmware.elf 0x0800 1A3C`.",
       "begruendungen": [
         "Richtig.",
-        "Das wäre mit `shared_ptr` so, aber gefährlich.",
-        "Verschieben passiert nur mit `std::move(a)`."
+        "Ein Stacküberlauf zeigt eher eine Adresse unterhalb des RAM-Bereichs.",
+        "Ein falscher Takt verursacht keinen Busfehler auf Adresse 4."
       ]
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Eine globale Variable wird irgendwo mit einem falschen Wert überschrieben, du weisst nicht wo. Welches Werkzeug hilft am schnellsten?",
+      "optionen": [
+        "Ein Hardware-**Watchpoint** auf die Variable: `watch zaehler`. Die CPU hält bei jedem Schreibzugriff an",
+        "In jeder Funktion `printf` einfügen",
+        "Einen Breakpoint in `main` setzen"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Die Debug-Einheit (DWT) des Cortex-M kann Adressen überwachen, ohne das Programm zu verlangsamen. Meist gibt es nur 2 bis 4 solcher Komparatoren, ebenso nur 4 bis 8 Hardware-Breakpoints im Flash. Das reicht, wenn man sie gezielt einsetzt. Mit `watch zaehler if zaehler > 100` hält er nur bei bestimmten Werten.",
+      "begruendungen": [
+        "Richtig.",
+        "Das verändert das Zeitverhalten und findet den Fehler oft nicht.",
+        "Ein Breakpoint zeigt nicht, wer die Variable überschreibt."
+      ]
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Mit dieser Konfiguration kann man den Chip nach dem Flashen nicht mehr debuggen, die Probe findet ihn nicht mehr. Welche Zeile ist schuld?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "void initPins() {",
+          "    RCC->AHB1ENR |= RCC_AHB1ENR_GPIOAEN;",
+          "    // alle Pins von Port A als Ausgang",
+          "    GPIOA->MODER = 0x55555555;",
+          "}"
+        ]
+      },
+      "fehlerZeile": 4,
+      "erklaerung": "PA13 und PA14 sind auf dem STM32 SWDIO und SWCLK. Werden sie zu normalen Ausgängen, ist die Debug-Schnittstelle weg, sobald `initPins` läuft. Rettung: Probe mit „connect under reset“ verbinden, dann hält der Chip an, bevor der Code die Pins umkonfiguriert. Im Code: Nur die benötigten Bits ändern (Lektion 6.2)."
     }
   ],
-  "praxis": "Im Alltag begegnet dir PIMPL in Bibliotheken wie Qt (dort *d-pointer* genannt) und in Firmen-SDKs. Beim Review einer PIMPL-Klasse prüfst du: Sind Destruktor und Moves in der `.cpp` definiert? Ist geklärt, ob die Klasse kopierbar sein soll? Und lohnt sich PIMPL hier überhaupt, oder würde eine schlanke Klasse ohne Indirektion genügen?",
+  "praxis": "Ein Senior-Embedded-Entwickler hat einen Fault-Handler im Projekt, der Register und Stack sichert und nach dem Neustart ausgibt oder an einen Server meldet (z. B. mit Memfault oder einer eigenen Lösung). Damit werden Abstürze im Feld diagnostizierbar. Ohne diese Vorbereitung bleibt nur „passiert manchmal, nicht reproduzierbar“.",
   "labor": {
-    "titel": "Kompilierzeit-Gewinn messen",
-    "anleitung": "Baue eine Klasse, deren Implementierung einen grossen Header (z. B. `<regex>` oder `<boost/asio.hpp>`) braucht, einmal normal und einmal mit PIMPL. Lass 50 Dateien den Header der Klasse einbinden und miss die Build-Zeit.",
+    "titel": "Einen HardFault provozieren und analysieren",
+    "anleitung": "Schreibe auf einem Board (oder in Renode/QEMU) über einen Nullzeiger und analysiere den Fault mit GDB.",
     "befehle": [
-      "cmake -S . -B build -G Ninja && time cmake --build build",
-      "touch src/sensor_impl_detail.h && time cmake --build build"
+      "openocd -f board/st_nucleo_f4.cfg",
+      "arm-none-eabi-gdb firmware.elf -ex \"target extended-remote :3333\"",
+      "(gdb) x/wx 0xE000ED28",
+      "(gdb) x/wx 0xE000ED38",
+      "(gdb) info registers"
     ],
-    "beobachtung": "Mit PIMPL wird nach einer Änderung an der Implementierung nur noch eine Datei neu übersetzt statt 50. Auch der vollständige Build ist schneller, weil der grosse Header nur einmal geparst wird."
+    "beobachtung": "`0xE000ED28` ist das CFSR, `0xE000ED38` das BFAR. Mit `bt` zeigt GDB oft auch über den Exception-Rahmen hinweg, in welcher Funktion der Fehler passiert ist."
   },
   "begriffe": [
-    { "begriff": "PIMPL", "englisch": "pointer to implementation", "erklaerung": "Private Member liegen in einer Klasse, die nur in der `.cpp` definiert ist. Der Header enthält nur einen Zeiger darauf." },
-    { "begriff": "Unvollständiger Typ", "englisch": "incomplete type", "erklaerung": "Deklarierter, aber noch nicht definierter Typ. Man darf Zeiger darauf haben, ihn aber nicht anlegen oder löschen." },
-    { "begriff": "d-pointer", "englisch": "d-pointer", "erklaerung": "Bezeichnung für das PIMPL-Idiom in Qt." }
+    { "begriff": "SWD", "englisch": "serial wire debug", "erklaerung": "Zweidrahtige Debug-Schnittstelle der ARM-Cortex-Prozessoren." },
+    { "begriff": "Debug-Probe", "englisch": "debug probe", "erklaerung": "Adapter, der den PC mit der Debug-Schnittstelle des Chips verbindet." },
+    { "begriff": "HardFault", "englisch": "HardFault", "erklaerung": "Exception eines Cortex-M bei schweren Fehlern wie ungültigen Speicherzugriffen." },
+    { "begriff": "Watchpoint", "englisch": "watchpoint", "erklaerung": "Haltepunkt, der bei einem Zugriff auf eine bestimmte Adresse auslöst." }
   ],
   "weiterlesen": [
-    { "titel": "cppreference: PImpl", "url": "https://en.cppreference.com/w/cpp/language/pimpl" },
-    { "titel": "C++ Core Guidelines: I.27 – For stable library ABI, consider the Pimpl idiom", "url": "https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#Ri-pimpl" }
+    { "titel": "Interrupt (Memfault): How to debug a HardFault on an ARM Cortex-M MCU", "url": "https://interrupt.memfault.com/blog/cortex-m-hardfault-debug" },
+    { "titel": "OpenOCD User's Guide", "url": "https://openocd.org/doc/html/index.html" }
   ]
 }

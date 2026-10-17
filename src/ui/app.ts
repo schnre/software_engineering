@@ -1,5 +1,6 @@
 // Zentraler App-Zustand: Fortschritt im Speicher halten und nach Änderungen speichern.
-import { lernpfad } from '../engine/content';
+import { curriculum, lernpfad } from '../engine/content';
+import { erreichteAbzeichen, type AbzeichenKontext } from '../progress/abzeichen';
 import { statusListe, type LektionsStatus } from '../engine/freischaltung';
 import { laden, speichern } from '../progress/speicher';
 import type { Fortschritt } from '../progress/zustand';
@@ -34,6 +35,21 @@ export function aktuelleStatus(): Map<string, LektionsStatus> {
   const f = fortschritt;
   const liste = statusListe(lernpfadIds, new Set(Object.keys(f.lektionen)), f.einstellungen.erkunden);
   return new Map(lernpfadIds.map((id, i) => [id, liste[i]]));
+}
+
+/** Kontext für die Abzeichen: welche Phasen vollständig abgeschlossen sind. */
+export function abzeichenKontext(): AbzeichenKontext {
+  const fertig = new Set(Object.keys(fortschritt.lektionen));
+  const fertigePhasen = new Set<number>();
+  for (const phase of curriculum.phasen) {
+    const ids = phase.module.flatMap((m) => m.lektionen);
+    if (ids.length && ids.every((id) => fertig.has(id))) fertigePhasen.add(phase.nummer);
+  }
+  return { fertigePhasen, lektionenGesamt: lernpfadIds.length };
+}
+
+export function aktuelleAbzeichen(): Set<string> {
+  return erreichteAbzeichen(fortschritt, abzeichenKontext());
 }
 
 export function themaAnwenden(): void {

@@ -48,7 +48,13 @@
       "titel": "Die Übersetzungseinheit",
       "text": "Der Präprozessor macht aus einer `.cpp`-Datei und allen direkt oder indirekt eingebundenen Headern einen einzigen langen Text. Das ist die **Übersetzungseinheit** (translation unit).\n\nDer Compiler sieht immer nur genau eine Übersetzungseinheit. Was in anderen `.cpp`-Dateien steht, weiss er nicht. Header werden nicht selbst kompiliert, sondern nur als Text in Übersetzungseinheiten eingefügt.",
       "diagramm": {
-        "knoten": ["main.cpp", "+ a.h", "+ b.h", "+ alle Header von `<vector>` …", "= eine Übersetzungseinheit"],
+        "knoten": [
+          "main.cpp",
+          "+ a.h",
+          "+ b.h",
+          "+ alle Header von `<vector>` …",
+          "= eine Übersetzungseinheit"
+        ],
         "beschriftung": "Eine Übersetzungseinheit entsteht pro .cpp-Datei."
       }
     },
@@ -68,11 +74,29 @@
         ]
       },
       "luecken": [
-        { "loesungen": ["#ifndef"] },
-        { "loesungen": ["#define"] },
-        { "loesungen": ["#endif"] }
+        {
+          "loesungen": [
+            "#ifndef"
+          ]
+        },
+        {
+          "loesungen": [
+            "#define"
+          ]
+        },
+        {
+          "loesungen": [
+            "#endif"
+          ]
+        }
       ],
-      "auswahl": ["#ifndef", "#define", "#endif", "#ifdef", "#include"],
+      "auswahl": [
+        "#ifndef",
+        "#define",
+        "#endif",
+        "#ifdef",
+        "#include"
+      ],
       "erklaerung": "Beim ersten Einfügen ist `PUNKT_H` noch nicht definiert, also wird der Inhalt übernommen und das Makro definiert. Beim zweiten Mal ist `PUNKT_H` bereits definiert, und der Präprozessor überspringt alles bis `#endif`. `#ifdef` würde genau umgekehrt wirken. Viele Projekte schreiben stattdessen `#pragma once` in die erste Zeile. Das ist kein Standard, wird aber von GCC, Clang und MSVC unterstützt."
     },
     {
@@ -87,8 +111,14 @@
           "constexpr int quadrat(int x) { return x * x; }  // typsicher"
         ],
         "anmerkungen": [
-          { "zeile": 1, "text": "Ein konstanter Wert als Makro hat keinen Typ und taucht im Debugger nicht auf." },
-          { "zeile": 3, "text": "Eine `constexpr`-Funktion wird bei konstanten Argumenten ebenfalls zur Kompilierzeit ausgewertet." }
+          {
+            "zeile": 1,
+            "text": "Ein konstanter Wert als Makro hat keinen Typ und taucht im Debugger nicht auf."
+          },
+          {
+            "zeile": 3,
+            "text": "Eine `constexpr`-Funktion wird bei konstanten Argumenten ebenfalls zur Kompilierzeit ausgewertet."
+          }
         ]
       }
     },
@@ -103,7 +133,12 @@
           "int r = QUADRAT(1 + 2);"
         ]
       },
-      "optionen": ["9", "5", "7", "Compilerfehler"],
+      "optionen": [
+        "9",
+        "5",
+        "7",
+        "Compilerfehler"
+      ],
       "korrekt": 1,
       "fest": true,
       "hinweis": "Ersetze `x` wörtlich durch `1 + 2` und beachte Punkt vor Strich.",
@@ -118,7 +153,11 @@
     {
       "typ": "multiple-choice",
       "frage": "Ein Projekt besteht aus 3 `.cpp`-Dateien und 5 Headern. Wie viele Übersetzungseinheiten gibt es?",
-      "optionen": ["3", "5", "8"],
+      "optionen": [
+        "3",
+        "5",
+        "8"
+      ],
       "korrekt": 0,
       "erklaerung": "Jede `.cpp`-Datei, die kompiliert wird, ergibt eine Übersetzungseinheit. Header werden nur eingebunden und nie für sich allein übersetzt.",
       "begruendungen": [
@@ -131,10 +170,22 @@
       "typ": "zuordnen",
       "frage": "Ordne jeder Präprozessor-Direktive ihre Wirkung zu.",
       "paare": [
-        { "links": "`#include`", "rechts": "Fügt den Inhalt einer Datei ein" },
-        { "links": "`#define`", "rechts": "Legt ein Makro fest" },
-        { "links": "`#if` / `#ifdef`", "rechts": "Bindet Code nur unter einer Bedingung ein" },
-        { "links": "`#pragma once`", "rechts": "Verhindert mehrfaches Einfügen derselben Datei" }
+        {
+          "links": "`#include`",
+          "rechts": "Fügt den Inhalt einer Datei ein"
+        },
+        {
+          "links": "`#define`",
+          "rechts": "Legt ein Makro fest"
+        },
+        {
+          "links": "`#if` / `#ifdef`",
+          "rechts": "Bindet Code nur unter einer Bedingung ein"
+        },
+        {
+          "links": "`#pragma once`",
+          "rechts": "Verhindert mehrfaches Einfügen derselben Datei"
+        }
       ],
       "erklaerung": "Alle vier Direktiven sind reine Textoperationen. Mit `#if` baut man z. B. plattformspezifischen Code (`#ifdef _WIN32`) oder Debug-Ausgaben, die im Release-Build verschwinden."
     },
@@ -143,7 +194,9 @@
       "frage": "Du vermutest einen fehlenden Include Guard und zählst, wie oft die Definition im vorverarbeiteten Text vorkommt. Was zeigt die Ausgabe?",
       "terminal": {
         "befehl": "g++ -E main.cpp | grep -c \"struct Punkt {\"",
-        "ausgabe": ["2"]
+        "ausgabe": [
+          "2"
+        ]
       },
       "optionen": [
         "Die Definition steht nach dem Präprozessor zweimal in der Übersetzungseinheit",
@@ -171,12 +224,30 @@
     "beobachtung": "Schon `<vector>` bringt zehntausende Zeilen mit. `-H` zeigt den Include-Baum, die Anzahl Punkte entspricht der Verschachtelungstiefe. `-dM` listet alle vordefinierten Makros. `__cplusplus` verrät, welchen C++-Standard der Compiler standardmässig verwendet."
   },
   "begriffe": [
-    { "begriff": "Übersetzungseinheit", "englisch": "translation unit", "erklaerung": "Eine `.cpp`-Datei mit allen eingebundenen Headern nach dem Präprozessor. Der Compiler übersetzt immer genau eine davon." },
-    { "begriff": "Include Guard", "englisch": "include guard", "erklaerung": "`#ifndef`/`#define`/`#endif`-Klammer, die verhindert, dass ein Header mehrfach in dieselbe Übersetzungseinheit gelangt." },
-    { "begriff": "Makro", "englisch": "macro", "erklaerung": "Mit `#define` festgelegter Textersatz. Er wird vor dem Kompilieren ausgeführt und kennt keine Typen." }
+    {
+      "begriff": "Übersetzungseinheit",
+      "englisch": "translation unit",
+      "erklaerung": "Eine `.cpp`-Datei mit allen eingebundenen Headern nach dem Präprozessor. Der Compiler übersetzt immer genau eine davon."
+    },
+    {
+      "begriff": "Include Guard",
+      "englisch": "include guard",
+      "erklaerung": "`#ifndef`/`#define`/`#endif`-Klammer, die verhindert, dass ein Header mehrfach in dieselbe Übersetzungseinheit gelangt."
+    },
+    {
+      "begriff": "Makro",
+      "englisch": "macro",
+      "erklaerung": "Mit `#define` festgelegter Textersatz. Er wird vor dem Kompilieren ausgeführt und kennt keine Typen."
+    }
   ],
   "weiterlesen": [
-    { "titel": "cppreference: Preprocessor", "url": "https://en.cppreference.com/w/cpp/preprocessor" },
-    { "titel": "C++ Core Guidelines: ES.31 – Don't use macros for constants or functions", "url": "https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#Res-macros2" }
+    {
+      "titel": "cppreference: Preprocessor",
+      "url": "https://en.cppreference.com/w/cpp/preprocessor"
+    },
+    {
+      "titel": "C++ Core Guidelines: ES.31 – Don't use macros for constants or functions",
+      "url": "https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#Res-macros2"
+    }
   ]
 }

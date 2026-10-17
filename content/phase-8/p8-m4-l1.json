@@ -1,109 +1,191 @@
 {
   "id": "p8-m4-l1",
   "phase": 8,
-  "modul": "8.4 Kommunikation und Mentoring",
-  "titel": "Technisches verständlich erklären",
+  "modul": "8.4 Jenkins Shared Libraries",
+  "titel": "Aufbau einer Shared Library",
   "lernziele": [
-    "Botschaften an das jeweilige Publikum anpassen",
-    "Nachrichten mit dem Wichtigsten zuerst aufbauen",
-    "Ein kurzes Design-Dokument gliedern"
+    "Den Zweck einer Jenkins Shared Library erklären",
+    "Die Ordner `vars`, `src` und `resources` unterscheiden",
+    "Eine Library versioniert in ein Jenkinsfile einbinden"
   ],
-  "dauerMinuten": 5,
+  "dauerMinuten": 6,
   "schritte": [
     {
       "typ": "multiple-choice",
-      "frage": "Die Projektleitung will wissen, warum sich das Release verschiebt. Die Ursache ist ein Data Race im Empfangsthread. Was sagst du?",
+      "frage": "40 Repositories haben fast identische Jenkinsfiles mit je 120 Zeilen. Eine Änderung der Compiler-Optionen braucht 40 Pull Requests. Was ist die Lösung in Jenkins?",
       "optionen": [
-        "„Release 2.4 verschiebt sich voraussichtlich um eine Woche. Wir haben einen seltenen Fehler gefunden, der Messwerte verfälschen kann. Den beheben wir lieber jetzt als beim Kunden.“",
-        "„Wir haben ein Data Race zwischen dem CAN-Empfangsthread und dem Verarbeitungsthread, weil der Ringpuffer ohne Acquire-Release-Semantik synchronisiert wird.“",
-        "„Es gibt Probleme mit Threads, das kann dauern.“"
+        "Eine **Shared Library** mit gemeinsamen Pipeline-Bausteinen, die alle Jenkinsfiles einbinden",
+        "Ein Skript, das die 40 Jenkinsfiles automatisch per Suchen und Ersetzen ändert",
+        "Ein einziges grosses Repository für alle 40 Projekte"
       ],
       "korrekt": 0,
-      "erklaerung": "Die Projektleitung muss **entscheiden und planen**. Dafür braucht sie Auswirkung, Grund in verständlichen Worten und eine Einschätzung. Die technischen Details sind für sie nicht nutzbar. Bei Bedarf fragt sie nach, und dann kannst du sie liefern.",
+      "erklaerung": "Eine **Shared Library** ist ein eigenes Git-Repository mit Groovy-Code, das Jenkins in Pipelines laden kann. Die gemeinsamen Teile stehen dort genau einmal. Jedes Jenkinsfile schrumpft auf wenige Zeilen.",
       "begruendungen": [
-        "Richtig.",
-        "Korrekt, aber für die Projektleitung nicht verwertbar.",
-        "Zu vage: Wie lange? Wie schlimm? Was ist zu tun?"
+        "Richtig. Das ist das DRY-Prinzip für Pipelines.",
+        "Das behandelt das Symptom, nicht die Ursache. Beim nächsten Mal sind es wieder 40 Änderungen.",
+        "Ein Monorepo kann sinnvoll sein, ist aber eine viel grössere Entscheidung als die Pipeline-Frage."
       ]
     },
     {
       "typ": "erklaerung",
-      "titel": "Für wen schreibe ich?",
-      "text": "Dieselbe technische Tatsache braucht für verschiedene Leute verschiedene Worte. Frag dich vor jeder Nachricht: **Wer liest das, und was muss diese Person danach tun oder wissen?**\n\nEin bewährter Aufbau heisst **BLUF** (*bottom line up front*): Das Wichtigste zuerst, also Ergebnis, Entscheidung oder Bitte. Dann die Begründung, dann die Details für alle, die tiefer einsteigen wollen. Wer nur die ersten zwei Sätze liest, sollte trotzdem alles Nötige wissen."
+      "titel": "Aufbau",
+      "code": {
+        "sprache": "text",
+        "zeilen": [
+          "firma-pipeline/",
+          "├── vars/",
+          "│   ├── cmakeBuild.groovy      // Schritt cmakeBuild(...)",
+          "│   └── cmakeBuild.txt         // Hilfetext für die Oberfläche",
+          "├── src/",
+          "│   └── ch/firma/Version.groovy  // Klassen für komplexere Logik",
+          "└── resources/",
+          "    └── ch/firma/clang-tidy.yaml // Dateien für libraryResource"
+        ]
+      },
+      "text": "Jede Datei in `vars/` wird zu einem globalen Schritt mit ihrem Namen. Ruft man `cmakeBuild(...)` auf, führt Jenkins deren Methode `call` aus. In Jenkins wird die Library unter *Manage Jenkins → System → Global Trusted Pipeline Libraries* mit Namen, Repository und Standardversion eingetragen."
     },
     {
       "typ": "zuordnen",
-      "frage": "Worauf kommt es bei welchem Publikum an?",
+      "frage": "Was ist was?",
       "paare": [
-        { "links": "Projektleitung", "rechts": "Auswirkung auf Termin, Kosten und Risiko, mit Optionen" },
-        { "links": "Kollegin aus dem Team", "rechts": "Technische Ursache, Details und nächste Schritte" },
-        { "links": "Kunde", "rechts": "Was betroffen ist, was er tun muss und wann es behoben ist" },
-        { "links": "Neue Person im Team", "rechts": "Erst der Überblick, Details erst bei Bedarf" }
+        {
+          "links": "`vars/cmakeBuild.groovy`",
+          "rechts": "Definiert den Schritt `cmakeBuild(...)` für alle Jenkinsfiles"
+        },
+        {
+          "links": "`src/ch/firma/Version.groovy`",
+          "rechts": "Groovy-Klasse für komplexere Logik"
+        },
+        {
+          "links": "`resources/ch/firma/clang-tidy.yaml`",
+          "rechts": "Datei, die mit `libraryResource` geladen wird"
+        },
+        {
+          "links": "`@Library('firma-pipeline@v2') _`",
+          "rechts": "Lädt die Library in Version `v2` ins Jenkinsfile"
+        }
       ],
-      "erklaerung": "Fachbegriffe sind nicht verboten, aber jedes Wort, das das Gegenüber nicht kennt, kostet Aufmerksamkeit. Gegenüber der Projektleitung sagst du „seltener Fehler bei gleichzeitigen Zugriffen“, im Team „Data Race im Ringpuffer“."
+      "erklaerung": "Der Unterstrich `_` nach `@Library` ist kein Tippfehler. Die Annotation braucht in Groovy ein Element, an dem sie hängt, und `_` ist ein Platzhalter dafür."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Ein Jenkinsfile ruft `cmakeBuild(buildType: 'Debug')` auf. Welcher erste Befehl wird ausgeführt?",
+      "code": {
+        "sprache": "groovy",
+        "datei": "vars/cmakeBuild.groovy",
+        "zeilen": [
+          "def call(Map cfg = [:]) {",
+          "    def typ = cfg.get('buildType', 'Release')",
+          "    sh \"cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=${typ}\"",
+          "    sh 'cmake --build build'",
+          "}"
+        ]
+      },
+      "optionen": [
+        "`cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Debug`",
+        "`cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=Release`",
+        "`cmake -S . -B build -G Ninja -DCMAKE_BUILD_TYPE=${typ}`"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Benannte Argumente landen in einer Map. `cfg.get('buildType', 'Release')` liefert den übergebenen Wert oder den Standardwert. In doppelten Anführungszeichen ersetzt Groovy `${typ}` vor dem Aufruf von `sh`. In einfachen Anführungszeichen würde dagegen die Shell eine Variable `typ` suchen.",
+      "begruendungen": [
+        "Richtig.",
+        "`Release` ist nur der Standardwert, wenn nichts übergeben wird.",
+        "Groovy ersetzt den Platzhalter in doppelten Anführungszeichen vor dem Aufruf."
+      ]
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze das Jenkinsfile, das die Library in Version `v2.3.0` lädt und den Schritt verwendet.",
+      "code": {
+        "sprache": "groovy",
+        "datei": "Jenkinsfile",
+        "zeilen": [
+          "{{?}}('firma-pipeline@v2.3.0') _",
+          "",
+          "pipeline {",
+          "    agent { label 'linux' }",
+          "    stages {",
+          "        stage('Build') {",
+          "            steps { {{?}}(buildType: 'Release') }",
+          "        }",
+          "    }",
+          "}"
+        ]
+      },
+      "luecken": [
+        {
+          "loesungen": [
+            "@Library"
+          ]
+        },
+        {
+          "loesungen": [
+            "cmakeBuild"
+          ]
+        }
+      ],
+      "auswahl": [
+        "@Library",
+        "cmakeBuild",
+        "import",
+        "call"
+      ],
+      "erklaerung": "Das Jenkinsfile enthält jetzt nur noch, was dieses Projekt besonders macht. Wie gebaut wird, steht an einer zentralen Stelle."
     },
     {
       "typ": "multiple-choice",
-      "frage": "Welche Statusnachricht ist am besten?",
+      "frage": "Warum lädt man `firma-pipeline@v2.3.0` statt einfach den aktuellen Stand des Hauptbranches der Library?",
       "optionen": [
-        "„Kurz: 2.4 verschiebt sich voraussichtlich um eine Woche. Grund: ein seltener Fehler bei der Messwerterfassung. Optionen: A) Release mit bekanntem Fehler und Patch in zwei Wochen, B) eine Woche später, fehlerfrei. Ich empfehle B. Entscheidung bitte bis Freitag.“",
-        "„Ich habe am Montag angefangen, den Fehler zu suchen, dann am Dienstag die Logs angeschaut, dann …“ (zwei Seiten)",
-        "„Gibt Probleme, lass uns mal ein Meeting machen.“"
+        "Damit eine Änderung an der Library nicht alle Pipelines gleichzeitig und ungeprüft verändert, und damit alte Builds reproduzierbar bleiben",
+        "Weil Jenkins ohne Version keine Library laden kann",
+        "Weil Versionen schneller geladen werden"
       ],
       "korrekt": 0,
-      "fest": true,
-      "erklaerung": "Die erste Nachricht beginnt mit dem Ergebnis, nennt den Grund in einem Satz, bietet Optionen mit Folgen, gibt eine Empfehlung und sagt, was gebraucht wird und bis wann. Die chronologische Erzählung versteckt das Wichtige am Ende. Die dritte verschiebt die Arbeit nur in ein Meeting.",
+      "erklaerung": "Eine Library ist eine Abhängigkeit wie jede andere. Ein Fehler im Hauptbranch würde sonst sofort 40 Pipelines brechen. Mit festen Versionen entscheidet jedes Team, wann es aktualisiert, und ein alter Commit baut auch in einem Jahr noch mit derselben Pipeline-Logik.",
       "begruendungen": [
         "Richtig.",
-        "Chronologisch ist der natürlichste, aber für Lesende der schwierigste Aufbau.",
-        "Ohne Inhalt kann sich niemand vorbereiten."
+        "Ohne Angabe nimmt Jenkins die konfigurierte Standardversion.",
+        "Die Ladezeit ist praktisch gleich."
       ]
     },
     {
       "typ": "erklaerung",
-      "titel": "Kurze Design-Dokumente",
-      "text": "Für grössere Vorhaben lohnt sich vor der Umsetzung ein kurzes Design-Dokument, meist zwei bis fünf Seiten:\n\n- **Problem**: Was soll gelöst werden, und warum jetzt?\n- **Ziele und Nicht-Ziele**: Was gehört dazu, was ausdrücklich nicht?\n- **Vorschlag**: die Lösung, mit einer Skizze\n- **Alternativen**: was verworfen wurde und warum\n- **Risiken und offene Fragen**\n\nEs wird von den Betroffenen kommentiert, bevor eine Zeile Code geschrieben ist. Das ist der billigste Zeitpunkt, um Fehler im Design zu finden."
-    },
-    {
-      "typ": "lueckentext",
-      "frage": "Ergänze den Namen des Prinzips.",
-      "text": "Beim Prinzip {{?}} steht das Wichtigste, also Ergebnis, Entscheidung oder Bitte, am Anfang einer Nachricht.",
-      "luecken": [{ "loesungen": ["BLUF"] }],
-      "auswahl": ["BLUF", "FIFO", "YAGNI", "DRY"],
-      "erklaerung": "*Bottom line up front* stammt aus dem Militär, wo Nachrichten unter Zeitdruck gelesen werden. In E-Mails, Tickets und Pull-Request-Beschreibungen hilft es genauso."
-    },
-    {
-      "typ": "multiple-choice",
-      "frage": "Wozu dient der Abschnitt **Nicht-Ziele** in einem Design-Dokument?",
-      "optionen": [
-        "Er verhindert Missverständnisse und schleichende Erweiterungen, indem er ausdrücklich sagt, was nicht Teil des Vorhabens ist",
-        "Er listet auf, was im Projekt schiefgehen könnte",
-        "Er ist nur eine Formalie und kann leer bleiben"
-      ],
-      "korrekt": 0,
-      "erklaerung": "„Nicht-Ziel: Unterstützung mehrerer gleichzeitiger Sensoren“ beendet eine Diskussion, bevor sie beginnt, und gibt allen ein gemeinsames Bild vom Umfang. Viele spätere Konflikte entstehen daraus, dass jemand stillschweigend etwas anderes erwartet hat.",
-      "begruendungen": [
-        "Richtig.",
-        "Dafür gibt es den Abschnitt Risiken.",
-        "Gerade dieser Abschnitt spart oft am meisten Zeit."
-      ]
+      "titel": "Bausteine oder ganze Pipeline?",
+      "text": "Es gibt zwei Stile:\n\n- **Bausteine**: Die Library bietet Schritte wie `cmakeBuild`, `runSanitizerTests`, `publishArtifact`. Jedes Jenkinsfile setzt sie zusammen. Das ist flexibel.\n- **Vorlage**: Die Library enthält eine komplette Pipeline, z. B. `standardCppPipeline(produkt: 'sensor-fw')`. Das Jenkinsfile ist eine Zeile lang. Das schafft maximale Einheitlichkeit, Sonderwünsche brauchen aber Parameter oder Erweiterungspunkte.\n\nViele Firmen kombinieren beides: eine Standard-Pipeline für 90 % der Projekte, Bausteine für den Rest."
     }
   ],
-  "praxis": "Je weiter man als Entwickler kommt, desto mehr Wirkung entsteht durch Kommunikation statt durch eigenen Code: ein Design-Dokument, das ein Team auf eine Linie bringt, eine Statusmeldung, die eine gute Entscheidung ermöglicht, ein README, das neue Leute in einem Tag produktiv macht. Übe es bewusst, z. B. indem du vor dem Absenden jeder wichtigen Nachricht prüfst, ob die ersten zwei Sätze allein reichen würden.",
+  "praxis": "Shared Libraries sind in grösseren Firmen der Ort, an dem Wissen über Build, Test und Auslieferung gebündelt wird. Wer sie pflegt, hat grossen Einfluss auf Qualität und Geschwindigkeit aller Teams. Das ist eine typische Senior- oder Plattform-Aufgabe. Behandle die Library wie ein Produkt: mit Versionen, Changelog, Dokumentation und Tests.",
   "labor": {
-    "titel": "Eine Nachricht umbauen",
-    "anleitung": "Nimm eine längere E-Mail, Ticket-Beschreibung oder Pull-Request-Beschreibung, die du kürzlich geschrieben hast, und baue sie nach BLUF um: Ergebnis oder Bitte zuerst, dann Begründung, dann Details.",
+    "titel": "Eine eigene Library anlegen",
+    "anleitung": "Lege ein Repository `firma-pipeline` mit `vars/cmakeBuild.groovy` an, trage es in deiner lokalen Jenkins-Instanz als Global Pipeline Library ein und rufe den Schritt aus einem Jenkinsfile auf.",
     "befehle": [
-      "gh pr view --json body --jq .body | head -20"
+      "mkdir -p firma-pipeline/vars && cd firma-pipeline && git init",
+      "git add . && git commit -m 'Füge cmakeBuild hinzu' && git tag v0.1.0"
     ],
-    "beobachtung": "Oft steht das Wichtigste im letzten Absatz. Nach vorne gestellt, wird die Nachricht kürzer, und die Rückfragen werden weniger."
+    "beobachtung": "Im Build-Log erscheint beim Laden `Loading library firma-pipeline@v0.1.0`, gefolgt vom Commit-Hash der Library. So ist im Nachhinein nachvollziehbar, welcher Stand verwendet wurde."
   },
   "begriffe": [
-    { "begriff": "BLUF", "englisch": "bottom line up front", "erklaerung": "Das Wichtigste, also Ergebnis, Entscheidung oder Bitte, steht am Anfang einer Nachricht." },
-    { "begriff": "Design-Dokument", "englisch": "design document, design doc", "erklaerung": "Kurzes Dokument mit Problem, Zielen, Vorschlag und Alternativen, das vor der Umsetzung besprochen wird." },
-    { "begriff": "Nicht-Ziel", "englisch": "non-goal", "erklaerung": "Ausdrücklich ausgeschlossener Teil eines Vorhabens, um den Umfang klar zu begrenzen." }
+    {
+      "begriff": "Shared Library",
+      "englisch": "Jenkins shared library",
+      "erklaerung": "Git-Repository mit wiederverwendbarem Pipeline-Code, das Jenkinsfiles per `@Library` laden."
+    },
+    {
+      "begriff": "Globaler Schritt",
+      "englisch": "global variable / custom step",
+      "erklaerung": "Datei in `vars/`, die als Schritt mit ihrem Namen in jeder Pipeline aufrufbar ist."
+    },
+    {
+      "begriff": "DRY",
+      "englisch": "don't repeat yourself",
+      "erklaerung": "Prinzip, jede Information nur an einer Stelle festzuhalten."
+    }
   ],
   "weiterlesen": [
-    { "titel": "Industrial Empathy: Design Docs at Google", "url": "https://www.industrialempathy.com/posts/design-docs-at-google/" }
+    {
+      "titel": "Jenkins: Extending with Shared Libraries",
+      "url": "https://www.jenkins.io/doc/book/pipeline/shared-libraries/"
+    }
   ]
 }

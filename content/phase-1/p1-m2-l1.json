@@ -13,7 +13,11 @@
     {
       "typ": "multiple-choice",
       "frage": "`foo()` ist in einem Header deklariert, aber nirgends definiert. `main.cpp` ruft `foo()` auf. Wer meldet den Fehler?",
-      "optionen": ["Präprozessor", "Compiler", "Linker"],
+      "optionen": [
+        "Präprozessor",
+        "Compiler",
+        "Linker"
+      ],
       "korrekt": 2,
       "fest": true,
       "erklaerung": "Der Compiler sieht nur eine Übersetzungseinheit und vertraut der Deklaration. Erst der Linker sieht alle Object-Files und bemerkt, dass die Definition fehlt.",
@@ -28,11 +32,23 @@
       "titel": "Symbolauflösung",
       "text": "Der Linker sammelt die Symboltabellen aller Object-Files. Für jedes undefinierte Symbol (`U`) sucht er **genau eine** Definition. Das heisst **Symbolauflösung** (symbol resolution).\n\nDie **One Definition Rule** (ODR) legt fest: Jede Funktion und jede Variable, die nicht `inline` ist, darf im ganzen Programm genau einmal definiert sein. Deklariert werden darf sie beliebig oft.\n\nKlassen, Templates und `inline`-Funktionen dürfen in mehreren Übersetzungseinheiten definiert werden, aber nur, wenn alle Definitionen Zeichen für Zeichen gleich sind.",
       "tabelle": {
-        "kopf": ["Situation", "Linker meldet"],
+        "kopf": [
+          "Situation",
+          "Linker meldet"
+        ],
         "zeilen": [
-          ["keine Definition", "`undefined reference to ...`"],
-          ["genau eine Definition", "alles gut"],
-          ["zwei oder mehr Definitionen", "`multiple definition of ...`"]
+          [
+            "keine Definition",
+            "`undefined reference to ...`"
+          ],
+          [
+            "genau eine Definition",
+            "alles gut"
+          ],
+          [
+            "zwei oder mehr Definitionen",
+            "`multiple definition of ...`"
+          ]
         ]
       }
     },
@@ -95,8 +111,19 @@
           "}"
         ]
       },
-      "luecken": [{ "loesungen": ["inline"] }],
-      "auswahl": ["inline", "static", "extern", "virtual"],
+      "luecken": [
+        {
+          "loesungen": [
+            "inline"
+          ]
+        }
+      ],
+      "auswahl": [
+        "inline",
+        "static",
+        "extern",
+        "virtual"
+      ],
       "erklaerung": "`inline` bedeutet in modernem C++ vor allem: Diese Definition darf in mehreren Übersetzungseinheiten stehen. Der Linker führt sie zusammen. `static` würde den Linkerfehler zwar auch beseitigen, aber jede Übersetzungseinheit bekäme eine eigene, private Kopie. Das ist eine andere Bedeutung und bei Variablen oft ein Fehler. Die Alternative ist, nur die Deklaration im Header zu lassen und die Definition in eine `.cpp`-Datei zu verschieben."
     },
     {
@@ -127,10 +154,22 @@
       "typ": "zuordnen",
       "frage": "Ordne jede Meldung dem Werkzeug und der Ursache zu.",
       "paare": [
-        { "links": "`undefined reference to ...`", "rechts": "Linker: keine Definition gefunden" },
-        { "links": "`multiple definition of ...`", "rechts": "Linker: mehr als eine Definition im Programm" },
-        { "links": "`redefinition of ...`", "rechts": "Compiler: zweimal definiert in derselben Übersetzungseinheit" },
-        { "links": "`'x' was not declared in this scope`", "rechts": "Compiler: Name ist an dieser Stelle unbekannt" }
+        {
+          "links": "`undefined reference to ...`",
+          "rechts": "Linker: keine Definition gefunden"
+        },
+        {
+          "links": "`multiple definition of ...`",
+          "rechts": "Linker: mehr als eine Definition im Programm"
+        },
+        {
+          "links": "`redefinition of ...`",
+          "rechts": "Compiler: zweimal definiert in derselben Übersetzungseinheit"
+        },
+        {
+          "links": "`'x' was not declared in this scope`",
+          "rechts": "Compiler: Name ist an dieser Stelle unbekannt"
+        }
       ],
       "erklaerung": "Die Faustregel: Betrifft der Fehler eine einzelne Übersetzungseinheit, meldet ihn der Compiler mit Datei und Zeile. Betrifft er das Zusammenspiel mehrerer Object-Files, meldet ihn der Linker, oft mit `ld` oder `collect2` in der Ausgabe."
     }
@@ -146,11 +185,25 @@
     "beobachtung": "Ohne `inline` hat jedes Object-File `T gruss()`, und das ist zu viel. Mit `inline` siehst du `W gruss()`. `W` steht für *weak*: Der Linker darf mehrere davon zu einer zusammenführen."
   },
   "begriffe": [
-    { "begriff": "Symbolauflösung", "englisch": "symbol resolution", "erklaerung": "Der Linker ordnet jedem undefinierten Symbol genau eine Definition zu." },
-    { "begriff": "One Definition Rule", "englisch": "one definition rule, ODR", "erklaerung": "Jede nicht-`inline` Funktion und Variable ist im Programm genau einmal definiert. Klassen und `inline`-Funktionen dürfen mehrfach, aber identisch definiert sein." }
+    {
+      "begriff": "Symbolauflösung",
+      "englisch": "symbol resolution",
+      "erklaerung": "Der Linker ordnet jedem undefinierten Symbol genau eine Definition zu."
+    },
+    {
+      "begriff": "One Definition Rule",
+      "englisch": "one definition rule, ODR",
+      "erklaerung": "Jede nicht-`inline` Funktion und Variable ist im Programm genau einmal definiert. Klassen und `inline`-Funktionen dürfen mehrfach, aber identisch definiert sein."
+    }
   ],
   "weiterlesen": [
-    { "titel": "cppreference: Definitions and ODR", "url": "https://en.cppreference.com/w/cpp/language/definition" },
-    { "titel": "cppreference: inline specifier", "url": "https://en.cppreference.com/w/cpp/language/inline" }
+    {
+      "titel": "cppreference: Definitions and ODR",
+      "url": "https://en.cppreference.com/w/cpp/language/definition"
+    },
+    {
+      "titel": "cppreference: inline specifier",
+      "url": "https://en.cppreference.com/w/cpp/language/inline"
+    }
   ]
 }

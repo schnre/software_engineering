@@ -1,152 +1,129 @@
 {
   "id": "p3-m4-l2",
   "phase": 3,
-  "modul": "3.4 Sanitizer und Valgrind",
-  "titel": "ThreadSanitizer und Valgrind",
+  "modul": "3.4 Moderne Bibliothekstypen",
+  "titel": "optional, variant und visit",
   "lernziele": [
-    "Data Races mit ThreadSanitizer finden",
-    "Valgrind-Meldungen zu Speicherfehlern lesen",
-    "Die Werkzeuge in der CI sinnvoll kombinieren"
+    "Fehlende Werte mit `std::optional` ausdrücken",
+    "Geschlossene Alternativen mit `std::variant` modellieren",
+    "Mit `std::visit` und dem Overload-Muster alle Fälle behandeln"
   ],
-  "dauerMinuten": 6,
+  "dauerMinuten": 7,
   "schritte": [
     {
+      "typ": "multiple-choice",
+      "frage": "Eine Funktion sucht einen Sensor nach Namen und findet vielleicht keinen. Was ist der klarste Rückgabetyp?",
+      "optionen": [
+        "`std::optional<SensorInfo>`",
+        "`SensorInfo` mit einem Feld `gueltig`",
+        "`SensorInfo*`, `nullptr` bei Misserfolg"
+      ],
+      "korrekt": 0,
+      "erklaerung": "`std::optional<T>` enthält entweder einen `T` oder nichts, im Objekt selbst und ohne Heap. Der Typ sagt, dass der Wert fehlen kann. Ein Zeiger lässt offen, wem das Objekt gehört und wie lange es lebt. Ab C++23 lassen sich Optionals mit `and_then`, `transform` und `or_else` verketten.",
+      "begruendungen": [
+        "Richtig.",
+        "Dann kann man das Prüfen leicht vergessen, und der Typ muss einen sinnlosen Standardzustand haben.",
+        "Zeiger werfen Fragen nach Besitz und Lebensdauer auf."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "std::variant",
+      "text": "Ein **`std::variant<A, B, C>`** enthält genau einen Wert aus einer festen Liste von Typen: eine typsichere `union`. Er merkt sich, welcher Typ aktiv ist, und ruft beim Wechsel die richtigen Konstruktoren und Destruktoren auf. Die Grösse ist die des grössten Typs plus ein Index, ohne Heap.\n\nTypische Anwendungen:\n\n- **Nachrichten** mit verschiedenen Inhalten: `using Befehl = std::variant<Start, Stopp, SetzeDrehzahl>;`\n- **Zustände** eines Automaten, jeder mit eigenen Daten\n- **Ergebnisse**: Wert oder Fehler, wobei dafür `std::expected` (C++23) klarer ist\n\nIm Gegensatz zu Vererbung ist die Menge der Alternativen **geschlossen**: Sie steht an einer Stelle und ist dem Compiler bekannt."
+    },
+    {
       "typ": "code-lesen",
-      "frage": "Was gibt dieses Programm aus?",
+      "frage": "Was passiert hier?",
       "code": {
         "sprache": "cpp",
         "zeilen": [
-          "int zaehler = 0;",
+          "template <class... F> struct Overload : F... { using F::operator()...; };",
           "",
-          "void zaehle() { for (int i = 0; i < 100'000; ++i) ++zaehler; }",
+          "using Befehl = std::variant<Start, Stopp, SetzeDrehzahl>;",
           "",
-          "int main() {",
-          "    std::thread a(zaehle), b(zaehle);",
-          "    a.join(); b.join();",
-          "    std::cout << zaehler;",
+          "void ausfuehren(const Befehl& b, Motor& m) {",
+          "    std::visit(Overload{",
+          "        [&](const Start&)           { m.starte(); },",
+          "        [&](const Stopp&)           { m.stoppe(); },",
+          "        [&](const SetzeDrehzahl& s) { m.drehzahl(s.upm); },",
+          "    }, b);",
           "}"
         ]
       },
       "optionen": [
-        "Genau `200000`",
-        "Meist weniger als `200000`. Das Programm hat ein Data Race und damit Undefined Behavior",
-        "Compilerfehler"
-      ],
-      "korrekt": 1,
-      "fest": true,
-      "erklaerung": "`++zaehler` besteht aus Lesen, Erhöhen und Schreiben. Laufen beide Threads gleichzeitig, überschreibt einer die Erhöhung des anderen. Ein gleichzeitiger Zugriff ohne Synchronisation, bei dem mindestens einer schreibt, heisst **Data Race** und ist Undefined Behavior. Mit `-O2` macht der Compiler vielleicht sogar `zaehler += 100000` daraus, und das Ergebnis stimmt zufällig.",
-      "begruendungen": [
-        "Nur zufällig. Garantiert ist nichts.",
-        "Richtig.",
-        "Der Code kompiliert. Das Problem zeigt sich erst zur Laufzeit."
-      ]
-    },
-    {
-      "typ": "erklaerung",
-      "titel": "ThreadSanitizer",
-      "text": "**ThreadSanitizer** (TSan, `-fsanitize=thread`) verfolgt zur Laufzeit, welche Speicherzugriffe durch Synchronisation geordnet sind (*happens-before*). Zwei Zugriffe ohne solche Ordnung, einer davon schreibend: Data Race. TSan meldet beide Stellen mit Stacktrace.\n\nKosten: etwa 5- bis 15-fache Laufzeit und deutlich mehr Speicher. TSan lässt sich **nicht** mit ASan kombinieren, also braucht es einen eigenen Build. TSan findet nur Races, die beim Test wirklich auftreten können. Tests mit echter Nebenläufigkeit sind deshalb wichtig."
-    },
-    {
-      "typ": "terminal-deuten",
-      "frage": "Was ist die richtige Lösung?",
-      "terminal": {
-        "befehl": "./zaehler",
-        "ausgabe": [
-          "WARNING: ThreadSanitizer: data race (pid=4242)",
-          "  Write of size 4 at 0x55e2c3a4b010 by thread T2:",
-          "    #0 zaehle() zaehler.cpp:3",
-          "  Previous write of size 4 at 0x55e2c3a4b010 by thread T1:",
-          "    #0 zaehle() zaehler.cpp:3",
-          "  Location is global 'zaehler' of size 4 at 0x55e2c3a4b010"
-        ]
-      },
-      "optionen": [
-        "`zaehler` als `std::atomic<int>` deklarieren oder die Zugriffe mit einem `std::mutex` schützen",
-        "`zaehler` als `volatile int` deklarieren",
-        "Den zweiten Thread mit `sleep_for` etwas später starten"
+        "`std::visit` ruft das Lambda auf, das zum aktiven Typ passt. Das `Overload`-Template fasst mehrere Lambdas zu einem Objekt mit mehreren `operator()` zusammen",
+        "Alle drei Lambdas werden nacheinander aufgerufen",
+        "Das Programm prüft zur Laufzeit mit `dynamic_cast`, welcher Typ vorliegt"
       ],
       "korrekt": 0,
-      "erklaerung": "`std::atomic<int>` macht `++zaehler` zu einer unteilbaren Operation. Ein Mutex schützt ganze Abschnitte. Beides schafft die Ordnung, die TSan vermisst. Noch besser ist oft, gar nicht zu teilen: Jeder Thread zählt lokal, am Ende wird addiert. Mehr dazu in Phase 4.",
+      "erklaerung": "Das **Overload-Muster** erbt von allen Lambdas und holt ihre Aufrufoperatoren in eine gemeinsame Überladungsmenge. Fehlt ein Fall, übersetzt der Code nicht. Fügt jemand später `Notaus` zum Variant hinzu, zeigt der Compiler jede Stelle, die ihn noch nicht behandelt. Das ist der grosse Vorteil gegenüber `switch` über eine Typkennung.",
       "begruendungen": [
         "Richtig.",
-        "Ein verbreiteter Irrtum: `volatile` verhindert nur bestimmte Optimierungen. Es macht nichts atomar und synchronisiert keine Threads.",
-        "Das verschiebt das Problem nur und macht es seltener, also noch schwerer zu finden."
+        "Nur das passende Lambda läuft.",
+        "Es gibt keine Vererbungshierarchie und kein RTTI, nur einen gespeicherten Index."
       ]
     },
     {
-      "typ": "erklaerung",
-      "titel": "Valgrind",
-      "text": "**Valgrind** führt ein unverändertes Programm in einer virtuellen CPU aus und beobachtet jeden Befehl. Neu kompilieren ist nicht nötig, praktisch für fremde Binaries. Das Werkzeug **memcheck** (Standard) findet ungültige Zugriffe, Lecks und die Verwendung nicht initialisierter Werte. Der Preis: Das Programm läuft 20- bis 50-mal langsamer.\n\nWeitere Werkzeuge: **callgrind** (Profiling: Wo wird Zeit verbraucht?), **massif** (Heap-Verbrauch über die Zeit), **helgrind** (Data Races)."
-    },
-    {
-      "typ": "terminal-deuten",
-      "frage": "Was bedeutet diese Meldung?",
-      "terminal": {
-        "befehl": "valgrind ./pruefung",
-        "ausgabe": [
-          "==9876== Conditional jump or move depends on uninitialised value(s)",
-          "==9876==    at 0x10917B: pruefe(int) (pruefe.cpp:6)",
-          "==9876==    by 0x1091B4: main (main.cpp:4)"
+      "typ": "fehler-finden",
+      "frage": "Dieser Code wirft gelegentlich `std::bad_variant_access`. Welche Zeile ist das Problem?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "using Messwert = std::variant<int32_t, float, Fehler>;",
+          "",
+          "float alsFloat(const Messwert& m) {",
+          "    if (std::holds_alternative<int32_t>(m)) return static_cast<float>(std::get<int32_t>(m));",
+          "    return std::get<float>(m);",
+          "}"
         ]
       },
-      "optionen": [
-        "In `pruefe.cpp` Zeile 6 hängt eine Entscheidung (z. B. ein `if`) von einem nicht initialisierten Wert ab",
-        "In Zeile 6 wird Speicher freigegeben, der nicht reserviert wurde",
-        "Das Programm hat ein Speicherleck in `main`"
-      ],
-      "korrekt": 0,
-      "erklaerung": "Valgrind meldet nicht initialisierte Werte erst dann, wenn sie das Verhalten beeinflussen, also bei einem Sprung oder einer Ausgabe. Den Ursprung zeigt die Option `--track-origins=yes`: Dann nennt Valgrind die Stelle, an der der Wert entstanden ist, oft eine Variable ohne Initialisierung.",
-      "begruendungen": [
-        "Richtig.",
-        "Das wäre `Invalid free()`.",
-        "Lecks meldet Valgrind am Ende mit `definitely lost`."
-      ]
+      "fehlerZeile": 5,
+      "erklaerung": "Enthält `m` einen `Fehler`, wirft `std::get<float>` eine Exception, oder bei `-fno-exceptions` bricht das Programm ab. Mit `std::visit` und einem Fall für jeden Typ wäre das nicht vergessen worden. Wenn man einen Typ nur vermutet, ist `std::get_if<float>(&m)` sicherer: Es liefert einen Zeiger oder `nullptr`."
     },
     {
       "typ": "zuordnen",
-      "frage": "Welche Eigenschaft gehört zu welchem Werkzeug?",
+      "frage": "Welcher Typ passt?",
       "paare": [
-        { "links": "AddressSanitizer", "rechts": "Speicherfehler, etwa doppelte Laufzeit, braucht Neukompilierung" },
-        { "links": "ThreadSanitizer", "rechts": "Data Races, etwa 5- bis 15-fache Laufzeit" },
-        { "links": "UBSan", "rechts": "Undefined Behavior wie Überläufe, geringer Aufwand" },
-        { "links": "Valgrind memcheck", "rechts": "Ohne Neukompilierung, aber 20- bis 50-mal langsamer" }
+        { "links": "Wert kann fehlen, ohne Grund", "rechts": "`std::optional<T>`" },
+        { "links": "Wert oder Fehler mit Ursache", "rechts": "`std::expected<T, E>`" },
+        { "links": "Einer aus einer festen Menge von Typen", "rechts": "`std::variant<A, B, C>`" },
+        { "links": "Beliebiger Typ, erst zur Laufzeit bekannt", "rechts": "`std::any`, selten die richtige Wahl" }
       ],
-      "erklaerung": "Für eigenen Code sind die Sanitizer meist die erste Wahl, weil sie schneller sind und genauere Berichte liefern. Valgrind hilft bei fremden Binaries oder wenn eine Neukompilierung schwierig ist."
+      "erklaerung": "`std::any` verzichtet auf jede Prüfung zur Übersetzungszeit und kann den Heap verwenden. Meist steckt dahinter ein Entwurf, der mit `variant` oder einem Interface klarer wäre."
     },
     {
       "typ": "multiple-choice",
-      "frage": "Wie richtest du die CI sinnvoll ein?",
+      "frage": "Wann ist ein Interface mit virtuellen Funktionen besser als ein `std::variant`?",
       "optionen": [
-        "Getrennte Jobs: ein normaler Build, ein Build mit ASan und UBSan, ein Build mit TSan",
-        "Ein einziger Build mit ASan und TSan zusammen",
-        "Sanitizer nur lokal, die CI baut nur Release"
+        "Wenn neue Typen hinzukommen sollen, ohne den bestehenden Code zu ändern, etwa Plugins oder Treiber von Dritten",
+        "Wenn alle Typen bekannt sind und neue Operationen oft hinzukommen",
+        "Nie, `variant` ist immer besser"
       ],
       "korrekt": 0,
-      "erklaerung": "ASan und TSan schliessen sich aus, deshalb braucht es zwei instrumentierte Builds. Die Jobs laufen parallel, die Gesamtzeit steigt also kaum. Wichtig: Fehler der Sanitizer müssen den Job scheitern lassen (`halt_on_error=1`, `-fno-sanitize-recover=all`).",
+      "erklaerung": "Das ist das klassische **Expression Problem**: Vererbung macht neue Typen einfach und neue Operationen schwer, `variant` umgekehrt. Bei Befehlen eines Protokolls ist die Menge geschlossen, `variant` passt. Bei austauschbaren Treibern ist sie offen, ein Interface passt. Modul 10.5 vertieft den Vergleich.",
       "begruendungen": [
         "Richtig.",
-        "Die Kombination wird von den Compilern abgelehnt.",
-        "Lokal vergisst man es. Die CI sorgt dafür, dass es immer passiert."
+        "Das ist gerade der Fall, für den `variant` mit `visit` gut geeignet ist.",
+        "Beide haben ihren Platz."
       ]
     }
   ],
-  "praxis": "Bei nebenläufigem Code ist ein TSan-Job in der CI fast Pflicht. Data Races zeigen sich sonst erst unter Last beim Kunden. Und wenn du im Review `volatile` für die Kommunikation zwischen Threads siehst, ist das ein klarer Befund: Gemeint ist fast immer `std::atomic`. Ausnahme: Speicherzugriffe auf Hardware-Register, dort ist `volatile` richtig.",
+  "praxis": "`optional`, `variant` und `expected` machen Code ehrlicher: Der Typ sagt, was passieren kann. Im Embedded-Bereich passen sie besonders gut, weil sie ohne Heap auskommen. Für Zustandsautomaten mit `variant` gibt es ein bewährtes Muster: Jeder Zustand ist eine Struktur mit seinen Daten, Übergänge sind Funktionen `(Zustand, Ereignis) -> Zustand`, ausgewertet mit `visit`.",
   "labor": {
-    "titel": "Ein Data Race finden und beheben",
-    "anleitung": "Baue das Zählerbeispiel mit TSan, lies den Bericht und behebe den Fehler mit `std::atomic<int>`.",
+    "titel": "Zustandsautomat mit variant",
+    "anleitung": "Modelliere eine Tür mit den Zuständen `Offen`, `Geschlossen` und `Verriegelt{code}` und den Ereignissen `Oeffnen`, `Schliessen`, `Verriegeln{code}` und `Entriegeln{code}`. Schreibe die Übergänge mit `std::visit` über beide Variants und teste sie.",
     "befehle": [
-      "g++ -std=c++20 -g -O1 -fsanitize=thread zaehler.cpp -o zaehler && ./zaehler",
-      "valgrind --leak-check=full --track-origins=yes ./pruefung"
+      "g++ -std=c++20 -Wall tuer.cpp -o tuer && ./tuer"
     ],
-    "beobachtung": "Nach der Umstellung auf `std::atomic<int>` meldet TSan nichts mehr, und die Ausgabe ist immer 200000."
+    "beobachtung": "`std::visit` mit zwei Variants erzeugt alle Kombinationen. Ein generisches Lambda `[](const auto& z, const auto&) { return Zustand{z}; }` als letzter Fall behandelt alle unveränderten Übergänge."
   },
   "begriffe": [
-    { "begriff": "Data Race", "englisch": "data race", "erklaerung": "Zwei Threads greifen ohne Synchronisation auf denselben Speicher zu, mindestens einer schreibt. Undefined Behavior." },
-    { "begriff": "ThreadSanitizer", "englisch": "ThreadSanitizer, TSan", "erklaerung": "Laufzeitprüfung, die Data Races mit beiden beteiligten Stellen meldet." },
-    { "begriff": "Valgrind", "englisch": "Valgrind", "erklaerung": "Werkzeugsammlung, die Programme ohne Neukompilierung auf Speicherfehler, Lecks und mehr untersucht." }
+    { "begriff": "std::optional", "englisch": "optional", "erklaerung": "Enthält einen Wert oder nichts, ohne Heap." },
+    { "begriff": "std::variant", "englisch": "variant", "erklaerung": "Typsichere Union, enthält genau einen Wert aus einer festen Typliste." },
+    { "begriff": "Overload-Muster", "englisch": "overload pattern", "erklaerung": "Fasst mehrere Lambdas zu einem Funktionsobjekt für `std::visit` zusammen." }
   ],
   "weiterlesen": [
-    { "titel": "Clang: ThreadSanitizer", "url": "https://clang.llvm.org/docs/ThreadSanitizer.html" },
-    { "titel": "Valgrind: Memcheck Manual", "url": "https://valgrind.org/docs/manual/mc-manual.html" }
+    { "titel": "cppreference: std::variant", "url": "https://en.cppreference.com/w/cpp/utility/variant" },
+    { "titel": "cppreference: std::visit", "url": "https://en.cppreference.com/w/cpp/utility/variant/visit" }
   ]
 }

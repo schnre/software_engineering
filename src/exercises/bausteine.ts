@@ -1,6 +1,7 @@
 // Darstellungsbausteine, die mehrere Übungstypen nutzen: Code, Terminal, Tabelle, Diagramm.
 import type { CodeBlock, Diagramm, Tabelle, Terminal } from '../types';
 import { h } from '../ui/dom';
+import { icon } from '../ui/icons';
 import { zeilenHervorheben } from '../ui/highlight';
 import { inline, md } from '../ui/markdown';
 
@@ -57,7 +58,7 @@ export function codeZeilenAuswahl(block: CodeBlock, gewaehlt: (nr: number) => vo
 
 export function terminalAnzeige(t: Terminal): HTMLElement {
   return h('figure', { class: 'terminal', 'aria-label': 'Terminal-Ausgabe' },
-    h('figcaption', { class: 'terminal-kopf' }, h('span', { 'aria-hidden': 'true' }, '● ● ●'), ' Terminal'),
+    h('figcaption', { class: 'terminal-kopf' }, icon('terminal'), 'Terminal'),
     h('pre', { tabindex: 0 },
       t.befehl ? h('span', { class: 'prompt' }, h('span', { class: 'prompt-zeichen', 'aria-hidden': 'true' }, '$ '), t.befehl, '\n') : null,
       t.ausgabe.join('\n'),

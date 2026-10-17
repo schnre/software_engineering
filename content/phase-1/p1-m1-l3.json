@@ -13,7 +13,11 @@
     {
       "typ": "multiple-choice",
       "frage": "Was ist `int addiere(int a, int b);`?",
-      "optionen": ["Eine Deklaration", "Eine Definition", "Deklaration und Definition zugleich"],
+      "optionen": [
+        "Eine Deklaration",
+        "Eine Definition",
+        "Deklaration und Definition zugleich"
+      ],
       "korrekt": 0,
       "fest": true,
       "erklaerung": "Das Semikolon statt eines Funktionsrumpfs verrät es: Hier wird nur bekannt gemacht, *dass* es `addiere` gibt und welche Signatur die Funktion hat. Wo der Code steht, ist offen.",
@@ -32,11 +36,26 @@
       "typ": "zuordnen",
       "frage": "Was ist was?",
       "paare": [
-        { "links": "`int addiere(int a, int b);`", "rechts": "Funktionsdeklaration" },
-        { "links": "`int addiere(int a, int b) { return a + b; }`", "rechts": "Funktionsdefinition" },
-        { "links": "`extern int zaehler;`", "rechts": "Variablendeklaration ohne Speicher" },
-        { "links": "`int zaehler = 0;`", "rechts": "Variablendefinition, reserviert Speicher" },
-        { "links": "`class Sensor;`", "rechts": "Vorwärtsdeklaration einer Klasse" }
+        {
+          "links": "`int addiere(int a, int b);`",
+          "rechts": "Funktionsdeklaration"
+        },
+        {
+          "links": "`int addiere(int a, int b) { return a + b; }`",
+          "rechts": "Funktionsdefinition"
+        },
+        {
+          "links": "`extern int zaehler;`",
+          "rechts": "Variablendeklaration ohne Speicher"
+        },
+        {
+          "links": "`int zaehler = 0;`",
+          "rechts": "Variablendefinition, reserviert Speicher"
+        },
+        {
+          "links": "`class Sensor;`",
+          "rechts": "Vorwärtsdeklaration einer Klasse"
+        }
       ],
       "erklaerung": "`extern` sagt ausdrücklich: Die Variable existiert, aber der Speicher liegt anderswo. Eine **Vorwärtsdeklaration** (forward declaration) wie `class Sensor;` reicht, wenn man nur Zeiger oder Referenzen auf `Sensor` verwendet. Das spart Includes und damit Kompilierzeit."
     },
@@ -80,12 +99,27 @@
         ]
       },
       "tabelle": {
-        "kopf": ["Buchstabe", "Bedeutung"],
+        "kopf": [
+          "Buchstabe",
+          "Bedeutung"
+        ],
         "zeilen": [
-          ["`U`", "undefiniert: wird von anderswo gebraucht"],
-          ["`T`", "definiert im Code-Bereich (text)"],
-          ["`D` / `B`", "definierte Variable mit Startwert (data) bzw. ohne (bss)"],
-          ["Kleinbuchstabe", "nur lokal sichtbar, z. B. `t` für eine `static`-Funktion"]
+          [
+            "`U`",
+            "undefiniert: wird von anderswo gebraucht"
+          ],
+          [
+            "`T`",
+            "definiert im Code-Bereich (text)"
+          ],
+          [
+            "`D` / `B`",
+            "definierte Variable mit Startwert (data) bzw. ohne (bss)"
+          ],
+          [
+            "Kleinbuchstabe",
+            "nur lokal sichtbar, z. B. `t` für eine `static`-Funktion"
+          ]
         ]
       }
     },
@@ -118,8 +152,24 @@
       "typ": "lueckentext",
       "frage": "Ergänze die Buchstaben, die `nm` verwendet.",
       "text": "Ein Symbol, das ein Object-File braucht, aber nicht selbst definiert, markiert `nm` mit {{?}}. Eine Funktion, deren Code in der Datei steht, markiert es mit {{?}}.",
-      "luecken": [{ "loesungen": ["U"] }, { "loesungen": ["T"] }],
-      "auswahl": ["U", "T", "D", "B"],
+      "luecken": [
+        {
+          "loesungen": [
+            "U"
+          ]
+        },
+        {
+          "loesungen": [
+            "T"
+          ]
+        }
+      ],
+      "auswahl": [
+        "U",
+        "T",
+        "D",
+        "B"
+      ],
       "erklaerung": "`U` steht für *undefined*, `T` für die *text*-Sektion, in der der Maschinencode liegt. `D` und `B` gehören zu Variablen."
     },
     {
@@ -152,14 +202,40 @@
     "beobachtung": "`main.o` hat `U addiere(int, int)`, `addiere.o` hat `T addiere(int, int)`. Ohne `-C` siehst du den rohen Namen `_Z7addiereii`, darum geht es in Modul 1.2."
   },
   "begriffe": [
-    { "begriff": "Deklaration", "englisch": "declaration", "erklaerung": "Macht einen Namen mit seinem Typ bekannt, ohne ihn bereitzustellen. Darf mehrfach vorkommen." },
-    { "begriff": "Definition", "englisch": "definition", "erklaerung": "Stellt eine Funktion (Rumpf) oder Variable (Speicher) tatsächlich bereit. Pro Programm genau einmal." },
-    { "begriff": "Vorwärtsdeklaration", "englisch": "forward declaration", "erklaerung": "Deklaration einer Klasse ohne Definition, z. B. `class Sensor;`. Reicht für Zeiger und Referenzen." },
-    { "begriff": "Symboltabelle", "englisch": "symbol table", "erklaerung": "Teil eines Object-Files mit den definierten und den benötigten Symbolen. Anzeigen mit `nm`." },
-    { "begriff": "Undefiniertes Symbol", "englisch": "undefined symbol", "erklaerung": "Symbol, das ein Object-File verwendet, aber nicht selbst definiert. In `nm` mit `U` markiert." }
+    {
+      "begriff": "Deklaration",
+      "englisch": "declaration",
+      "erklaerung": "Macht einen Namen mit seinem Typ bekannt, ohne ihn bereitzustellen. Darf mehrfach vorkommen."
+    },
+    {
+      "begriff": "Definition",
+      "englisch": "definition",
+      "erklaerung": "Stellt eine Funktion (Rumpf) oder Variable (Speicher) tatsächlich bereit. Pro Programm genau einmal."
+    },
+    {
+      "begriff": "Vorwärtsdeklaration",
+      "englisch": "forward declaration",
+      "erklaerung": "Deklaration einer Klasse ohne Definition, z. B. `class Sensor;`. Reicht für Zeiger und Referenzen."
+    },
+    {
+      "begriff": "Symboltabelle",
+      "englisch": "symbol table",
+      "erklaerung": "Teil eines Object-Files mit den definierten und den benötigten Symbolen. Anzeigen mit `nm`."
+    },
+    {
+      "begriff": "Undefiniertes Symbol",
+      "englisch": "undefined symbol",
+      "erklaerung": "Symbol, das ein Object-File verwendet, aber nicht selbst definiert. In `nm` mit `U` markiert."
+    }
   ],
   "weiterlesen": [
-    { "titel": "cppreference: Declarations", "url": "https://en.cppreference.com/w/cpp/language/declarations" },
-    { "titel": "GNU Binutils: nm", "url": "https://sourceware.org/binutils/docs/binutils/nm.html" }
+    {
+      "titel": "cppreference: Declarations",
+      "url": "https://en.cppreference.com/w/cpp/language/declarations"
+    },
+    {
+      "titel": "GNU Binutils: nm",
+      "url": "https://sourceware.org/binutils/docs/binutils/nm.html"
+    }
   ]
 }

@@ -1,0 +1,139 @@
+{
+  "id": "p11-m2-l1",
+  "phase": 11,
+  "modul": "11.2 Ereignisgesteuerte Architekturen",
+  "titel": "Ereignisse und Publish-Subscribe",
+  "lernziele": [
+    "Ereignisgesteuerte Kommunikation von direkten Aufrufen unterscheiden",
+    "Einen Event-Bus mit Publish-Subscribe entwerfen",
+    "Die Fallstricke bei Reihenfolge, Last und Nachvollziehbarkeit kennen"
+  ],
+  "dauerMinuten": 7,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Wenn die Batteriespannung zu tief ist, sollen Display, Logger, Motorsteuerung und Funkmodul reagieren. Der Batteriemonitor ruft heute alle vier direkt auf. Was ist das Problem?",
+      "optionen": [
+        "Der Batteriemonitor kennt alle Empfänger. Jeder neue Empfänger erfordert eine Änderung am Sender, und Tests brauchen alle Abhängigkeiten",
+        "Direkte Aufrufe sind zu langsam",
+        "Es gibt kein Problem"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Mit **Publish-Subscribe** veröffentlicht der Monitor nur das Ereignis `BatterieKritisch`. Wer sich dafür interessiert, abonniert es. Sender und Empfänger kennen nur den Ereignistyp, nicht einander. Das ist eine Anwendung des Dependency Inversion Principle auf Systemebene.",
+      "begruendungen": [
+        "Richtig.",
+        "Direkte Aufrufe sind schnell. Das Problem ist die Kopplung.",
+        "Die Kopplung wächst mit jedem neuen Empfänger."
+      ]
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Wie funktioniert dieser kleine Event-Bus?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "template <typename Ereignis, std::size_t MaxAbos>",
+          "class Kanal {",
+          "public:",
+          "    using Empfaenger = etl::delegate<void(const Ereignis&)>;",
+          "    bool abonniere(Empfaenger e) {",
+          "        if (abos_.full()) return false;",
+          "        abos_.push_back(e);",
+          "        return true;",
+          "    }",
+          "    void veroeffentliche(const Ereignis& ev) {",
+          "        for (auto& e : abos_) e(ev);",
+          "    }",
+          "private:",
+          "    etl::vector<Empfaenger, MaxAbos> abos_;",
+          "};"
+        ]
+      },
+      "optionen": [
+        "Pro Ereignistyp gibt es einen Kanal. Abonnenten tragen sich mit einem Callback ein, `veroeffentliche` ruft sie alle synchron nacheinander auf",
+        "Ereignisse werden in eine Queue gelegt und später verarbeitet",
+        "Jeder Abonnent läuft in einem eigenen Thread"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Das ist ein **synchroner** Bus: Der Sender wartet, bis alle Empfänger fertig sind. Einfach und ohne Speicher für Nachrichten, aber ein langsamer Empfänger bremst den Sender, und Empfänger laufen im Kontext des Senders, eventuell in einer ISR. Ein **asynchroner** Bus legt Ereignisse in Queues, und jeder Empfänger verarbeitet sie in seinem eigenen Kontext.",
+      "begruendungen": [
+        "Richtig.",
+        "Hier gibt es keine Queue, die Callbacks laufen sofort.",
+        "Alles läuft im Kontext des Aufrufers."
+      ]
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Synchron oder asynchron? Ordne die Eigenschaften zu.",
+      "paare": [
+        { "links": "Synchroner Bus", "rechts": "Empfänger laufen sofort im Kontext des Senders" },
+        { "links": "Asynchroner Bus", "rechts": "Ereignisse werden gepuffert, Empfänger verarbeiten sie später in ihrem Kontext" },
+        { "links": "Topic-basiert", "rechts": "Abonniert werden Themen wie `sensor/temperatur`" },
+        { "links": "Typbasiert", "rechts": "Abonniert wird ein C++-Typ, der Compiler prüft die Daten" }
+      ],
+      "erklaerung": "Asynchrone Busse brauchen Puffer und damit eine Entscheidung, was bei vollen Queues passiert (Modul 7.3). Dafür entkoppeln sie auch zeitlich, und Empfänger können in eigenen Tasks mit eigener Priorität laufen."
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Nach dem Umbau auf einen synchronen Event-Bus hängt das System manchmal mit einem Stacküberlauf. Welche Zeile ist die Ursache?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "void Heizung::aufTemperatur(const Temperatur& t) {",
+          "    if (t.wert > soll_) {",
+          "        aus();",
+          "        bus.veroeffentliche(HeizungAus{});",
+          "    }",
+          "}",
+          "",
+          "void Luefter::aufHeizungAus(const HeizungAus&) {",
+          "    bus.veroeffentliche(Temperatur{sensor.lese()});",
+          "}"
+        ]
+      },
+      "fehlerZeile": 9,
+      "erklaerung": "Der Lüfter veröffentlicht als Reaktion ein `Temperatur`-Ereignis, das wieder die Heizung aufruft, die wieder `HeizungAus` veröffentlicht. Bei einem synchronen Bus entsteht eine Rekursion, die den Stack sprengt. Abhilfe: Ereignisse asynchron verarbeiten (*run to completion*, nächste Lektion), Zyklen im Ereignisfluss vermeiden und dokumentieren, wer welches Ereignis auslöst."
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Der Preis der Entkopplung",
+      "text": "Ereignisgesteuerte Systeme sind lose gekoppelt, haben aber eigene Schwierigkeiten:\n\n- **Nachvollziehbarkeit**: Wer reagiert auf `BatterieKritisch`? Ein Blick in den Sender verrät es nicht mehr. Eine Ereignistabelle in der Dokumentation und Tracing helfen.\n- **Reihenfolge**: In welcher Reihenfolge reagieren die Empfänger? Darf das eine Rolle spielen? Besser nicht.\n- **Last**: Ein Sensor, der 10 000 Ereignisse pro Sekunde veröffentlicht, flutet alle Abonnenten.\n- **Fehler**: Wenn ein Empfänger scheitert, erfährt der Sender nichts davon.\n\nFür Abläufe mit Antwort (Anfrage, dann Ergebnis) ist ein direkter Aufruf oder ein Request-Response-Muster oft klarer als zwei Ereignisse."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Wann ist Publish-Subscribe die falsche Wahl?",
+      "optionen": [
+        "Wenn der Sender eine Antwort braucht und genau ein bestimmter Empfänger zuständig ist, etwa „lies Konfigurationswert X“",
+        "Wenn mehrere Komponenten auf dasselbe Ereignis reagieren sollen",
+        "Wenn neue Empfänger ohne Änderung am Sender hinzukommen sollen"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Eine Anfrage an einen bestimmten Dienst über einen Bus zu verschicken, verschleiert die Abhängigkeit, ohne sie zu beseitigen. Der Sender hängt weiterhin davon ab, dass jemand antwortet. Dann ist eine Schnittstelle mit direktem Aufruf ehrlicher.",
+      "begruendungen": [
+        "Richtig.",
+        "Das ist gerade der Kernfall für Publish-Subscribe.",
+        "Auch das spricht für Publish-Subscribe."
+      ]
+    }
+  ],
+  "praxis": "Publish-Subscribe ist in Embedded-Systemen weit verbreitet: uORB in PX4, Zbus in Zephyr, DDS in ROS 2 (Modul 11.5), MQTT im IoT. Gute Systeme beschreiben jedes Ereignis wie eine Schnittstelle: Name, Inhalt, Einheit, Rate, Sender, typische Empfänger. Das ist die Grundlage für Reviews und für das Verständnis neuer Teammitglieder.",
+  "labor": {
+    "titel": "Zbus in Zephyr ansehen",
+    "anleitung": "Sieh dir das Zbus-Beispiel in Zephyr an und führe es in der Simulation `native_sim` aus.",
+    "befehle": [
+      "west init zephyrproject && cd zephyrproject && west update",
+      "west build -b native_sim zephyr/samples/subsys/zbus/hello_world",
+      "./build/zephyr/zephyr.exe"
+    ],
+    "beobachtung": "Zbus unterscheidet Listener (synchron im Kontext des Senders) und Subscriber (asynchron über eine Queue in einem eigenen Thread). Genau der Unterschied aus dieser Lektion."
+  },
+  "begriffe": [
+    { "begriff": "Publish-Subscribe", "englisch": "publish-subscribe", "erklaerung": "Sender veröffentlichen Ereignisse, interessierte Empfänger abonnieren sie, ohne einander zu kennen." },
+    { "begriff": "Event-Bus", "englisch": "event bus", "erklaerung": "Vermittler, der veröffentlichte Ereignisse an die Abonnenten verteilt." },
+    { "begriff": "Topic", "englisch": "topic", "erklaerung": "Benannter Kanal, auf dem Ereignisse einer Art veröffentlicht werden." }
+  ],
+  "weiterlesen": [
+    { "titel": "Zephyr: Zephyr bus (zbus)", "url": "https://docs.zephyrproject.org/latest/services/zbus/index.html" },
+    { "titel": "Martin Fowler: What do you mean by Event-Driven?", "url": "https://martinfowler.com/articles/201701-event-driven.html" }
+  ]
+}

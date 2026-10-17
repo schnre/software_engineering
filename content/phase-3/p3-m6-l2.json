@@ -1,0 +1,121 @@
+{
+  "id": "p3-m6-l2",
+  "phase": 3,
+  "modul": "3.6 Neue Sprachmittel",
+  "titel": "Module",
+  "lernziele": [
+    "Die Probleme des Präprozessor-Includes benennen, die Module lösen",
+    "Ein Modul mit Schnittstelle und Implementierung lesen",
+    "Den Stand der Werkzeugunterstützung realistisch einschätzen"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Welches Problem von `#include` lösen C++20-Module?",
+      "optionen": [
+        "Header werden in jeder Übersetzungseinheit neu geparst, und Makros sowie interne Details sickern in den Code der Nutzer",
+        "Header können keine Templates enthalten",
+        "Mit Headern kann man keine Bibliotheken bauen"
+      ],
+      "korrekt": 0,
+      "erklaerung": "`#include` kopiert Text (Modul 1.1). Ein `#include <iostream>` bringt zehntausende Zeilen in jede Datei, die alle neu übersetzt werden. Ein **Modul** wird einmal übersetzt, die Nutzer laden eine vorverarbeitete Schnittstelle. Makros aus dem Modul sind draussen nicht sichtbar, und nur, was ausdrücklich `export` ist, gehört zur Schnittstelle.",
+      "begruendungen": [
+        "Richtig.",
+        "Templates in Headern sind gerade der Normalfall.",
+        "Bibliotheken mit Headern gibt es seit Jahrzehnten."
+      ]
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Was können Nutzer dieses Moduls verwenden?",
+      "code": {
+        "sprache": "cpp",
+        "datei": "sensor.cppm",
+        "zeilen": [
+          "module;",
+          "#include <cstdint>",
+          "export module sensor;",
+          "",
+          "namespace detail { int32_t skaliere(int32_t roh) { return roh * 3300 / 4096; } }",
+          "",
+          "export namespace sensor {",
+          "    int32_t millivolt(int32_t roh) { return detail::skaliere(roh); }",
+          "}"
+        ]
+      },
+      "optionen": [
+        "Nur `sensor::millivolt`. `detail::skaliere` ist nicht exportiert und für Nutzer unsichtbar",
+        "Beide Funktionen",
+        "Nichts, weil `<cstdint>` vor der Modul-Deklaration steht"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Der Teil zwischen `module;` und `export module` heisst **globales Modulfragment**. Dort bindet man klassische Header ein, die selbst noch keine Module sind. Nutzer schreiben `import sensor;` und sehen nur Exportiertes. Interne Hilfsfunktionen brauchen keinen `detail`-Namensraum oder anonymen Namensraum mehr, nur fehlendes `export`.",
+      "begruendungen": [
+        "Richtig.",
+        "Nur exportierte Namen sind ausserhalb des Moduls sichtbar.",
+        "Gerade dafür ist das globale Modulfragment vorgesehen."
+      ]
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Ordne die Begriffe zu.",
+      "paare": [
+        { "links": "`export module name;`", "rechts": "Primäre Modulschnittstelle" },
+        { "links": "`module name;`", "rechts": "Implementierungseinheit eines Moduls" },
+        { "links": "`export module name:teil;`", "rechts": "Partition, ein Teil eines grösseren Moduls" },
+        { "links": "`import std;`", "rechts": "Die ganze Standardbibliothek als Modul (C++23)" }
+      ],
+      "erklaerung": "Mit `import std;` übersetzt sich ein kleines Programm teils mehrfach schneller als mit einzelnen Headern. Die Standardbibliothek wird dabei einmal vorübersetzt."
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Module in der Praxis",
+      "text": "Module verändern den Build: Eine Datei, die `import sensor;` enthält, kann erst übersetzt werden, wenn die Schnittstelle von `sensor` fertig ist. Das Build-System muss diese Abhängigkeiten vorher ermitteln (*dependency scanning*).\n\nStand der Unterstützung (Mitte der 2020er-Jahre):\n\n- MSVC ist am weitesten, Clang und GCC unterstützen Module inzwischen solide\n- CMake ab 3.28 mit Ninja unterstützt `FILE_SET CXX_MODULES`\n- Viele Werkzeuge (statische Analyse, IDEs, Embedded-Toolchains) hinken hinterher\n\nFür neue Projekte auf aktuellen Toolchains lohnt ein Versuch. Bestehende grosse Codebasen stellen schrittweise um, oft zuerst mit `import std;`."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Ein Header definiert `#define MAX 100`. Ist `MAX` nach `import` eines Moduls sichtbar, das diesen Header intern einbindet?",
+      "optionen": [
+        "Nein. Makros überschreiten Modulgrenzen nicht, nur exportierte Deklarationen",
+        "Ja, Makros sind immer global",
+        "Nur, wenn das Modul `export #define` verwendet"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Das ist ein grosser Vorteil: Ein Modul kann intern `windows.h` einbinden, ohne dass `min`/`max`-Makros den Code der Nutzer zerstören. Wer Konstanten exportieren will, nimmt `export constexpr int max = 100;`. Ausnahme: **Header Units** (`import \"alt.h\";`) exportieren Makros, um alten Code zu unterstützen.",
+      "begruendungen": [
+        "Richtig.",
+        "Das gilt für `#include`, nicht für Module.",
+        "So eine Syntax gibt es nicht."
+      ]
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze.",
+      "text": "Ein Modul beginnt mit {{?}} module sensor;. Nutzer schreiben dann {{?}} sensor;.",
+      "luecken": [{ "loesungen": ["export"] }, { "loesungen": ["import"] }],
+      "auswahl": ["export", "import", "#include", "using"],
+      "erklaerung": "`export` steht vor der Moduldeklaration und vor jeder Deklaration, die nach aussen sichtbar sein soll."
+    }
+  ],
+  "praxis": "Module sind die grösste Änderung am Build-Modell von C++ seit seiner Entstehung. In vielen Embedded-Projekten mit älteren Compilern oder zertifizierten Toolchains sind sie noch kein Thema. Trotzdem lohnt es sich, sie zu kennen: Neue Bibliotheken werden zunehmend als Module ausgeliefert, und die Architekturprinzipien (klare Schnittstelle, versteckte Details) gelten unabhängig davon.",
+  "labor": {
+    "titel": "Ein Modul mit CMake",
+    "anleitung": "Baue ein kleines Projekt mit einem Modul `sensor` und einem `main.cpp`, das es importiert. Verwende CMake ab 3.28 mit Ninja und einen aktuellen Clang oder GCC.",
+    "befehle": [
+      "cmake -S . -B build -G Ninja -DCMAKE_CXX_COMPILER=clang++ -DCMAKE_CXX_STANDARD=20",
+      "cmake --build build",
+      "./build/app"
+    ],
+    "beobachtung": "Im `CMakeLists.txt` wird das Modul mit `target_sources(sensor PUBLIC FILE_SET CXX_MODULES FILES sensor.cppm)` eingetragen. Im Build-Ordner entsteht eine vorübersetzte Schnittstellendatei (`.pcm` bei Clang, `.gcm` bei GCC)."
+  },
+  "begriffe": [
+    { "begriff": "Modul", "englisch": "module", "erklaerung": "Übersetzungseinheit mit expliziter Schnittstelle, die einmal übersetzt und importiert wird." },
+    { "begriff": "Globales Modulfragment", "englisch": "global module fragment", "erklaerung": "Bereich vor der Moduldeklaration für klassische Includes." },
+    { "begriff": "Header Unit", "englisch": "header unit", "erklaerung": "Ein klassischer Header, der mit `import` eingebunden wird." }
+  ],
+  "weiterlesen": [
+    { "titel": "cppreference: Modules", "url": "https://en.cppreference.com/w/cpp/language/modules" },
+    { "titel": "CMake: import CMake; the Experiment is Over!", "url": "https://www.kitware.com/import-cmake-the-experiment-is-over/" }
+  ]
+}

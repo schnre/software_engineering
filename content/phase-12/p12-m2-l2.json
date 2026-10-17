@@ -1,0 +1,132 @@
+{
+  "id": "p12-m2-l2",
+  "phase": 12,
+  "modul": "12.2 Sicher entwerfen",
+  "titel": "Defensive Programmierung, Contracts und MISRA",
+  "lernziele": [
+    "Vor- und Nachbedingungen explizit prüfen",
+    "Contracts in C++26 lesen",
+    "Den Zweck von MISRA C++ und vergleichbaren Richtlinien verstehen"
+  ],
+  "dauerMinuten": 7,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Was ist der Unterschied zwischen einer **Vorbedingung** und einer normalen Fehlerbehandlung?",
+      "optionen": [
+        "Eine verletzte Vorbedingung ist ein Programmierfehler des Aufrufers. Ein erwartbarer Fehler (Sensor antwortet nicht) ist Teil des normalen Verhaltens und wird als Ergebnis zurückgegeben",
+        "Es gibt keinen Unterschied",
+        "Vorbedingungen werden nur in Tests geprüft"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Die Unterscheidung ist zentral (Modul 2.7): Erwartbare Fehler behandelt man mit `std::expected` oder Fehlercodes. Verletzte Verträge zeigen einen Bug. Im Safety-Kontext führt das zu einer definierten Reaktion, etwa einem sicheren Zustand und einem Fehlereintrag, nicht zum stillen Weiterrechnen mit falschen Werten.",
+      "begruendungen": [
+        "Richtig.",
+        "Die Reaktion auf beide ist grundverschieden.",
+        "In sicherheitskritischem Code bleiben Prüfungen oft auch im Produkt aktiv."
+      ]
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Was bedeuten diese Zeilen (C++26)?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "int32_t skaliere(int32_t roh, int32_t faktor)",
+          "    pre (roh >= 0 && roh <= 4095)",
+          "    pre (faktor > 0)",
+          "    post (r: r >= 0)",
+          "{",
+          "    contract_assert(faktor <= 1000);",
+          "    return roh * faktor / 4096;",
+          "}"
+        ]
+      },
+      "optionen": [
+        "Vor- und Nachbedingungen als Teil der Deklaration. Je nach gewählter Auswertungssemantik werden sie ignoriert, beobachtet oder erzwungen",
+        "Kommentare ohne Wirkung",
+        "Templates für Ganzzahlen"
+      ],
+      "korrekt": 0,
+      "erklaerung": "**Contracts** (P2900) machen Verträge sichtbar für Leser, Werkzeuge und Compiler. Die Semantik wählt man beim Übersetzen: `ignore`, `observe` (melden und weiterlaufen), `enforce` (melden und beenden) oder `quick_enforce`. Ein eigener Handler kann bei Verletzung zum Beispiel einen Fehler speichern und in den sicheren Zustand gehen. Bis die Compiler es unterstützen, erfüllen Makros wie `EXPECTS`/`ENSURES` aus der GSL denselben Zweck.",
+      "begruendungen": [
+        "Richtig.",
+        "Es ist echte Syntax mit Wirkung.",
+        "Mit Templates hat das nichts zu tun."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Codierrichtlinien",
+      "text": "**MISRA C++:2023** (Nachfolger von MISRA C++:2008 und AUTOSAR C++14) ist die verbreitetste Richtlinie für sicherheitskritisches C++ auf Basis von C++17. Sie schränkt Sprachmittel ein, die häufig zu Fehlern führen oder schwer zu analysieren sind:\n\n- keine dynamische Speicherverwaltung im Betrieb\n- keine impliziten einengenden Umwandlungen\n- kein undefiniertes oder unspezifiziertes Verhalten\n- `switch` mit vollständigen Fällen\n- eingeschränkte Nutzung von Exceptions, Rekursion und `goto`\n\nRegeln sind als *mandatory*, *required* oder *advisory* eingestuft. Abweichungen sind erlaubt, wenn sie begründet und dokumentiert sind (*deviation*). Geprüft wird mit Werkzeugen wie Helix QAC, Parasoft, Polyspace, PC-lint, Coverity oder clang-tidy (teilweise)."
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Welche Zeile verstösst gegen typische Regeln für sicherheitskritischen Code und ist zugleich ein echter Fehler?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "enum class Modus : uint8_t { Aus, Manuell, Automatik };",
+          "",
+          "uint8_t leistung(Modus m, uint16_t soll) {",
+          "    switch (m) {",
+          "        case Modus::Aus:     return 0;",
+          "        case Modus::Manuell: return soll;",
+          "        case Modus::Automatik: return regler.ausgabe();",
+          "    }",
+          "    return 0;",
+          "}"
+        ]
+      },
+      "fehlerZeile": 6,
+      "erklaerung": "`soll` ist `uint16_t`, zurückgegeben wird `uint8_t`. Bei Werten über 255 wird der Wert still abgeschnitten: Aus 300 wird 44. MISRA verbietet solche impliziten einengenden Umwandlungen. Mit `-Wconversion` warnt auch GCC. Richtig: den Wert begrenzen (`std::min<uint16_t>(soll, 255)`) und bewusst umwandeln, oder die Typen passend wählen."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Ordne die Werkzeuge ihrer Aufgabe zu.",
+      "paare": [
+        { "links": "Regelprüfer (z. B. MISRA-Checker)", "rechts": "Prüft Code auf Einhaltung der Codierrichtlinie" },
+        { "links": "Abstrakte Interpretation (z. B. Polyspace, Astrée)", "rechts": "Beweist die Abwesenheit bestimmter Laufzeitfehler wie Überläufe" },
+        { "links": "Sanitizer", "rechts": "Findet Fehler zur Laufzeit in Tests auf dem PC" },
+        { "links": "Compilerwarnungen mit `-Werror`", "rechts": "Erste, kostenlose Verteidigungslinie in jedem Build" }
+      ],
+      "erklaerung": "Werkzeuge mit **abstrakter Interpretation** gehen über Fehlersuche hinaus: Sie beweisen für alle möglichen Eingaben, dass zum Beispiel keine Division durch null auftreten kann. Für hohe Sicherheitsstufen ist das ein starkes Argument."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Ein Kollege findet die Codierrichtlinie lästig und deaktiviert eine Regel für die ganze Datei. Was ist der richtige Umgang?",
+      "optionen": [
+        "Abweichungen einzeln, lokal und mit Begründung dokumentieren und im Review bestätigen lassen. Wenn eine Regel im Projekt generell nicht passt, eine projektweite Abweichung mit Begründung beschliessen",
+        "Regeln dürfen nie verletzt werden",
+        "Jeder entscheidet selbst, welche Regeln er befolgt"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Richtlinien sind Werkzeuge, kein Selbstzweck. Eine begründete Abweichung ist legitim und üblich. Eine pauschale Deaktivierung entzieht den Code der Prüfung, ohne dass jemand es merkt. Der Assessor fragt in jedem Fall nach der Begründung.",
+      "begruendungen": [
+        "Richtig.",
+        "Begründete Abweichungen sind ausdrücklich vorgesehen.",
+        "Dann verliert die Richtlinie ihren Wert."
+      ]
+    }
+  ],
+  "praxis": "Defensive Programmierung heisst nicht, überall alles zu prüfen, sondern Verträge an den richtigen Stellen explizit zu machen: an Modulgrenzen, bei Eingaben von aussen, vor gefährlichen Aktionen. Prüfungen innerhalb eines Moduls, die nie fehlschlagen können, verschleiern den Code. Eine Codierrichtlinie mit Werkzeugprüfung in der CI ist auch ausserhalb von Safety-Projekten ein grosser Gewinn.",
+  "labor": {
+    "titel": "Warnungen ernst nehmen",
+    "anleitung": "Übersetze ein bestehendes Projekt mit strengen Warnungen und clang-tidy-Prüfungen aus dem CERT- und dem Core-Guidelines-Katalog. Zähle die Befunde pro Kategorie.",
+    "befehle": [
+      "g++ -std=c++20 -Wall -Wextra -Wconversion -Wsign-conversion -Wshadow -Wpedantic -c *.cpp",
+      "clang-tidy *.cpp --checks='-*,cert-*,cppcoreguidelines-*,bugprone-*' -- -std=c++20"
+    ],
+    "beobachtung": "Viele Befunde betreffen Umwandlungen und Vorzeichen, genau die Fehlerklasse aus der Übung. Behebe die Kategorie mit den meisten Befunden und aktiviere danach `-Werror` dafür."
+  },
+  "begriffe": [
+    { "begriff": "Vorbedingung", "englisch": "precondition", "erklaerung": "Bedingung, die beim Aufruf einer Funktion erfüllt sein muss." },
+    { "begriff": "Contract", "englisch": "contract", "erklaerung": "Explizit formulierte Vor- und Nachbedingungen einer Funktion, ab C++26 Teil der Sprache." },
+    { "begriff": "MISRA C++", "englisch": "MISRA C++", "erklaerung": "Codierrichtlinie für C++ in sicherheitskritischen Systemen." },
+    { "begriff": "Abweichung", "englisch": "deviation", "erklaerung": "Begründete, dokumentierte Ausnahme von einer Regel der Codierrichtlinie." }
+  ],
+  "weiterlesen": [
+    { "titel": "MISRA: MISRA C++:2023", "url": "https://misra.org.uk/product/misra-cpp2023/" },
+    { "titel": "cppreference: Contract assertions (C++26)", "url": "https://en.cppreference.com/w/cpp/language/contracts" }
+  ]
+}

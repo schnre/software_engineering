@@ -44,7 +44,12 @@
           "\tlibc.so.6 => /lib/x86_64-linux-gnu/libc.so.6 (0x00007f1c29e00000)"
         ]
       },
-      "optionen": ["`libmathe.so`", "`libstdc++.so.6`", "`linux-vdso.so.1`", "`libm.so.6`"],
+      "optionen": [
+        "`libmathe.so`",
+        "`libstdc++.so.6`",
+        "`linux-vdso.so.1`",
+        "`libm.so.6`"
+      ],
       "korrekt": 0,
       "erklaerung": "`ldd` zeigt für jede benötigte Bibliothek, wo der Loader sie findet. `not found` ist der Übeltäter. `linux-vdso.so.1` ist keine Datei, sondern eine kleine Bibliothek, die der Kernel selbst einblendet. Deshalb steht dort kein Pfad.",
       "begruendungen": [
@@ -59,10 +64,22 @@
       "frage": "Die Bibliothek liegt im Unterordner `lib` neben dem Programm. Ergänze den Link-Befehl so, dass das Programm sie findet, egal aus welchem Verzeichnis man es startet.",
       "code": {
         "sprache": "bash",
-        "zeilen": ["g++ main.o -L./lib -lmathe -Wl,-rpath,'{{?}}' -o app"]
+        "zeilen": [
+          "g++ main.o -L./lib -lmathe -Wl,-rpath,'{{?}}' -o app"
+        ]
       },
-      "luecken": [{ "loesungen": ["$ORIGIN/lib"] }],
-      "auswahl": ["$ORIGIN/lib", "./lib", "/lib"],
+      "luecken": [
+        {
+          "loesungen": [
+            "$ORIGIN/lib"
+          ]
+        }
+      ],
+      "auswahl": [
+        "$ORIGIN/lib",
+        "./lib",
+        "/lib"
+      ],
       "erklaerung": "`$ORIGIN` ersetzt der Loader durch das Verzeichnis, in dem das Programm liegt. So bleibt die Installation verschiebbar. `./lib` wäre relativ zum **aktuellen Arbeitsverzeichnis** beim Start und funktioniert nur zufällig. `/lib` ist ein Systemverzeichnis. Die einfachen Anführungszeichen verhindern, dass die Shell `$ORIGIN` als Variable auflöst."
     },
     {
@@ -77,9 +94,18 @@
           "libmathe.so.1.4.2"
         ],
         "anmerkungen": [
-          { "zeile": 1, "text": "Wird nur beim Bauen gebraucht (`-lmathe`). Gehört ins Entwicklerpaket (`-dev`)." },
-          { "zeile": 2, "text": "Der soname. Er wird ins Programm eingetragen und beim Start gesucht." },
-          { "zeile": 3, "text": "Die echte Datei. Ein Bugfix-Update tauscht nur sie aus." }
+          {
+            "zeile": 1,
+            "text": "Wird nur beim Bauen gebraucht (`-lmathe`). Gehört ins Entwicklerpaket (`-dev`)."
+          },
+          {
+            "zeile": 2,
+            "text": "Der soname. Er wird ins Programm eingetragen und beim Start gesucht."
+          },
+          {
+            "zeile": 3,
+            "text": "Die echte Datei. Ein Bugfix-Update tauscht nur sie aus."
+          }
         ]
       }
     },
@@ -87,9 +113,18 @@
       "typ": "zuordnen",
       "frage": "Welche Datei hat welche Aufgabe?",
       "paare": [
-        { "links": "`libmathe.so`", "rechts": "Symlink für den Linker beim Bauen mit `-lmathe`" },
-        { "links": "`libmathe.so.1`", "rechts": "soname: wird beim Programmstart gesucht" },
-        { "links": "`libmathe.so.1.4.2`", "rechts": "Die Datei mit dem eigentlichen Code" }
+        {
+          "links": "`libmathe.so`",
+          "rechts": "Symlink für den Linker beim Bauen mit `-lmathe`"
+        },
+        {
+          "links": "`libmathe.so.1`",
+          "rechts": "soname: wird beim Programmstart gesucht"
+        },
+        {
+          "links": "`libmathe.so.1.4.2`",
+          "rechts": "Die Datei mit dem eigentlichen Code"
+        }
       ],
       "erklaerung": "Kommt Version 1.5.0 mit neuen Funktionen, aber kompatibler ABI, zeigt `libmathe.so.1` einfach auf die neue Datei, und alle Programme profitieren. Bei einer inkompatiblen Version 2 entsteht `libmathe.so.2` daneben, und alte Programme nutzen weiter Version 1."
     },
@@ -122,12 +157,30 @@
     "beobachtung": "Mit `-rpath` erscheint ein Eintrag `RUNPATH [$ORIGIN/lib]`. `LD_DEBUG=libs` zeigt Schritt für Schritt, welche Verzeichnisse der Loader durchsucht."
   },
   "begriffe": [
-    { "begriff": "RUNPATH / RPATH", "englisch": "run-time search path", "erklaerung": "Im Programm gespeicherte Suchpfade für Shared Libraries. `$ORIGIN` steht für das Verzeichnis des Programms." },
-    { "begriff": "soname", "englisch": "shared object name", "erklaerung": "Versionierter Name einer Shared Library (z. B. `libmathe.so.1`). Ändert sich bei ABI-Brüchen." },
-    { "begriff": "Symbol-Sichtbarkeit", "englisch": "symbol visibility", "erklaerung": "Legt fest, welche Symbole eine Shared Library nach aussen exportiert (`-fvisibility=hidden`)." }
+    {
+      "begriff": "RUNPATH / RPATH",
+      "englisch": "run-time search path",
+      "erklaerung": "Im Programm gespeicherte Suchpfade für Shared Libraries. `$ORIGIN` steht für das Verzeichnis des Programms."
+    },
+    {
+      "begriff": "soname",
+      "englisch": "shared object name",
+      "erklaerung": "Versionierter Name einer Shared Library (z. B. `libmathe.so.1`). Ändert sich bei ABI-Brüchen."
+    },
+    {
+      "begriff": "Symbol-Sichtbarkeit",
+      "englisch": "symbol visibility",
+      "erklaerung": "Legt fest, welche Symbole eine Shared Library nach aussen exportiert (`-fvisibility=hidden`)."
+    }
   ],
   "weiterlesen": [
-    { "titel": "man ld.so (Suchreihenfolge des Loaders)", "url": "https://man7.org/linux/man-pages/man8/ld.so.8.html" },
-    { "titel": "GCC Wiki: Visibility", "url": "https://gcc.gnu.org/wiki/Visibility" }
+    {
+      "titel": "man ld.so (Suchreihenfolge des Loaders)",
+      "url": "https://man7.org/linux/man-pages/man8/ld.so.8.html"
+    },
+    {
+      "titel": "GCC Wiki: Visibility",
+      "url": "https://gcc.gnu.org/wiki/Visibility"
+    }
   ]
 }

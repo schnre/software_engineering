@@ -40,16 +40,26 @@
       "text": "Der GNU-Linker führt eine Liste offener Symbole. Bei jedem Object-File fügt er dessen `U`-Symbole zur Liste hinzu. Bei jedem Archiv (`.a`) holt er **nur** die Object-Files heraus, die gerade offene Symbole liefern. Danach schaut er das Archiv nicht mehr an.\n\nDaraus folgt die Regel: **Wer etwas braucht, steht links von dem, was es liefert.** Also zuerst die eigenen Object-Files, dann die Bibliotheken, von den speziellen zu den grundlegenden.",
       "code": {
         "sprache": "bash",
-        "zeilen": ["g++ main.o sensor.o -lnetz -lbasis -o app"],
+        "zeilen": [
+          "g++ main.o sensor.o -lnetz -lbasis -o app"
+        ],
         "anmerkungen": [
-          { "zeile": 1, "text": "`main.o` braucht `libnetz`, `libnetz` braucht `libbasis`. Jede Bibliothek steht rechts von ihren Nutzern." }
+          {
+            "zeile": 1,
+            "text": "`main.o` braucht `libnetz`, `libnetz` braucht `libbasis`. Jede Bibliothek steht rechts von ihren Nutzern."
+          }
         ]
       }
     },
     {
       "typ": "reihenfolge",
       "frage": "`main.o` verwendet `libnetz`. `libnetz` verwendet `libbasis`, und `libbasis` verwendet die Kompressionsbibliothek zlib (`-lz`). Bringe den Link-Befehl in die richtige Reihenfolge.",
-      "elemente": ["`main.o`", "`-lnetz`", "`-lbasis`", "`-lz`"],
+      "elemente": [
+        "`main.o`",
+        "`-lnetz`",
+        "`-lbasis`",
+        "`-lz`"
+      ],
       "erklaerung": "Von links nach rechts folgt man den Abhängigkeiten: Jedes Element liefert, was die Elemente links davon brauchen. zlib hängt von nichts ab und steht deshalb ganz rechts."
     },
     {
@@ -57,10 +67,27 @@
       "frage": "`main.o` nutzt `libgrafik`, und `libgrafik` nutzt `libmathe`. Ergänze den Befehl.",
       "code": {
         "sprache": "bash",
-        "zeilen": ["g++ main.o {{?}} {{?}} -o app"]
+        "zeilen": [
+          "g++ main.o {{?}} {{?}} -o app"
+        ]
       },
-      "luecken": [{ "loesungen": ["-lgrafik"] }, { "loesungen": ["-lmathe"] }],
-      "auswahl": ["-lgrafik", "-lmathe", "-lmain"],
+      "luecken": [
+        {
+          "loesungen": [
+            "-lgrafik"
+          ]
+        },
+        {
+          "loesungen": [
+            "-lmathe"
+          ]
+        }
+      ],
+      "auswahl": [
+        "-lgrafik",
+        "-lmathe",
+        "-lmain"
+      ],
       "erklaerung": "Erst die Bibliothek, die `main.o` direkt braucht, dann deren Abhängigkeit. Stünde `-lmathe` vorne, wären die von `libgrafik` benötigten Mathe-Symbole beim Lesen von `libmathe` noch nicht offen."
     },
     {
@@ -72,7 +99,7 @@
         "Die Reihenfolge ist bei gegenseitiger Abhängigkeit egal"
       ],
       "korrekt": 0,
-      "erklaerung": "Innerhalb einer Gruppe durchsucht der Linker die Archive so lange wiederholt, bis keine neuen Symbole mehr aufgelöst werden. Das funktioniert, ist aber ein Symptom: Zwei Bibliotheken, die sich gegenseitig brauchen, sind eigentlich eine. Besser ist es, den Zyklus aufzulösen. Wie das geht, zeigt Phase 6.",
+      "erklaerung": "Innerhalb einer Gruppe durchsucht der Linker die Archive so lange wiederholt, bis keine neuen Symbole mehr aufgelöst werden. Das funktioniert, ist aber ein Symptom: Zwei Bibliotheken, die sich gegenseitig brauchen, sind eigentlich eine. Besser ist es, den Zyklus aufzulösen. Wie das geht, zeigt Phase 9.",
       "begruendungen": [
         "Richtig. Technisch lösbar, architektonisch aber ein Warnsignal.",
         "Es geht, mit Gruppen oder Wiederholung.",
@@ -113,10 +140,21 @@
     "beobachtung": "Die erste Variante scheitert, die zweite gelingt. `--trace-symbol` zeigt, in welcher Datei das Symbol referenziert und in welcher es definiert wird. Den gemangelten Namen findest du mit `nm main.o`."
   },
   "begriffe": [
-    { "begriff": "Link-Reihenfolge", "englisch": "link order", "erklaerung": "Reihenfolge der Eingaben im Link-Befehl. Bei statischen Bibliotheken muss jede Bibliothek rechts von ihren Nutzern stehen." },
-    { "begriff": "--as-needed", "englisch": "as-needed linking", "erklaerung": "Linker-Option: Eine Shared Library wird nur eingetragen, wenn sie an dieser Stelle offene Symbole liefert." }
+    {
+      "begriff": "Link-Reihenfolge",
+      "englisch": "link order",
+      "erklaerung": "Reihenfolge der Eingaben im Link-Befehl. Bei statischen Bibliotheken muss jede Bibliothek rechts von ihren Nutzern stehen."
+    },
+    {
+      "begriff": "--as-needed",
+      "englisch": "as-needed linking",
+      "erklaerung": "Linker-Option: Eine Shared Library wird nur eingetragen, wenn sie an dieser Stelle offene Symbole liefert."
+    }
   ],
   "weiterlesen": [
-    { "titel": "GNU ld: Command-line Options (--start-group, --as-needed)", "url": "https://sourceware.org/binutils/docs/ld/Options.html" }
+    {
+      "titel": "GNU ld: Command-line Options (--start-group, --as-needed)",
+      "url": "https://sourceware.org/binutils/docs/ld/Options.html"
+    }
   ]
 }

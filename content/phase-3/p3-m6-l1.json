@@ -1,0 +1,128 @@
+{
+  "id": "p3-m6-l1",
+  "phase": 3,
+  "modul": "3.6 Neue Sprachmittel",
+  "titel": "Koroutinen",
+  "lernziele": [
+    "Erklären, was eine Koroutine von einer Funktion unterscheidet",
+    "`co_await`, `co_yield` und `co_return` lesen",
+    "Einsatzgebiete und Kosten von Koroutinen einschätzen"
+  ],
+  "dauerMinuten": 7,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Was unterscheidet eine **Koroutine** von einer normalen Funktion?",
+      "optionen": [
+        "Sie kann ihre Ausführung unterbrechen und später an derselben Stelle fortsetzen. Ihre lokalen Variablen bleiben dabei erhalten",
+        "Sie läuft automatisch in einem eigenen Thread",
+        "Sie wird zur Übersetzungszeit ausgeführt"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Eine C++20-Koroutine speichert ihren Zustand in einem **Coroutine Frame**, meist auf dem Heap. Bei `co_await` oder `co_yield` gibt sie die Kontrolle an den Aufrufer zurück. Ein späteres `resume()` setzt sie fort. Es gibt keinen Thread und keinen eigenen Stack: C++-Koroutinen sind **stackless**.",
+      "begruendungen": [
+        "Richtig.",
+        "Koroutinen sind kein Thread. Sie laufen dort weiter, wo jemand `resume()` aufruft.",
+        "Das wäre `consteval`."
+      ]
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Ordne die Schlüsselwörter zu.",
+      "paare": [
+        { "links": "`co_await ausdruck`", "rechts": "Unterbricht, bis das Ergebnis des Ausdrucks bereit ist" },
+        { "links": "`co_yield wert`", "rechts": "Liefert einen Wert an den Aufrufer und unterbricht" },
+        { "links": "`co_return wert`", "rechts": "Beendet die Koroutine mit einem Ergebnis" },
+        { "links": "`promise_type`", "rechts": "Legt im Rückgabetyp fest, wie sich die Koroutine verhält" }
+      ],
+      "erklaerung": "Eine Funktion wird zur Koroutine, sobald eines der drei `co_`-Schlüsselwörter darin vorkommt. Ihr Rückgabetyp muss einen `promise_type` mitbringen. Die Sprache liefert nur den Mechanismus, die Typen (Generatoren, Tasks) kommen aus Bibliotheken. C++23 bringt mit `std::generator` den ersten fertigen Typ."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Was gibt dieser Code aus (C++23)?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "std::generator<int> fibonacci() {",
+          "    int a = 0, b = 1;",
+          "    while (true) {",
+          "        co_yield a;",
+          "        a = std::exchange(b, a + b);",
+          "    }",
+          "}",
+          "",
+          "for (int x : fibonacci() | std::views::take(7)) std::cout << x << ' ';"
+        ]
+      },
+      "optionen": ["`0 1 1 2 3 5 8`", "Eine Endlosschleife", "`1 1 2 3 5 8 13`", "`0 1 2 3 4 5 6`"],
+      "korrekt": 0,
+      "fest": true,
+      "erklaerung": "Der Generator berechnet jeden Wert erst, wenn die Schleife ihn anfordert. Die `while (true)`-Schleife ist kein Problem, weil die Koroutine bei jedem `co_yield` pausiert. Nach sieben Werten wird sie zerstört, ohne je wieder fortgesetzt zu werden. Ein Generator passt gut zu Ranges, er ist selbst eine Range.",
+      "begruendungen": [
+        "Richtig.",
+        "Die Koroutine pausiert bei jedem `co_yield`, `take(7)` beendet nach sieben Werten.",
+        "Der erste Wert ist `a = 0`.",
+        "Das wäre eine einfache Zählschleife."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Asynchroner Code ohne Callback-Verschachtelung",
+      "text": "Die grösste Stärke von Koroutinen ist asynchroner Code, der wie sequenzieller aussieht:\n\n```\nTask<void> aktualisiere(Geraet& g) {\n    auto version = co_await g.leseVersion();\n    if (version < ziel) {\n        co_await g.sendeFirmware(image);\n        co_await g.neustart();\n    }\n}\n```\n\nOhne Koroutinen wäre das eine Kette verschachtelter Callbacks mit Zustand in Lambdas. Bibliotheken wie Asio, cppcoro, libunifex oder `std::execution` (C++26) liefern passende `Task`-Typen und Event Loops. Im Embedded-Bereich können Koroutinen Zustandsautomaten ersetzen. Dann muss man aber den Speicher für die Frames kontrollieren."
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Diese Koroutine liefert manchmal Unsinn. Welche Zeile ist die Ursache?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "Task<void> sende(const std::string& text, Uart& uart) {",
+          "    co_await uart.bereit();",
+          "    co_await uart.schreibe(text);",
+          "}",
+          "",
+          "void start(Uart& uart) {",
+          "    auto t = sende(\"Hallo \" + name(), uart);",
+          "    scheduler.starte(std::move(t));",
+          "}"
+        ]
+      },
+      "fehlerZeile": 1,
+      "erklaerung": "Der Parameter ist eine Referenz auf ein temporäres Objekt aus Zeile 7. Die Koroutine speichert nur die Referenz im Frame. Nach dem ersten `co_await` kehrt `sende` zurück, das Temporäre wird zerstört, und beim Fortsetzen hängt die Referenz. Regel: Koroutinen nehmen Parameter **nach Wert**, dann werden sie in den Frame kopiert oder verschoben. Das gilt auch für `string_view`, `span` und `this`."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Warum sind Koroutinen auf Mikrocontrollern ohne Heap eine Herausforderung?",
+      "optionen": [
+        "Der Coroutine Frame wird standardmässig mit `operator new` angelegt, und seine Grösse ist erst nach dem Übersetzen bekannt",
+        "Weil Mikrocontroller keine Sprünge unterstützen",
+        "Weil Koroutinen Threads benötigen"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Der `promise_type` kann einen eigenen `operator new` definieren und den Frame zum Beispiel aus einem Pool holen. Unter bestimmten Bedingungen spart der Compiler die Allokation ganz ein (*HALO*), garantiert ist das aber nicht. Darum sind Koroutinen in Embedded-Projekten noch selten, obwohl sie für Protokolle und Abläufe sehr gut passen.",
+      "begruendungen": [
+        "Richtig.",
+        "Technisch sind Koroutinen nur Funktionen mit gespeichertem Zustand.",
+        "Sie brauchen keinen Thread."
+      ]
+    }
+  ],
+  "praxis": "In Server- und Netzwerkcode sind Koroutinen mit Asio schon weit verbreitet. In Embedded-Projekten gibt es Pionier-Einsätze mit eigenen Allokatoren. Wenn du sie einsetzt, lege im Team Regeln fest: Parameter nach Wert, klare Besitzverhältnisse der Task-Objekte, Abbruch und Timeouts. Ohne diese Regeln entstehen schwer auffindbare Lebensdauerfehler.",
+  "labor": {
+    "titel": "Ein eigener Generator",
+    "anleitung": "Schreibe einen minimalen `Generator<T>` mit `promise_type`, `initial_suspend`, `yield_value` und einem Iterator. Lass dir mit Ausgaben in jeder Funktion zeigen, in welcher Reihenfolge der Compiler sie aufruft.",
+    "befehle": [
+      "g++ -std=c++20 -Wall generator.cpp -o generator && ./generator"
+    ],
+    "beobachtung": "Die Ausgaben zeigen den Ablauf: Frame anlegen, `get_return_object`, `initial_suspend`, dann abwechselnd `resume` und `yield_value`. Danach versteht man auch fremde Task-Typen."
+  },
+  "begriffe": [
+    { "begriff": "Koroutine", "englisch": "coroutine", "erklaerung": "Funktion, die unterbrochen und später fortgesetzt werden kann." },
+    { "begriff": "Coroutine Frame", "englisch": "coroutine frame", "erklaerung": "Speicherbereich mit Zustand und lokalen Variablen einer Koroutine." },
+    { "begriff": "Generator", "englisch": "generator", "erklaerung": "Koroutine, die mit `co_yield` eine Folge von Werten erzeugt." }
+  ],
+  "weiterlesen": [
+    { "titel": "cppreference: Coroutines", "url": "https://en.cppreference.com/w/cpp/language/coroutines" },
+    { "titel": "Lewis Baker: Asymmetric Transfer (Blog über C++-Koroutinen)", "url": "https://lewissbaker.github.io/" }
+  ]
+}

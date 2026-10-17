@@ -1,0 +1,228 @@
+{
+  "id": "p10-m5-l2",
+  "phase": 10,
+  "modul": "10.5 Statische vs. dynamische Polymorphie",
+  "titel": "CRTP und deducing this",
+  "lernziele": [
+    "Das Curiously Recurring Template Pattern lesen",
+    "Mit CRTP Verhalten ohne virtuelle Aufrufe wiederverwenden",
+    "Die Vereinfachung durch „deducing this“ in C++23 kennen"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "code-lesen",
+      "frage": "Was gibt dieser Code aus?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "template <typename Abgeleitet>",
+          "struct Zaehlbar {",
+          "    static inline int anzahl = 0;",
+          "    Zaehlbar() { ++anzahl; }",
+          "};",
+          "",
+          "struct A : Zaehlbar<A> {};",
+          "struct B : Zaehlbar<B> {};",
+          "",
+          "int main() {",
+          "    A a1, a2;",
+          "    B b1;",
+          "    std::cout << A::anzahl << B::anzahl;",
+          "}"
+        ]
+      },
+      "optionen": [
+        "`21`",
+        "`33`",
+        "`30`"
+      ],
+      "korrekt": 0,
+      "fest": true,
+      "erklaerung": "`Zaehlbar<A>` und `Zaehlbar<B>` sind zwei verschiedene Klassen mit je einem eigenen statischen Zähler. Weil jede Klasse sich selbst als Template-Argument übergibt, bekommt sie ihren eigenen Basisklassen-Typ. Dieses Muster heisst **CRTP**.",
+      "begruendungen": [
+        "Richtig.",
+        "Es gibt zwei getrennte Zähler, nicht einen gemeinsamen.",
+        "Auch `B` zählt seine Objekte."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Das Curiously Recurring Template Pattern",
+      "text": "Beim **CRTP** erbt eine Klasse von einem Template, das sie selbst als Argument bekommt: `class CanSensor : public SensorBasis<CanSensor>`. Die Basisklasse kennt dadurch den abgeleiteten Typ und kann dessen Funktionen **ohne `virtual`** aufrufen, mit `static_cast<D&>(*this)`.\n\nSo bekommt man gemeinsames Verhalten in der Basis und typspezifisches Verhalten in der abgeleiteten Klasse, alles zur Kompilierzeit aufgelöst und vollständig inlinebar.",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "template <typename D>",
+          "class SensorBasis {",
+          "public:",
+          "    double gefiltert() {",
+          "        letzter_ = 0.9 * letzter_ + 0.1 * static_cast<D&>(*this).roh();",
+          "        return letzter_;",
+          "    }",
+          "private:",
+          "    double letzter_ = 0.0;",
+          "};",
+          "",
+          "class CanSensor : public SensorBasis<CanSensor> {",
+          "public:",
+          "    double roh();",
+          "};"
+        ],
+        "anmerkungen": [
+          {
+            "zeile": 5,
+            "text": "Aufruf in die abgeleitete Klasse, ohne vtable."
+          },
+          {
+            "zeile": 12,
+            "text": "Die Klasse übergibt sich selbst als Template-Argument."
+          }
+        ]
+      }
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze den Aufruf in die abgeleitete Klasse.",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "template <typename D>",
+          "class SensorBasis {",
+          "public:",
+          "    double gefiltert() {",
+          "        return static_cast<{{?}}&>(*this).roh();",
+          "    }",
+          "};"
+        ]
+      },
+      "luecken": [
+        {
+          "loesungen": [
+            "D"
+          ]
+        }
+      ],
+      "auswahl": [
+        "D",
+        "SensorBasis",
+        "CanSensor",
+        "auto"
+      ],
+      "erklaerung": "`CanSensor` würde nur für diese eine Klasse funktionieren. Der Sinn der Basis ist aber, für alle abgeleiteten Klassen zu passen. `SensorBasis` hätte keine Funktion `roh()`."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Ordne zu.",
+      "paare": [
+        {
+          "links": "CRTP",
+          "rechts": "Die Basisklasse bekommt die abgeleitete Klasse als Template-Parameter"
+        },
+        {
+          "links": "Mixin",
+          "rechts": "Fügt einer Klasse eine Fähigkeit hinzu, z. B. einen Zähler oder Vergleichsoperatoren"
+        },
+        {
+          "links": "`static_cast<D&>(*this)`",
+          "rechts": "Aufruf in die abgeleitete Klasse ohne virtuellen Aufruf"
+        },
+        {
+          "links": "Deducing this (C++23)",
+          "rechts": "Sprachmittel, das viele CRTP-Anwendungen einfacher macht"
+        }
+      ],
+      "erklaerung": "Mixins per CRTP sind in der Standardbibliothek zu finden: `std::enable_shared_from_this<T>` ist ein bekanntes Beispiel."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Was ist ein wesentlicher Nachteil von CRTP gegenüber einer virtuellen Basisklasse?",
+      "optionen": [
+        "`SensorBasis<CanSensor>` und `SensorBasis<I2cSensor>` sind verschiedene Typen ohne gemeinsame Basis. Man kann sie nicht zusammen in einem Container über einen Basiszeiger halten",
+        "CRTP ist langsamer als virtuelle Funktionen",
+        "CRTP funktioniert nur mit `struct`, nicht mit `class`"
+      ],
+      "korrekt": 0,
+      "erklaerung": "CRTP ist statische Polymorphie: Es gibt keinen gemeinsamen Laufzeittyp. Dazu kommen Code im Header, mehr Kompilierzeit und für viele schwer lesbarer Code. Darum: CRTP für gezielte Fälle wie Mixins oder heisse Pfade, nicht als Standardwerkzeug.",
+      "begruendungen": [
+        "Richtig.",
+        "Im Gegenteil, es fällt der indirekte Aufruf weg.",
+        "Das spielt keine Rolle."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Einfacher mit C++23: deducing this",
+      "text": "Seit C++23 kann eine Memberfunktion ihr Objekt als expliziten ersten Parameter bekommen. Mit `this auto& self` hat `self` den **tatsächlichen** Typ des Objekts, auch in der Basisklasse. Damit fällt bei vielen Anwendungen das Template-Argument der Basis weg.",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "struct SensorBasis {",
+          "    double gefiltert(this auto& self) {",
+          "        self.letzter = 0.9 * self.letzter + 0.1 * self.roh();",
+          "        return self.letzter;",
+          "    }",
+          "    double letzter = 0.0;",
+          "};",
+          "",
+          "struct CanSensor : SensorBasis {",
+          "    double roh();",
+          "};"
+        ]
+      }
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Ein Kollege möchte alle virtuellen Schnittstellen im Projekt auf CRTP umstellen, „weil es schneller ist“. Was antwortest du?",
+      "optionen": [
+        "Erst messen, ob die virtuellen Aufrufe überhaupt messbar Zeit kosten. Wo nicht, behalten wir die einfachere, austauschbare Lösung",
+        "Gute Idee, virtuelle Funktionen sind immer zu langsam",
+        "Unmöglich, CRTP und virtuelle Funktionen schliessen sich aus"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Ein indirekter Aufruf kostet wenige Nanosekunden. An Modulgrenzen, die ein paar tausend Mal pro Sekunde aufgerufen werden, ist das nicht messbar. Dort zählen Austauschbarkeit, Testbarkeit und Kompilierzeit mehr. In einer inneren Schleife mit Millionen Aufrufen kann es anders sein. Das zeigt der Profiler (Modul 5.4).",
+      "begruendungen": [
+        "Richtig.",
+        "„Immer“ stimmt nicht. Meist ist der Unterschied nicht messbar.",
+        "Man kann beides kombinieren, z. B. CRTP-Basen mit virtuellen Schnittstellen."
+      ]
+    }
+  ],
+  "praxis": "CRTP begegnet dir in Bibliotheken (Eigen, Boost, `std::enable_shared_from_this`) und in performancekritischem Embedded-Code. Lesen musst du es können, schreiben eher selten. Im Review fragst du bei neuem CRTP-Code: Gibt es einen gemessenen Grund? Wäre eine virtuelle Schnittstelle oder ein einfaches Template ohne Vererbung klarer? Mit C++23 lohnt sich oft auch ein Blick auf deducing this.",
+  "labor": {
+    "titel": "CRTP und deducing this vergleichen",
+    "anleitung": "Baue `SensorBasis` einmal mit CRTP und einmal mit deducing this. Vergleiche den erzeugten Code mit `-O2`. Für deducing this brauchst du GCC 14 oder Clang 18.",
+    "befehle": [
+      "g++ -std=c++23 -O2 -S crtp.cpp -o crtp.s && g++ -std=c++23 -O2 -S deducing.cpp -o deducing.s",
+      "diff <(grep -v '^\\s*\\.' crtp.s) <(grep -v '^\\s*\\.' deducing.s) | head"
+    ],
+    "beobachtung": "Der erzeugte Code ist praktisch gleich: In beiden Fällen ist `roh()` direkt eingebunden, ohne indirekten Aufruf. Der Unterschied liegt nur in der Lesbarkeit des Quelltexts."
+  },
+  "begriffe": [
+    {
+      "begriff": "CRTP",
+      "englisch": "curiously recurring template pattern",
+      "erklaerung": "Eine Klasse erbt von einem Template, das sie selbst als Argument bekommt. Ermöglicht statische Polymorphie."
+    },
+    {
+      "begriff": "Mixin",
+      "englisch": "mixin",
+      "erklaerung": "Baustein, der einer Klasse eine zusätzliche Fähigkeit hinzufügt, oft per CRTP."
+    },
+    {
+      "begriff": "Deducing this",
+      "englisch": "deducing this, explicit object parameter",
+      "erklaerung": "C++23: Eine Memberfunktion bekommt ihr Objekt als expliziten Parameter mit dem tatsächlichen Typ."
+    }
+  ],
+  "weiterlesen": [
+    {
+      "titel": "cppreference: Curiously Recurring Template Pattern",
+      "url": "https://en.cppreference.com/w/cpp/language/crtp"
+    },
+    {
+      "titel": "cppreference: Explicit object parameter",
+      "url": "https://en.cppreference.com/w/cpp/language/member_functions#Explicit_object_member_functions"
+    }
+  ]
+}

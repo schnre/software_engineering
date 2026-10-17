@@ -56,7 +56,11 @@
           "}"
         ]
       },
-      "optionen": ["1", "3", "4"],
+      "optionen": [
+        "1",
+        "3",
+        "4"
+      ],
       "korrekt": 1,
       "fest": true,
       "erklaerung": "`maximum<int>` (zweimal benutzt, einmal erzeugt), `maximum<double>` und `maximum<long>`. Es zählen die Typen, nicht die Aufrufe. Mit `-O2` werden so kleine Funktionen allerdings meist inlined und tauchen im Binary gar nicht als eigene Funktion auf.",
@@ -80,8 +84,24 @@
           "{{?}} double maximum<double>(double, double);"
         ]
       },
-      "luecken": [{ "loesungen": ["template"] }, { "loesungen": ["template"] }],
-      "auswahl": ["template", "template", "extern", "typename"],
+      "luecken": [
+        {
+          "loesungen": [
+            "template"
+          ]
+        },
+        {
+          "loesungen": [
+            "template"
+          ]
+        }
+      ],
+      "auswahl": [
+        "template",
+        "template",
+        "extern",
+        "typename"
+      ],
       "erklaerung": "`template int maximum<int>(int, int);` zwingt den Compiler, diese Instanz hier zu erzeugen. Dann reicht in `main.cpp` die Deklaration. Der Preis: Nur diese Typen funktionieren. Umgekehrt verhindert `extern template int maximum<int>(int, int);` in anderen Dateien, dass die Instanz dort nochmals erzeugt wird. Das spart Kompilierzeit."
     },
     {
@@ -120,7 +140,10 @@
           "T halbiere(T x) { return x / 2; }"
         ],
         "anmerkungen": [
-          { "zeile": 3, "text": "Nur ganzzahlige Typen sind erlaubt: `int`, `long`, `char` … aber nicht `double`." }
+          {
+            "zeile": 3,
+            "text": "Nur ganzzahlige Typen sind erlaubt: `int`, `long`, `char` … aber nicht `double`."
+          }
         ]
       }
     },
@@ -178,12 +201,30 @@
     "beobachtung": "Mit `-O0` siehst du drei `W`-Symbole, mit `-O2` oft keines mehr, weil alle Aufrufe inlined und die Ergebnisse sogar vorab berechnet wurden."
   },
   "begriffe": [
-    { "begriff": "Instanziierung", "englisch": "template instantiation", "erklaerung": "Der Compiler erzeugt aus einem Template Code für konkrete Typen." },
-    { "begriff": "Concept", "englisch": "concept", "erklaerung": "Seit C++20: benannte Bedingung an Template-Parameter, z. B. `std::integral`." },
-    { "begriff": "Schwaches Symbol", "englisch": "weak symbol", "erklaerung": "Symbol, das mehrfach vorkommen darf. Der Linker behält eines (`W` in `nm`)." }
+    {
+      "begriff": "Instanziierung",
+      "englisch": "template instantiation",
+      "erklaerung": "Der Compiler erzeugt aus einem Template Code für konkrete Typen."
+    },
+    {
+      "begriff": "Concept",
+      "englisch": "concept",
+      "erklaerung": "Seit C++20: benannte Bedingung an Template-Parameter, z. B. `std::integral`."
+    },
+    {
+      "begriff": "Schwaches Symbol",
+      "englisch": "weak symbol",
+      "erklaerung": "Symbol, das mehrfach vorkommen darf. Der Linker behält eines (`W` in `nm`)."
+    }
   ],
   "weiterlesen": [
-    { "titel": "cppreference: Template instantiation", "url": "https://en.cppreference.com/w/cpp/language/function_template#Function_template_instantiation" },
-    { "titel": "cppreference: Constraints and concepts", "url": "https://en.cppreference.com/w/cpp/language/constraints" }
+    {
+      "titel": "cppreference: Template instantiation",
+      "url": "https://en.cppreference.com/w/cpp/language/function_template#Function_template_instantiation"
+    },
+    {
+      "titel": "cppreference: Constraints and concepts",
+      "url": "https://en.cppreference.com/w/cpp/language/constraints"
+    }
   ]
 }

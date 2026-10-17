@@ -22,29 +22,34 @@ export type Thema = 'system' | 'hell' | 'dunkel';
 export interface Einstellungen {
   thema: Thema;
   erkunden: boolean; // alle Lektionen freischalten
+  tagesziel: number; // XP pro Tag
 }
 
+export const TAGESZIELE = [10, 20, 35, 50];
+
 export interface Fortschritt {
-  version: 1;
+  version: 2;
   xp: number;
   lektionen: Record<string, LektionsFortschritt>;
   streak: Streak;
   leitner: Record<string, LeitnerKarte>;
   gemeistert: number;
+  perfekt: number; // fehlerfrei abgeschlossene Lektionsdurchgänge
   aktivitaet: Record<string, number>; // Tag -> XP
   einstellungen: Einstellungen;
 }
 
 export function leererFortschritt(): Fortschritt {
   return {
-    version: 1,
+    version: 2,
     xp: 0,
     lektionen: {},
     streak: { aktuell: 0, laengste: 0, letzterTag: null },
     leitner: {},
     gemeistert: 0,
+    perfekt: 0,
     aktivitaet: {},
-    einstellungen: { thema: 'system', erkunden: false },
+    einstellungen: { thema: 'system', erkunden: false, tagesziel: 20 },
   };
 }
 
@@ -58,17 +63,28 @@ function zahl(x: unknown, standard: number, min = 0, max = Number.MAX_SAFE_INTEG
   return typeof x === 'number' && Number.isFinite(x) ? Math.min(max, Math.max(min, x)) : standard;
 }
 
+// Version 1 stammt aus der Zeit vor der Umnummerierung der Phasen (ADR 0008).
+// Alte Phase -> neue Phase. Phasen 1 und 2 sind unverändert.
+const PHASEN_V1: Record<string, string> = { '3': '4', '4': '5', '5': '8', '6': '9', '7': '10', '8': '13' };
+
+/** Schreibt Lektions-Ids (und Schlüssel, die mit einer Lektions-Id beginnen) auf die aktuelle Nummerierung um. */
+export function idAusVersion1(id: string): string {
+  return id.replace(/^p(\d+)-/, (treffer, phase: string) => (PHASEN_V1[phase] ? `p${PHASEN_V1[phase]}-` : treffer));
+}
+
 /** Nimmt beliebige Daten entgegen und liefert einen gültigen Fortschritt (oder wirft). */
 export function normalisieren(roh: unknown): Fortschritt {
-  if (!istObjekt(roh) || roh.version !== 1) throw new Error('Unbekanntes Fortschrittsformat.');
+  if (!istObjekt(roh) || (roh.version !== 1 && roh.version !== 2)) throw new Error('Unbekanntes Fortschrittsformat.');
+  const id = roh.version === 1 ? idAusVersion1 : (x: string) => x;
   const f = leererFortschritt();
   f.xp = Math.round(zahl(roh.xp, 0));
   f.gemeistert = Math.round(zahl(roh.gemeistert, 0));
+  f.perfekt = Math.round(zahl(roh.perfekt, 0));
 
   if (istObjekt(roh.lektionen)) {
-    for (const [id, l] of Object.entries(roh.lektionen)) {
+    for (const [alt, l] of Object.entries(roh.lektionen)) {
       if (!istObjekt(l) || typeof l.abgeschlossenAm !== 'string' || !TAG.test(l.abgeschlossenAm)) continue;
-      f.lektionen[id] = {
+      f.lektionen[id(alt)] = {
         abgeschlossenAm: l.abgeschlossenAm,
         besteGenauigkeit: zahl(l.besteGenauigkeit, 0, 0, 1),
         durchgaenge: Math.round(zahl(l.durchgaenge, 1, 1)),
@@ -86,7 +102,7 @@ export function normalisieren(roh: unknown): Fortschritt {
   if (istObjekt(roh.leitner)) {
     for (const [k, karte] of Object.entries(roh.leitner)) {
       if (!istObjekt(karte) || typeof karte.faellig !== 'string' || !TAG.test(karte.faellig)) continue;
-      f.leitner[k] = { box: Math.round(zahl(karte.box, 1, 1, 5)), faellig: karte.faellig };
+      f.leitner[id(k)] = { box: Math.round(zahl(karte.box, 1, 1, 5)), faellig: karte.faellig };
     }
   }
   if (istObjekt(roh.aktivitaet)) {
@@ -98,6 +114,7 @@ export function normalisieren(roh: unknown): Fortschritt {
     const e = roh.einstellungen;
     if (e.thema === 'hell' || e.thema === 'dunkel' || e.thema === 'system') f.einstellungen.thema = e.thema;
     f.einstellungen.erkunden = e.erkunden === true;
+    if (typeof e.tagesziel === 'number' && TAGESZIELE.includes(e.tagesziel)) f.einstellungen.tagesziel = e.tagesziel;
   }
   return f;
 }

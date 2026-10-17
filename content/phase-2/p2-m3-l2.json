@@ -47,9 +47,18 @@
           "};"
         ],
         "anmerkungen": [
-          { "zeile": 3, "text": "`noexcept`: Verschieben wirft nie. Warum das wichtig ist, folgt gleich." },
-          { "zeile": 4, "text": "Den Zeiger übernehmen, die Daten bleiben, wo sie sind." },
-          { "zeile": 5, "text": "Das alte Objekt loslassen, sonst würden beide Destruktoren denselben Block freigeben." }
+          {
+            "zeile": 3,
+            "text": "`noexcept`: Verschieben wirft nie. Warum das wichtig ist, folgt gleich."
+          },
+          {
+            "zeile": 4,
+            "text": "Den Zeiger übernehmen, die Daten bleiben, wo sie sind."
+          },
+          {
+            "zeile": 5,
+            "text": "Das alte Objekt loslassen, sonst würden beide Destruktoren denselben Block freigeben."
+          }
         ]
       }
     },
@@ -82,8 +91,24 @@
           "}"
         ]
       },
-      "luecken": [{ "loesungen": ["noexcept"] }, { "loesungen": ["nullptr"] }],
-      "auswahl": ["noexcept", "nullptr", "const", "delete"],
+      "luecken": [
+        {
+          "loesungen": [
+            "noexcept"
+          ]
+        },
+        {
+          "loesungen": [
+            "nullptr"
+          ]
+        }
+      ],
+      "auswahl": [
+        "noexcept",
+        "nullptr",
+        "const",
+        "delete"
+      ],
       "erklaerung": "`const` wäre falsch: Ein `const Puffer&&` könnte man nicht ausräumen. `delete` an dieser Stelle würde den Speicher freigeben, den gerade das neue Objekt übernommen hat."
     },
     {
@@ -143,7 +168,11 @@
           "std::cout << a.size();"
         ]
       },
-      "optionen": ["`1`", "`4`", "Undefined Behavior"],
+      "optionen": [
+        "`1`",
+        "`4`",
+        "Undefined Behavior"
+      ],
       "korrekt": 0,
       "fest": true,
       "erklaerung": "`push_back` hat keine Vorbedingung, darf also auf einem verschobenen Vektor aufgerufen werden. Für den **Move-Konstruktor** von `std::vector` garantiert der Standard sogar, dass das Quellobjekt danach leer ist. Also ist die Ausgabe `1`. Nach einer Move-*Zuweisung* gibt es diese Garantie nicht.",
@@ -164,12 +193,30 @@
     "beobachtung": "Ohne `noexcept` siehst du beim Wachsen des Vektors Kopien, mit `noexcept` nur Moves. Mit `v.reserve(10)` vorab verschwinden die Umzüge ganz."
   },
   "begriffe": [
-    { "begriff": "Move-Semantik", "englisch": "move semantics", "erklaerung": "Ressourcen eines Objekts, das nicht mehr gebraucht wird, übernehmen statt sie zu kopieren." },
-    { "begriff": "Gültig, aber unspezifiziert", "englisch": "valid but unspecified", "erklaerung": "Zustand eines verschobenen Objekts: Es darf zerstört und neu zugewiesen werden, sein Inhalt ist offen." },
-    { "begriff": "NRVO", "englisch": "named return value optimization", "erklaerung": "Der Compiler legt eine zurückgegebene lokale Variable direkt beim Aufrufer an und spart Kopie und Move." }
+    {
+      "begriff": "Move-Semantik",
+      "englisch": "move semantics",
+      "erklaerung": "Ressourcen eines Objekts, das nicht mehr gebraucht wird, übernehmen statt sie zu kopieren."
+    },
+    {
+      "begriff": "Gültig, aber unspezifiziert",
+      "englisch": "valid but unspecified",
+      "erklaerung": "Zustand eines verschobenen Objekts: Es darf zerstört und neu zugewiesen werden, sein Inhalt ist offen."
+    },
+    {
+      "begriff": "NRVO",
+      "englisch": "named return value optimization",
+      "erklaerung": "Der Compiler legt eine zurückgegebene lokale Variable direkt beim Aufrufer an und spart Kopie und Move."
+    }
   ],
   "weiterlesen": [
-    { "titel": "cppreference: Move constructors", "url": "https://en.cppreference.com/w/cpp/language/move_constructor" },
-    { "titel": "cppreference: Copy elision", "url": "https://en.cppreference.com/w/cpp/language/copy_elision" }
+    {
+      "titel": "cppreference: Move constructors",
+      "url": "https://en.cppreference.com/w/cpp/language/move_constructor"
+    },
+    {
+      "titel": "cppreference: Copy elision",
+      "url": "https://en.cppreference.com/w/cpp/language/copy_elision"
+    }
   ]
 }

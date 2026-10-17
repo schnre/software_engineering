@@ -1,0 +1,198 @@
+{
+  "id": "p10-m6-l2",
+  "phase": 10,
+  "modul": "10.6 PIMPL, starke Typen und enum class",
+  "titel": "Starke Typen und enum class",
+  "lernziele": [
+    "Verwechslungen von Parametern gleichen Typs mit starken Typen verhindern",
+    "`enum class` statt einfacher Enums und `bool`-Parameter einsetzen",
+    "`std::chrono` als Vorbild für typsichere Einheiten verstehen"
+  ],
+  "dauerMinuten": 7,
+  "schritte": [
+    {
+      "typ": "code-lesen",
+      "frage": "`fahre(double strecke_m, double zeit_s)` wird so aufgerufen. Erkennt der Compiler den Fehler?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "double zeit = 2.5;",
+          "double strecke = 30.0;",
+          "fahre(zeit, strecke);"
+        ]
+      },
+      "optionen": [
+        "Nein. Beide Parameter sind `double`, die Vertauschung kompiliert ohne Warnung",
+        "Ja, der Compiler vergleicht die Variablennamen mit den Parameternamen",
+        "Ja, mit `-Wall` gibt es eine Warnung"
+      ],
+      "korrekt": 0,
+      "fest": true,
+      "erklaerung": "Für den Compiler sind beide einfach Zahlen. Solche Fehler sind teuer: Die NASA verlor 1999 den *Mars Climate Orbiter*, weil eine Software Impulswerte in Pfund-Sekunden lieferte, eine andere aber Newton-Sekunden erwartete. **Starke Typen** machen diese Klasse von Fehlern zum Compilerfehler.",
+      "begruendungen": [
+        "Richtig.",
+        "Namen spielen für den Compiler keine Rolle.",
+        "Auch mit allen Warnungen bemerkt der Compiler nichts."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Starke Typen",
+      "text": "Ein **starker Typ** ist ein eigener, kleiner Typ um einen Grundtyp: `struct Meter { double wert; };`, `struct Sekunden { double wert; };`. Mit einem `explicit`-Konstruktor gibt es keine stillen Umwandlungen. Eine Funktion `fahre(Meter s, Sekunden t)` lässt sich nicht mehr verwechselt aufrufen.\n\nZur Laufzeit kostet das nichts: Der Compiler behandelt `Meter` genau wie ein `double`. Mit **benutzerdefinierten Literalen** wird der Code sogar lesbarer: `fahre(30.0_m, 2.5_s)`."
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze den starken Typ und sein Literal.",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "struct Meter {",
+          "    {{?}} constexpr Meter(double w) : wert(w) {}",
+          "    double wert;",
+          "};",
+          "",
+          "constexpr Meter operator\"\"_m(long double w) { return Meter{static_cast<double>(w)}; }",
+          "",
+          "auto d = 12.5{{?}};"
+        ]
+      },
+      "luecken": [
+        {
+          "loesungen": [
+            "explicit"
+          ]
+        },
+        {
+          "loesungen": [
+            "_m"
+          ]
+        }
+      ],
+      "auswahl": [
+        "explicit",
+        "_m",
+        "inline",
+        "m"
+      ],
+      "erklaerung": "Ohne `explicit` könnte man `fahre(30.0, 2.5)` weiterhin aufrufen, und der Compiler würde still umwandeln. Eigene Literale müssen mit einem Unterstrich beginnen, Literale ohne Unterstrich sind der Standardbibliothek vorbehalten (`10ms`, `\"text\"s`)."
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "enum class",
+      "text": "Ein einfaches `enum` hat zwei Schwächen: Seine Werte landen im umgebenden Namensraum (`Rot` statt `Farbe::Rot`), und sie wandeln sich still in `int` um. Ein **`enum class`** behebt beides: Werte nur über den Namen (`Farbe::Rot`), keine stille Umwandlung. Mit `enum class Fehler : std::uint8_t` legt man ausserdem den zugrunde liegenden Typ fest, wichtig für Protokolle und Speicherlayouts."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Was passiert beim Kompilieren?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "enum Farbe { Rot, Gruen };",
+          "enum Ampel { Gruen, Gelb, Rot };"
+        ]
+      },
+      "optionen": [
+        "Compilerfehler: `Gruen` und `Rot` werden im selben Namensraum zweimal definiert",
+        "Alles in Ordnung, die Enums sind getrennt",
+        "Die Werte der zweiten Zeile überschreiben die der ersten"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Die Werte eines einfachen `enum` gehören zum umgebenden Gültigkeitsbereich. Mit `enum class Farbe` und `enum class Ampel` gäbe es `Farbe::Rot` und `Ampel::Rot` getrennt nebeneinander. In grossen Codebasen mit vielen Headern ist das ein echter Vorteil.",
+      "begruendungen": [
+        "Richtig.",
+        "Einfache Enums teilen ihren Namensraum.",
+        "Doppelte Definitionen sind ein Fehler, keine Überschreibung."
+      ]
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Ordne zu.",
+      "paare": [
+        {
+          "links": "`enum class`",
+          "rechts": "Werte nur über den Namen ansprechbar, keine stille Umwandlung in `int`"
+        },
+        {
+          "links": "`enum class Fehler : std::uint8_t`",
+          "rechts": "Legt den zugrunde liegenden Typ fest, z. B. für ein Protokoll"
+        },
+        {
+          "links": "`std::to_underlying` (C++23)",
+          "rechts": "Wandelt einen `enum class`-Wert ausdrücklich in seine Zahl um"
+        },
+        {
+          "links": "Starker Typ",
+          "rechts": "Eigener Typ um einen Grundtyp, damit Verwechslungen nicht kompilieren"
+        }
+      ],
+      "erklaerung": "Die Umwandlung in eine Zahl ist mit `enum class` weiter möglich, aber nur ausdrücklich. So sieht man im Code genau, wo Zahlen und Bedeutungen wechseln, z. B. beim Serialisieren."
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Welche Zeile ist besonders schwer zu lesen und lädt zu Fehlern ein?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "void oeffneVentil(int id, bool sofort, bool protokollieren, bool notfall);",
+          "",
+          "oeffneVentil(4, true, false, true);"
+        ]
+      },
+      "fehlerZeile": 3,
+      "erklaerung": "Was bedeutet `true, false, true`? Ohne Blick in die Deklaration weiss das niemand, und vertauschte Werte kompilieren problemlos. Besser sind eigene Typen: `oeffneVentil(VentilId{4}, Zeitpunkt::Sofort, Protokoll::Aus, Modus::Notfall);`, gebaut aus `enum class`. Die Aufrufstelle wird selbsterklärend, und Vertauschungen sind Compilerfehler."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Was passiert bei `std::this_thread::sleep_for(500);`?",
+      "optionen": [
+        "Compilerfehler: Eine Zahl ohne Einheit wird nicht in eine Dauer umgewandelt. Man muss `500ms` schreiben",
+        "Der Thread schläft 500 Millisekunden",
+        "Der Thread schläft 500 Sekunden"
+      ],
+      "korrekt": 0,
+      "erklaerung": "`std::chrono` ist das Vorbild für starke Typen in der Standardbibliothek: Dauern tragen ihre Einheit im Typ, Umrechnungen zwischen Sekunden und Millisekunden passieren automatisch und verlustfrei, und eine nackte Zahl wird abgelehnt. Bibliotheken wie *mp-units* übertragen das auf physikalische Grössen.",
+      "begruendungen": [
+        "Richtig.",
+        "Welche Einheit gemeint ist, müsste der Compiler raten. Das tut er bewusst nicht.",
+        "Auch Sekunden müsste man ausdrücklich angeben."
+      ]
+    }
+  ],
+  "praxis": "Starke Typen und `enum class` sind die billigste Art, ganze Fehlerklassen auszuschliessen, besonders an Schnittstellen zwischen Modulen und Teams. Im Review fallen auf: Funktionen mit mehreren Parametern gleichen Grundtyps, `bool`-Parameter in Aufrufen, einfache `enum` in Headern und Grössen ohne Einheit im Namen oder Typ, wie `int timeout`.",
+  "labor": {
+    "titel": "Einheiten als Typen",
+    "anleitung": "Schreibe starke Typen `Meter` und `Sekunden` mit Literalen und eine Funktion `Geschwindigkeit operator/(Meter, Sekunden)`. Versuche dann, die Argumente zu vertauschen.",
+    "befehle": [
+      "g++ -std=c++20 -O2 einheiten.cpp -o einheiten && ./einheiten",
+      "g++ -std=c++20 -O2 -S einheiten.cpp -o - | grep -A5 'berechne'"
+    ],
+    "beobachtung": "Die Vertauschung ist ein Compilerfehler. Im Assembler sieht die Funktion genauso aus wie mit nackten `double`-Werten: Starke Typen kosten zur Laufzeit nichts."
+  },
+  "begriffe": [
+    {
+      "begriff": "Starker Typ",
+      "englisch": "strong type",
+      "erklaerung": "Eigener Typ um einen Grundtyp, z. B. `Meter` um `double`, der Verwechslungen beim Kompilieren verhindert."
+    },
+    {
+      "begriff": "enum class",
+      "englisch": "scoped enumeration",
+      "erklaerung": "Aufzählung mit eigenem Namensraum und ohne stille Umwandlung in Ganzzahlen."
+    },
+    {
+      "begriff": "Benutzerdefiniertes Literal",
+      "englisch": "user-defined literal",
+      "erklaerung": "Eigene Literal-Endung wie `_m`, die aus einer Zahl einen Wert eines bestimmten Typs macht."
+    }
+  ],
+  "weiterlesen": [
+    {
+      "titel": "C++ Core Guidelines: Enum.3 – Prefer class enums over plain enums",
+      "url": "https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#Renum-class"
+    },
+    {
+      "titel": "cppreference: std::chrono::duration",
+      "url": "https://en.cppreference.com/w/cpp/chrono/duration"
+    }
+  ]
+}

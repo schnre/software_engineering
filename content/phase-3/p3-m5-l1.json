@@ -1,140 +1,128 @@
 {
   "id": "p3-m5-l1",
   "phase": 3,
-  "modul": "3.5 Statische Analyse",
-  "titel": "Compiler-Warnungen ernst nehmen",
+  "modul": "3.5 Speicher für Fortgeschrittene",
+  "titel": "Allokatoren und Polymorphic Memory Resources",
   "lernziele": [
-    "Einen sinnvollen Satz an Warnoptionen wählen",
-    "Typische Warnungen deuten und beheben",
-    "In einem Projekt mit vielen Warnungen eine realistische Strategie umsetzen"
+    "Verstehen, wie Container Speicher über Allokatoren anfordern",
+    "Mit `std::pmr` Container auf eigenen Speicher umleiten",
+    "Monotone und Pool-Ressourcen gezielt einsetzen"
   ],
-  "dauerMinuten": 6,
+  "dauerMinuten": 7,
   "schritte": [
     {
       "typ": "multiple-choice",
-      "frage": "Ein Projekt baut mit 800 Warnungen. Deine Änderung erzeugt eine neue, die auf einen echten Fehler hinweist. Was passiert typischerweise?",
+      "frage": "Woher bekommt ein `std::vector<int>` seinen Speicher?",
       "optionen": [
-        "Niemand bemerkt sie zwischen den 800 anderen",
-        "Der Compiler bricht ab, weil es zu viele Warnungen sind",
-        "Die CI meldet die neue Warnung automatisch"
+        "Über seinen Allokator, standardmässig `std::allocator<int>`, der `operator new` aufruft",
+        "Immer direkt vom Stack",
+        "Über `malloc`, das kann man nicht ändern"
       ],
       "korrekt": 0,
-      "erklaerung": "Warnungen helfen nur, wenn es wenige sind. Bei 800 sieht niemand mehr hin, und die eine wichtige geht unter. Deshalb gilt in gut geführten Projekten: **null Warnungen**, und die CI baut mit `-Werror`, damit das so bleibt.",
+      "erklaerung": "Jeder Standardcontainer hat einen Template-Parameter für den **Allokator**. Damit lässt sich die Speicherquelle austauschen. Klassische Allokatoren sind aber Teil des Typs: `std::vector<int, MeinAllokator>` ist ein anderer Typ als `std::vector<int>` und lässt sich nicht an dieselbe Funktion übergeben. Das macht sie unhandlich.",
       "begruendungen": [
         "Richtig.",
-        "Der Compiler bricht bei Warnungen nur mit `-Werror` ab.",
-        "Nur, wenn die CI Warnungen als Fehler behandelt oder neue Warnungen vergleicht."
+        "Der Inhalt eines Vektors liegt nie im Vektorobjekt selbst.",
+        "Gerade der Allokator-Parameter macht das austauschbar."
       ]
     },
     {
       "typ": "erklaerung",
-      "titel": "Ein guter Satz an Warnungen",
-      "text": "`-Wall` heisst trotz des Namens nicht „alle Warnungen“. Ein bewährter Satz für GCC und Clang:\n\n`-Wall -Wextra -Wpedantic -Wshadow -Wconversion -Wsign-conversion -Wnon-virtual-dtor -Wold-style-cast -Woverloaded-virtual -Wnull-dereference -Wimplicit-fallthrough`\n\nFür MSVC: `/W4`. In der CI dazu `-Werror` (MSVC: `/WX`). Warnungen aus Bibliotheken von Dritten unterdrückt man, indem man deren Include-Pfade als `SYSTEM` einbindet. Den eigenen Code schaltet man aber nicht leise."
+      "titel": "std::pmr",
+      "text": "Mit C++17 kamen **Polymorphic Memory Resources** in `<memory_resource>`. Die Container in `std::pmr` (`pmr::vector`, `pmr::string`, `pmr::map`) haben alle denselben Allokatortyp. Welche Speicherquelle sie verwenden, entscheidet ein Zeiger auf eine `std::pmr::memory_resource` zur Laufzeit.\n\nMitgeliefert werden:\n\n- **`monotonic_buffer_resource`**: verteilt Speicher fortlaufend aus einem Puffer und gibt erst am Ende alles auf einmal frei. Extrem schnell.\n- **`unsynchronized_pool_resource`** / **`synchronized_pool_resource`**: Pools für verschiedene Blockgrössen.\n- **`null_memory_resource()`**: wirft bei jeder Anforderung. Gut als Sicherung.\n\nEigene Ressourcen leitet man von `memory_resource` ab."
     },
     {
       "typ": "code-lesen",
-      "frage": "Was meldet `g++ -Wall` hier?",
+      "frage": "Was passiert in diesem Code?",
       "code": {
         "sprache": "cpp",
         "zeilen": [
-          "std::vector<int> v = lade();",
-          "for (int i = 0; i < v.size(); ++i) {",
-          "    verarbeite(v[i]);",
-          "}"
+          "std::array<std::byte, 4096> puffer;",
+          "std::pmr::monotonic_buffer_resource arena{puffer.data(), puffer.size(),",
+          "                                         std::pmr::null_memory_resource()};",
+          "",
+          "std::pmr::vector<std::pmr::string> namen{&arena};",
+          "namen.emplace_back(\"Temperatursensor am Motorgehaeuse\");",
+          "namen.emplace_back(\"Drucksensor\");"
         ]
       },
       "optionen": [
-        "Einen Vergleich zwischen vorzeichenbehaftetem `int` und vorzeichenlosem `std::size_t`",
-        "Nichts, der Code ist einwandfrei",
-        "Einen Fehler, weil `size()` keine Zahl liefert"
+        "Vektor und Strings holen ihren Speicher aus dem 4-KB-Puffer auf dem Stack. Reicht er nicht, wird eine Exception geworfen statt auf den Heap auszuweichen",
+        "Die Strings landen auf dem Heap, nur der Vektor im Puffer",
+        "Der Puffer wird bei jedem `emplace_back` geleert"
       ],
       "korrekt": 0,
-      "erklaerung": "`-Wsign-compare` (in C++ Teil von `-Wall`) warnt: `comparison of integer expressions of different signedness`. Bei grossen Vektoren kann `int` überlaufen, und bei negativen Werten liefert der Vergleich überraschende Ergebnisse. Besser: `for (int x : v)` oder `std::size_t i`.",
+      "erklaerung": "pmr-Container geben ihre Ressource an ihre Elemente weiter (*allocator propagation*). Darum landen auch die Strings im Puffer. Die `null_memory_resource` als Rückfall verhindert, dass still auf den Heap ausgewichen wird. Ohne sie wäre der Standard `new_delete_resource()`.",
       "begruendungen": [
         "Richtig.",
-        "Er funktioniert meistens, ist aber eine typische Fehlerquelle.",
-        "`size()` liefert `std::size_t`, eine vorzeichenlose Ganzzahl."
+        "pmr-Strings in einem pmr-Vektor übernehmen dessen Ressource.",
+        "Eine monotone Ressource gibt erst frei, wenn sie selbst zerstört wird."
       ]
-    },
-    {
-      "typ": "zuordnen",
-      "frage": "Wovor warnt welche Option?",
-      "paare": [
-        { "links": "`-Wshadow`", "rechts": "Eine lokale Variable verdeckt eine gleichnamige äussere oder ein Member" },
-        { "links": "`-Wconversion`", "rechts": "Implizite Umwandlung, die Werte verlieren kann, z. B. `double` zu `int`" },
-        { "links": "`-Wnon-virtual-dtor`", "rechts": "Klasse mit virtuellen Funktionen ohne virtuellen Destruktor" },
-        { "links": "`-Wimplicit-fallthrough`", "rechts": "Ein `case` ohne `break` läuft in den nächsten" },
-        { "links": "`-Wunused-variable`", "rechts": "Eine Variable wird nie benutzt" }
-      ],
-      "erklaerung": "Ist ein Durchfallen bei `switch` gewollt, macht man es mit `[[fallthrough]];` ausdrücklich. Dann schweigt die Warnung, und der Leser weiss, dass es Absicht ist."
     },
     {
       "typ": "fehler-finden",
-      "frage": "`setzeSaldo` hat keine Wirkung. `-Wshadow` hätte den Fehler sofort gezeigt. In welcher Zeile?",
+      "frage": "Dieser Code verwendet eine monotone Ressource für eine Schleife, die stundenlang läuft. Nach einer Weile kommt `std::bad_alloc`. Welche Zeile ist das Problem?",
       "code": {
         "sprache": "cpp",
         "zeilen": [
-          "class Konto {",
-          "public:",
-          "    void setzeSaldo(double saldo) {",
-          "        double saldo_ = saldo;",
-          "    }",
-          "private:",
-          "    double saldo_ = 0;",
-          "};"
+          "std::pmr::monotonic_buffer_resource arena{puffer.data(), puffer.size(),",
+          "                                         std::pmr::null_memory_resource()};",
+          "",
+          "while (true) {",
+          "    std::pmr::vector<Messwert> werte{&arena};",
+          "    sammle(werte);",
+          "    sende(werte);",
+          "}"
         ]
       },
-      "fehlerZeile": 4,
-      "erklaerung": "Zeile 4 legt eine **neue** lokale Variable `saldo_` an, die das Member verdeckt. Das Member bleibt bei 0. Richtig wäre `saldo_ = saldo;` ohne Typ. Solche Fehler entstehen oft beim Kopieren von Code und sind ohne Warnung schwer zu sehen."
+      "fehlerZeile": 1,
+      "erklaerung": "Eine monotone Ressource gibt einzelne Freigaben nicht zurück. Jeder Durchlauf verbraucht neuen Speicher aus dem Puffer, bis er leer ist. Richtig: die Ressource in die Schleife verschieben, damit sie pro Durchlauf neu beginnt, oder `arena.release()` am Ende jedes Durchlaufs aufrufen. Für langlebige Container mit vielen Freigaben passt eine Pool-Ressource."
     },
     {
-      "typ": "lueckentext",
-      "frage": "Ergänze die CMake-Zeilen: Warnungen als Fehler für das eigene Target, aber keine Warnungen aus den Headern einer externen Bibliothek.",
-      "code": {
-        "sprache": "cmake",
-        "zeilen": [
-          "target_compile_options(app PRIVATE -Wall -Wextra -Wshadow {{?}})",
-          "target_include_directories(app {{?}} PRIVATE extern/json/include)"
-        ]
-      },
-      "luecken": [{ "loesungen": ["-Werror"] }, { "loesungen": ["SYSTEM"] }],
-      "auswahl": ["-Werror", "SYSTEM", "-w", "INTERFACE"],
-      "erklaerung": "`SYSTEM` bindet den Pfad mit `-isystem` statt `-I` ein. Der Compiler meldet dann keine Warnungen aus diesen Headern. `-w` würde **alle** Warnungen abschalten, also das Gegenteil des Ziels. Oft setzt man `-Werror` nur in der CI (z. B. über eine CMake-Option), damit lokale Experimente mit neueren Compilern nicht blockiert sind."
+      "typ": "zuordnen",
+      "frage": "Welche Ressource passt?",
+      "paare": [
+        { "links": "Pro Anfrage viele kleine Objekte, danach alles weg", "rechts": "`monotonic_buffer_resource` pro Anfrage" },
+        { "links": "Langlebige Map mit vielen Einfügungen und Löschungen", "rechts": "`unsynchronized_pool_resource`" },
+        { "links": "Mehrere Threads teilen sich die Ressource", "rechts": "`synchronized_pool_resource`" },
+        { "links": "Sicherstellen, dass nie auf den Heap ausgewichen wird", "rechts": "`null_memory_resource()` als Rückfall" }
+      ],
+      "erklaerung": "Monotone Ressourcen sind ideal für einen „Arena“-Stil: Ein Frame im Spiel, eine Anfrage im Server, ein Zyklus der Regelung. Am Ende wird alles auf einmal verworfen, ohne einzelne Destruktoraufrufe für den Speicher."
     },
     {
       "typ": "multiple-choice",
-      "frage": "Ein Legacy-Projekt hat 3000 Warnungen. Welche Strategie ist realistisch?",
+      "frage": "Welchen Nachteil haben `std::pmr`-Container gegenüber normalen?",
       "optionen": [
-        "Keine neuen Warnungen zulassen (z. B. `-Werror` für neue und bereinigte Module) und die alten Modul für Modul abbauen",
-        "Alle Warnungen mit `-w` abschalten, damit die Ausgabe sauber ist",
-        "Alles stoppen und zwei Wochen lang alle Warnungen beheben"
+        "Jedes Objekt trägt einen zusätzlichen Zeiger auf die Ressource, und Anforderungen laufen über einen virtuellen Aufruf",
+        "Sie sind nicht mit Algorithmen der Standardbibliothek kompatibel",
+        "Sie können nicht kopiert werden"
       ],
       "korrekt": 0,
-      "erklaerung": "Das Prinzip heisst **Baseline**: Der Ist-Zustand wird eingefroren, und ab jetzt darf es nur besser werden. Pro Modul, das bereinigt ist, wird `-Werror` eingeschaltet. So verbessert sich der Code stetig, ohne dass die Arbeit stillsteht.",
+      "erklaerung": "Der virtuelle Aufruf kostet wenig im Vergleich zu einer echten Heap-Anforderung, die oft hundert Takte und mehr dauert. Unerwartet für viele: Ein kopierter pmr-Container verwendet standardmässig **nicht** die Ressource des Originals, sondern die Standardressource. Wer gezielt arbeitet, gibt die Ressource beim Kopieren mit.",
       "begruendungen": [
         "Richtig.",
-        "Dann sieht man auch neue echte Fehler nicht mehr.",
-        "Unrealistisch, riskant (viele Änderungen auf einmal) und schwer zu rechtfertigen."
+        "Sie funktionieren mit allen Algorithmen und Ranges.",
+        "Kopieren ist möglich, aber mit der genannten Besonderheit."
       ]
     }
   ],
-  "praxis": "Warnungen sind die billigste Fehlersuche, die es gibt: Sie laufen bei jedem Build mit. Im Review fragst du bei jeder unterdrückten Warnung (`#pragma GCC diagnostic ignored`, `[[maybe_unused]]`, Casts nur zum Ruhigstellen) nach dem Grund. Ein Senior sorgt dafür, dass ein Projekt warnungsfrei wird und bleibt.",
+  "praxis": "pmr lohnt sich, wenn Allokationen messbar Zeit kosten oder wenn man garantieren muss, dass ein Bereich keinen Heap verwendet: Hochfrequenzhandel, Spiele, Audio, Steuergeräte mit Linux. Auf kleinen Mikrocontrollern ohne Heap sind Container mit fester Kapazität (Modul 7.3) meist einfacher. Ein guter Anfang ist, mit einem Benchmark zu prüfen, ob Allokationen überhaupt ein Problem sind.",
   "labor": {
-    "titel": "Ein Projekt mit mehr Warnungen bauen",
-    "anleitung": "Baue ein eigenes Projekt mit dem Warnungssatz aus der Lektion und zähle die Warnungen pro Art.",
+    "titel": "Benchmark: Heap gegen Arena",
+    "anleitung": "Miss mit Google Benchmark, wie lange 10 000 `emplace_back` von kurzen Strings in einen `std::vector<std::string>` und in einen `pmr::vector<pmr::string>` mit monotoner Ressource dauern.",
     "befehle": [
-      "cmake -S . -B build-warn -DCMAKE_CXX_FLAGS='-Wall -Wextra -Wshadow -Wconversion -Wsign-conversion' && cmake --build build-warn 2>&1 | tee warn.log",
-      "grep -o '\\[-W[a-z-]*\\]' warn.log | sort | uniq -c | sort -rn"
+      "g++ -std=c++20 -O2 pmr_bench.cpp -lbenchmark -lpthread -o pmr_bench",
+      "./pmr_bench"
     ],
-    "beobachtung": "Die Statistik zeigt, welche Warnungsarten dominieren. `-Wsign-conversion` erzeugt in älterem Code oft hunderte Meldungen. Da lohnt eine eigene, gut geplante Aufräumrunde."
+    "beobachtung": "Die Arena-Variante ist häufig mehrfach schneller, vor allem wenn die Strings länger als der SSO-Puffer sind. Bei sehr kurzen Strings ist der Unterschied klein, weil gar nicht alloziert wird."
   },
   "begriffe": [
-    { "begriff": "-Werror", "englisch": "warnings as errors", "erklaerung": "Compiler-Option, die jede Warnung zu einem Fehler macht und so den Build abbricht." },
-    { "begriff": "Verdecken", "englisch": "shadowing", "erklaerung": "Eine innere Variable hat denselben Namen wie eine äussere oder ein Member und verdeckt sie." },
-    { "begriff": "Baseline", "englisch": "baseline", "erklaerung": "Eingefrorener Ist-Zustand, ab dem keine Verschlechterung mehr erlaubt ist." }
+    { "begriff": "Allokator", "englisch": "allocator", "erklaerung": "Objekt, über das ein Container Speicher anfordert und freigibt." },
+    { "begriff": "memory_resource", "englisch": "memory resource", "erklaerung": "Abstrakte Speicherquelle für pmr-Container, zur Laufzeit austauschbar." },
+    { "begriff": "Arena", "englisch": "arena allocator", "erklaerung": "Speicherbereich, aus dem fortlaufend verteilt und der als Ganzes freigegeben wird." }
   ],
   "weiterlesen": [
-    { "titel": "GCC: Warning Options", "url": "https://gcc.gnu.org/onlinedocs/gcc/Warning-Options.html" },
-    { "titel": "cpp-best-practices: Use the Tools Available (Warnings)", "url": "https://github.com/cpp-best-practices/cppbestpractices/blob/master/02-Use_the_Tools_Available.md" }
+    { "titel": "cppreference: std::pmr::memory_resource", "url": "https://en.cppreference.com/w/cpp/memory/memory_resource" },
+    { "titel": "Pablo Halpern: Allocators: The Good Parts (CppCon 2017)", "url": "https://www.youtube.com/watch?v=v3dz-AKOVL8" }
   ]
 }

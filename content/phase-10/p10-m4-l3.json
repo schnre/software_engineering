@@ -1,0 +1,181 @@
+{
+  "id": "p10-m4-l3",
+  "phase": 10,
+  "modul": "10.4 Entwurfsmuster",
+  "titel": "Adapter und Facade",
+  "lernziele": [
+    "Adapter, Facade und Anti-Corruption Layer unterscheiden",
+    "Eine Fremdbibliothek hinter einer eigenen Schnittstelle verbergen",
+    "Undichte Wrapper erkennen"
+  ],
+  "dauerMinuten": 5,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Dein Code erwartet eine Schnittstelle `ILogger`. Die Logging-Bibliothek, die eingesetzt werden soll, hat eine ganz andere API. Welches Muster passt?",
+      "optionen": [
+        "Adapter",
+        "Observer",
+        "State Machine"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Ein **Adapter** übersetzt zwischen zwei Schnittstellen, wie ein Reisestecker. Er implementiert `ILogger` und ruft intern die Fremdbibliothek auf. Der restliche Code bleibt unabhängig von ihr.",
+      "begruendungen": [
+        "Richtig.",
+        "Observer regelt Benachrichtigungen.",
+        "Eine Zustandsmaschine modelliert Abläufe."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Verwandte Muster",
+      "text": "- **Adapter**: macht eine vorhandene Schnittstelle passend für eine erwartete.\n- **Facade**: bietet eine einfache Schnittstelle für ein komplexes Teilsystem. `update.fuehreAus(datei)` statt fünf Schritten in der richtigen Reihenfolge.\n- **Wrapper**: Oberbegriff für eine Klasse, die eine andere umhüllt. Adapter und Facade sind besondere Wrapper.\n- **Anti-Corruption Layer**: Begriff aus dem Domain-Driven Design. Eine Schicht schützt das eigene Modell vor den Begriffen und Eigenheiten eines fremden Systems.\n\nIn der hexagonalen Architektur (Modul 10.3) sind Adapter genau das: Übersetzer zwischen Port und Technik."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Ordne die Muster zu.",
+      "paare": [
+        {
+          "links": "Adapter",
+          "rechts": "Macht eine vorhandene Schnittstelle passend für eine erwartete"
+        },
+        {
+          "links": "Facade",
+          "rechts": "Bietet eine einfache Schnittstelle für ein komplexes Teilsystem"
+        },
+        {
+          "links": "Wrapper",
+          "rechts": "Oberbegriff für eine Klasse, die eine andere umhüllt"
+        },
+        {
+          "links": "Anti-Corruption Layer",
+          "rechts": "Schützt das eigene Modell vor den Begriffen eines fremden Systems"
+        }
+      ],
+      "erklaerung": "Die Unterscheidung hilft vor allem im Gespräch: „Wir brauchen hier eine Facade“ sagt sofort, dass es um Vereinfachung geht, nicht um Übersetzung."
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Ein Adapter für eine Fremdbibliothek",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "class SpdlogAdapter : public ILogger {",
+          "public:",
+          "    explicit SpdlogAdapter(std::shared_ptr<spdlog::logger> l) : l_(std::move(l)) {}",
+          "    void info(std::string_view text) override   { l_->info(text); }",
+          "    void fehler(std::string_view text) override { l_->error(text); }",
+          "private:",
+          "    std::shared_ptr<spdlog::logger> l_;",
+          "};"
+        ],
+        "anmerkungen": [
+          {
+            "zeile": 1,
+            "text": "Nur diese Datei kennt spdlog. Der Rest des Codes kennt nur `ILogger`."
+          },
+          {
+            "zeile": 5,
+            "text": "Die Namen der eigenen Schnittstelle bleiben, auch wenn die Bibliothek anders benennt."
+          }
+        ]
+      },
+      "text": "Wechselt man später die Bibliothek, ist nur der Adapter betroffen. Im Test ersetzt ein Fake-Logger den Adapter."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Welchen Vorteil bietet diese Klasse ihren Aufrufern?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "Firmwareupdate update(geraet);",
+          "update.fuehreAus(\"firmware-2.4.bin\");",
+          "// intern: Signatur prüfen, Flash löschen, schreiben,",
+          "//         Prüfsumme verifizieren, neu starten"
+        ]
+      },
+      "optionen": [
+        "Aufrufer müssen die fünf Schritte und ihre Reihenfolge nicht kennen. Die Regeln dafür stehen an einer Stelle",
+        "Das Update wird schneller",
+        "Die Firmware wird automatisch kleiner"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Das ist eine **Facade**: Sie verbirgt ein komplexes, fehleranfälliges Zusammenspiel hinter einer einfachen Operation. Ohne sie würde jeder Aufrufer die Schritte selbst zusammensetzen, und irgendwer vergisst die Signaturprüfung.",
+      "begruendungen": [
+        "Richtig.",
+        "Die Geschwindigkeit ändert sich nicht.",
+        "Mit der Grösse der Firmware hat das nichts zu tun."
+      ]
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Warum verbirgt man eine Fremdbibliothek hinter einer eigenen Schnittstelle, statt sie überall direkt zu benutzen?",
+      "optionen": [
+        "Sie wird austauschbar und testbar, und API-Änderungen der Bibliothek betreffen nur eine Stelle",
+        "Weil Fremdbibliotheken sonst nicht kompilieren",
+        "Das sollte man für alle Bibliotheken tun, auch für die Standardbibliothek"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Jeder Wrapper kostet Code und eine weitere Abstraktion. Er lohnt sich für Bibliotheken, die man vielleicht austauschen will oder die man im Test ersetzen muss: Logging, Netzwerk, Datenbanken, Hardware-SDKs von Herstellern. Die Standardbibliothek ist Teil der Sprache und wird nicht eingepackt.",
+      "begruendungen": [
+        "Richtig.",
+        "Sie kompilieren auch direkt.",
+        "Die Standardbibliothek zu wrappen bringt nur Aufwand."
+      ]
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Welche Zeile macht die Schnittstelle undicht?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "class ILogger {",
+          "public:",
+          "    virtual ~ILogger() = default;",
+          "    virtual void info(std::string_view text) = 0;",
+          "    virtual spdlog::logger& roh() = 0;",
+          "};"
+        ]
+      },
+      "fehlerZeile": 5,
+      "erklaerung": "Über `roh()` kann jeder Nutzer wieder direkt mit spdlog arbeiten, und nach einem Jahr tut das die halbe Codebasis. Dann ist der Wrapper wertlos, und ein Wechsel der Bibliothek ist so teuer wie ohne Wrapper. Braucht jemand eine Funktion, die fehlt, gehört sie als eigene, neutral benannte Methode in die Schnittstelle."
+    }
+  ],
+  "praxis": "Adapter und Facades sind die Werkzeuge, mit denen man Fremdcode im Griff behält: Hersteller-SDKs, alte Subsysteme, externe Dienste. Im Review achtest du darauf, dass Typen der Fremdbibliothek nicht durch die eigene Schnittstelle sickern: weder als Parameter noch als Rückgabewert noch über Methoden wie `roh()` oder `native_handle()`.",
+  "labor": {
+    "titel": "Eine Bibliothek kapseln",
+    "anleitung": "Suche in einem Projekt nach direkten Verwendungen einer Fremdbibliothek, z. B. eines Logging- oder JSON-Pakets.",
+    "befehle": [
+      "rg -l 'spdlog::|nlohmann::' src/ | wc -l",
+      "rg -l 'spdlog::|nlohmann::' src/ | head"
+    ],
+    "beobachtung": "Taucht die Bibliothek in Dutzenden Dateien auf, wäre ein Wechsel heute ein grosses Projekt. Steht sie nur in einem Adapter-Modul, ist er eine Sache von Tagen."
+  },
+  "begriffe": [
+    {
+      "begriff": "Adapter",
+      "englisch": "adapter pattern",
+      "erklaerung": "Übersetzt zwischen einer vorhandenen und einer erwarteten Schnittstelle."
+    },
+    {
+      "begriff": "Facade",
+      "englisch": "facade pattern",
+      "erklaerung": "Einfache Schnittstelle für ein komplexes Teilsystem."
+    },
+    {
+      "begriff": "Anti-Corruption Layer",
+      "englisch": "anti-corruption layer",
+      "erklaerung": "Schicht, die das eigene Modell vor Begriffen und Eigenheiten eines fremden Systems schützt."
+    }
+  ],
+  "weiterlesen": [
+    {
+      "titel": "refactoring.guru: Adapter",
+      "url": "https://refactoring.guru/design-patterns/adapter"
+    },
+    {
+      "titel": "refactoring.guru: Facade",
+      "url": "https://refactoring.guru/design-patterns/facade"
+    }
+  ]
+}

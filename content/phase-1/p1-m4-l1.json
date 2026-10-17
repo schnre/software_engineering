@@ -61,9 +61,18 @@
       "typ": "zuordnen",
       "frage": "Welches Segment enthält was?",
       "paare": [
-        { "links": "`R E` (lesen, ausführen)", "rechts": "Maschinencode aus `.text`" },
-        { "links": "`R` (nur lesen)", "rechts": "Konstanten und String-Literale aus `.rodata`" },
-        { "links": "`RW` (lesen, schreiben)", "rechts": "Globale Variablen aus `.data` und `.bss`" }
+        {
+          "links": "`R E` (lesen, ausführen)",
+          "rechts": "Maschinencode aus `.text`"
+        },
+        {
+          "links": "`R` (nur lesen)",
+          "rechts": "Konstanten und String-Literale aus `.rodata`"
+        },
+        {
+          "links": "`RW` (lesen, schreiben)",
+          "rechts": "Globale Variablen aus `.data` und `.bss`"
+        }
       ],
       "erklaerung": "Kein Segment ist zugleich schreib- und ausführbar (`W^X`). Das erschwert Angriffe, bei denen eingeschleuster Code ausgeführt werden soll."
     },
@@ -134,12 +143,30 @@
     "beobachtung": "Die `.debug_*`-Sektionen machen den Grossteil der Datei aus. Nach `strip` sind sie weg, liegen aber in `app.debug`. Mit `gdb -s app.debug -e app` kann man trotzdem mit Quelltext debuggen."
   },
   "begriffe": [
-    { "begriff": "ELF", "englisch": "Executable and Linkable Format", "erklaerung": "Dateiformat für Object-Files, Programme und Shared Libraries unter Linux und vielen Embedded-Systemen." },
-    { "begriff": "Segment", "englisch": "segment", "erklaerung": "Teil eines ELF-Programms, den der Loader mit bestimmten Rechten (R, W, X) in den Speicher abbildet." },
-    { "begriff": "Debug-Informationen", "englisch": "debug information, DWARF", "erklaerung": "Zuordnung von Maschinencode zu Quelltext, Variablen und Typen. Entsteht mit `-g`." }
+    {
+      "begriff": "ELF",
+      "englisch": "Executable and Linkable Format",
+      "erklaerung": "Dateiformat für Object-Files, Programme und Shared Libraries unter Linux und vielen Embedded-Systemen."
+    },
+    {
+      "begriff": "Segment",
+      "englisch": "segment",
+      "erklaerung": "Teil eines ELF-Programms, den der Loader mit bestimmten Rechten (R, W, X) in den Speicher abbildet."
+    },
+    {
+      "begriff": "Debug-Informationen",
+      "englisch": "debug information, DWARF",
+      "erklaerung": "Zuordnung von Maschinencode zu Quelltext, Variablen und Typen. Entsteht mit `-g`."
+    }
   ],
   "weiterlesen": [
-    { "titel": "man elf", "url": "https://man7.org/linux/man-pages/man5/elf.5.html" },
-    { "titel": "GNU Binutils: readelf", "url": "https://sourceware.org/binutils/docs/binutils/readelf.html" }
+    {
+      "titel": "man elf",
+      "url": "https://man7.org/linux/man-pages/man5/elf.5.html"
+    },
+    {
+      "titel": "GNU Binutils: readelf",
+      "url": "https://sourceware.org/binutils/docs/binutils/readelf.html"
+    }
   ]
 }

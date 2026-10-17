@@ -136,11 +136,26 @@
     "beobachtung": "Mit grösserem Limit kommt die Rekursion weiter, stürzt aber irgendwann trotzdem ab. Die `.su`-Datei zeigt, wie viele Bytes jede Funktion pro Aufruf auf dem Stack belegt."
   },
   "begriffe": [
-    { "begriff": "Stack Frame", "englisch": "stack frame", "erklaerung": "Bereich des Stacks für einen Funktionsaufruf: Rücksprungadresse, gesicherte Register, lokale Variablen." },
-    { "begriff": "Hängender Zeiger", "englisch": "dangling pointer", "erklaerung": "Zeiger auf ein Objekt, dessen Lebenszeit bereits geendet hat." },
-    { "begriff": "Stack Overflow", "englisch": "stack overflow", "erklaerung": "Der Stack ist voll, z. B. durch zu tiefe Rekursion oder sehr grosse lokale Arrays." }
+    {
+      "begriff": "Stack Frame",
+      "englisch": "stack frame",
+      "erklaerung": "Bereich des Stacks für einen Funktionsaufruf: Rücksprungadresse, gesicherte Register, lokale Variablen."
+    },
+    {
+      "begriff": "Hängender Zeiger",
+      "englisch": "dangling pointer",
+      "erklaerung": "Zeiger auf ein Objekt, dessen Lebenszeit bereits geendet hat."
+    },
+    {
+      "begriff": "Stack Overflow",
+      "englisch": "stack overflow",
+      "erklaerung": "Der Stack ist voll, z. B. durch zu tiefe Rekursion oder sehr grosse lokale Arrays."
+    }
   ],
   "weiterlesen": [
-    { "titel": "GCC: -fstack-usage", "url": "https://gcc.gnu.org/onlinedocs/gcc/Developer-Options.html" }
+    {
+      "titel": "GCC: -fstack-usage",
+      "url": "https://gcc.gnu.org/onlinedocs/gcc/Developer-Options.html"
+    }
   ]
 }

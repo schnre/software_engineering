@@ -1,124 +1,246 @@
 {
   "id": "p8-m3-l2",
   "phase": 8,
-  "modul": "8.3 Schätzen und Planen",
-  "titel": "Risiken früh sichtbar machen",
+  "modul": "8.3 Jenkins",
+  "titel": "Das Jenkinsfile",
   "lernziele": [
-    "Risiken nach Wahrscheinlichkeit und Auswirkung bewerten",
-    "Die riskantesten Teile zuerst angehen",
-    "Schlechte Nachrichten früh und mit Optionen überbringen"
+    "Eine Declarative Pipeline lesen und schreiben",
+    "`post`, `when` und `parallel` einsetzen",
+    "Zugangsdaten sicher verwenden"
   ],
-  "dauerMinuten": 5,
+  "dauerMinuten": 7,
   "schritte": [
     {
-      "typ": "multiple-choice",
-      "frage": "Ein neues Produkt besteht aus einer bewährten Oberfläche, neuer Hardware und einem Sensor, mit dem das Team noch nie gearbeitet hat. Womit beginnst du?",
-      "optionen": [
-        "Mit einer frühen, einfachen Anbindung des neuen Sensors auf der neuen Hardware, weil dort das grösste Risiko liegt",
-        "Mit der Oberfläche, weil man dort schnell sichtbare Fortschritte zeigen kann",
-        "Mit der Dokumentation, damit alles sauber geplant ist"
-      ],
-      "korrekt": 0,
-      "erklaerung": "Wer das Riskanteste zuletzt macht, erfährt erst kurz vor dem Termin, dass etwas nicht geht. Dann ist keine Zeit mehr für Alternativen. Das Unbekannte zuerst anzugehen, verwandelt Risiken früh in Wissen.",
-      "begruendungen": [
-        "Richtig.",
-        "Sichtbarer Fortschritt bei bekannten Teilen täuscht über das eigentliche Risiko hinweg.",
-        "Planung ist wichtig, ersetzt aber nicht das Ausprobieren des Unbekannten."
-      ]
-    },
-    {
-      "typ": "erklaerung",
-      "titel": "Mit Risiken umgehen",
-      "text": "Ein **Risiko** ist ein mögliches Ereignis, das dem Vorhaben schadet. Man bewertet es nach **Wahrscheinlichkeit** und **Auswirkung**. Das Produkt der beiden zeigt grob, wie ernst es ist.\n\nWerkzeuge dagegen:\n- eine **Risikoliste** mit Bewertung, Massnahme und verantwortlicher Person\n- ein **Walking Skeleton**: früh eine dünne, durchgehende Version des ganzen Systems, die von Sensor bis Anzeige funktioniert, wenn auch mit minimaler Logik\n- **Spikes** und Prototypen für einzelne offene Fragen\n- **frühe Integration** auf der Zielhardware, nicht erst am Ende"
-    },
-    {
-      "typ": "zuordnen",
-      "frage": "Welche Technik dient wozu?",
-      "paare": [
-        { "links": "Walking Skeleton", "rechts": "Dünne, durchgehende Version des ganzen Systems, die früh läuft" },
-        { "links": "Spike", "rechts": "Eine einzelne unsichere Frage gezielt klären" },
-        { "links": "Risikoliste", "rechts": "Risiken mit Wahrscheinlichkeit, Auswirkung und Massnahme festhalten" },
-        { "links": "Frühe Integration auf der Zielhardware", "rechts": "Überraschungen bei Timing, Treibern und Speicher früh finden" }
-      ],
-      "erklaerung": "Das Walking Skeleton ist besonders wertvoll, weil es Integrationsrisiken zwischen den Teilen aufdeckt: Passen Protokoll, Timing und Datenformate wirklich zusammen? Diese Probleme zeigen sich sonst erst ganz am Schluss."
-    },
-    {
       "typ": "code-lesen",
-      "frage": "Welches Risiko ist ernster?",
+      "frage": "Die Stage `Build` schlägt fehl. Was passiert danach?",
       "code": {
-        "sprache": "text",
+        "sprache": "groovy",
+        "datei": "Jenkinsfile",
         "zeilen": [
-          "Risiko A: Treiber für den neuen Sensor fehlerhaft",
-          "          Wahrscheinlichkeit 50 %, Auswirkung 10 Tage Verzug",
-          "",
-          "Risiko B: Zertifizierung verlangt Nacharbeit",
-          "          Wahrscheinlichkeit 10 %, Auswirkung 30 Tage Verzug"
+          "pipeline {",
+          "    agent { label 'linux' }",
+          "    stages {",
+          "        stage('Build') {",
+          "            steps {",
+          "                sh 'cmake -S . -B build -G Ninja'",
+          "                sh 'cmake --build build'",
+          "            }",
+          "        }",
+          "        stage('Test') {",
+          "            steps { sh 'ctest --test-dir build --output-junit test-results.xml' }",
+          "        }",
+          "    }",
+          "    post {",
+          "        always  { junit allowEmptyResults: true, testResults: 'build/test-results.xml' }",
+          "        failure { echo 'Build fehlgeschlagen' }",
+          "    }",
+          "}"
         ]
       },
       "optionen": [
-        "A: erwartet 5 Tage Verzug gegenüber 3 Tagen bei B",
-        "B, weil die mögliche Auswirkung grösser ist",
-        "Beide gleich ernst"
+        "`Test` wird übersprungen, danach laufen `always` und `failure` aus dem `post`-Block",
+        "`Test` läuft trotzdem, danach `always`",
+        "Die Pipeline bricht sofort ab, `post` läuft nicht"
       ],
       "korrekt": 0,
-      "fest": true,
-      "erklaerung": "0,5 × 10 = 5 Tage gegenüber 0,1 × 30 = 3 Tagen. Der Erwartungswert spricht für A. B sollte trotzdem auf der Liste bleiben: Bei sehr grosser Auswirkung, etwa wenn ein Termin dann ganz platzt, lohnen sich auch Massnahmen gegen seltene Risiken. Die Rechnung ist eine Orientierung, kein Automatismus.",
+      "erklaerung": "Schlägt ein `sh`-Schritt fehl (Exit-Code ungleich 0), bricht die Stage ab, und alle folgenden Stages werden übersprungen. Der `post`-Block läuft aber immer am Ende und wählt die passenden Bedingungen aus, hier `always` und `failure`.",
       "begruendungen": [
         "Richtig.",
-        "Die Auswirkung allein reicht nicht, die Wahrscheinlichkeit gehört dazu.",
-        "Die Erwartungswerte unterscheiden sich deutlich."
+        "Nach einem Fehlschlag laufen die folgenden Stages nicht.",
+        "Genau dafür gibt es `post`: Es läuft auch nach Fehlern."
       ]
     },
     {
       "typ": "erklaerung",
-      "titel": "Schlechte Nachrichten früh",
-      "text": "Wenn sich ein Verzug abzeichnet, ist die Versuchung gross, zu hoffen, dass es noch klappt. Für alle anderen ist es aber viel besser, es früh zu wissen: Dann gibt es noch Optionen, z. B. Umfang reduzieren, Termin verschieben, Hilfe holen. Eine gute Meldung enthält:\n\n- was passiert ist und wie sicher die Einschätzung ist\n- die Auswirkung auf Termin, Kosten oder Qualität\n- Optionen mit ihren Folgen\n- eine Empfehlung"
+      "titel": "Aufbau einer Declarative Pipeline",
+      "text": "- `pipeline { }`: der äussere Rahmen\n- `agent`: wo die Pipeline läuft (oder pro Stage)\n- `environment { }`: Umgebungsvariablen\n- `options { }`: z. B. `timeout(time: 30, unit: 'MINUTES')`, `timestamps()`\n- `stages { stage('Name') { steps { … } } }`: die eigentliche Arbeit\n- `post { }`: Aufräumen und Melden nach Ergebnis\n- `when { }`: Bedingung, ob eine Stage läuft\n- `parallel { }`: Stages gleichzeitig ausführen\n\nDie feste Struktur erlaubt Jenkins, die Pipeline vor dem Start zu prüfen und die Stages übersichtlich anzuzeigen."
     },
     {
-      "typ": "multiple-choice",
-      "frage": "Mitten im Projekt merkst du, dass sich die Sensor-Anbindung wahrscheinlich um zwei Wochen verzögert. Wann sagst du es?",
+      "typ": "lueckentext",
+      "frage": "Ergänze die Stage und den `post`-Block.",
+      "code": {
+        "sprache": "groovy",
+        "zeilen": [
+          "stage('Test') {",
+          "    {{?}} {",
+          "        sh 'ctest --test-dir build --output-junit test-results.xml'",
+          "    }",
+          "}",
+          "...",
+          "post {",
+          "    {{?}} { junit testResults: 'build/test-results.xml' }",
+          "}"
+        ]
+      },
+      "luecken": [
+        {
+          "loesungen": [
+            "steps"
+          ]
+        },
+        {
+          "loesungen": [
+            "always"
+          ]
+        }
+      ],
+      "auswahl": [
+        "steps",
+        "always",
+        "success",
+        "script"
+      ],
+      "erklaerung": "Testergebnisse sollen auch dann eingelesen werden, wenn Tests fehlschlagen. Gerade dann will man sie sehen. Deshalb `always` statt `success`. Der Schritt `junit` macht aus der XML-Datei eine Übersicht der Tests in Jenkins."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Wann laufen die `post`-Bedingungen?",
+      "paare": [
+        {
+          "links": "`always`",
+          "rechts": "Immer, unabhängig vom Ergebnis"
+        },
+        {
+          "links": "`success`",
+          "rechts": "Nur, wenn alles erfolgreich war"
+        },
+        {
+          "links": "`failure`",
+          "rechts": "Nur, wenn die Pipeline fehlgeschlagen ist"
+        },
+        {
+          "links": "`unstable`",
+          "rechts": "Wenn der Build lief, aber z. B. Tests fehlgeschlagen sind (gelb)"
+        },
+        {
+          "links": "`cleanup`",
+          "rechts": "Ganz am Schluss, nach allen anderen Bedingungen"
+        }
+      ],
+      "erklaerung": "„Unstable“ setzt z. B. der `junit`-Schritt, wenn er fehlgeschlagene Tests findet. Die Pipeline läuft weiter, wird aber gelb markiert. `cleanup` eignet sich für `cleanWs()`, um den Workspace zu leeren."
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Parallel und bedingt",
+      "code": {
+        "sprache": "groovy",
+        "zeilen": [
+          "stage('Prüfungen') {",
+          "    parallel {",
+          "        stage('Unit-Tests') { steps { sh 'ctest --test-dir build' } }",
+          "        stage('clang-tidy') { steps { sh 'run-clang-tidy -p build' } }",
+          "    }",
+          "}",
+          "stage('Deploy') {",
+          "    when { branch 'main' }",
+          "    steps { sh './scripts/deploy.sh' }",
+          "}"
+        ],
+        "anmerkungen": [
+          {
+            "zeile": 2,
+            "text": "Beide Stages laufen gleichzeitig, auf Wunsch auf verschiedenen Agents."
+          },
+          {
+            "zeile": 8,
+            "text": "Ausgeliefert wird nur vom Branch `main`."
+          }
+        ]
+      },
+      "text": "`parallel` spart Zeit, `when` macht eine Stage von Branch, Umgebungsvariablen oder Parametern abhängig."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Die Pipeline von oben läuft für den Branch `feature/x`. Was passiert mit der Stage `Deploy`?",
+      "code": {
+        "sprache": "groovy",
+        "zeilen": [
+          "stage('Deploy') {",
+          "    when { branch 'main' }",
+          "    steps { sh './scripts/deploy.sh' }",
+          "}"
+        ]
+      },
       "optionen": [
-        "Sofort, mit Ursache, voraussichtlicher Auswirkung und Optionen",
-        "Erst, wenn es sicher ist, um niemanden unnötig zu beunruhigen",
-        "Gar nicht, vielleicht holst du es ja noch auf"
+        "Sie wird übersprungen und in der Übersicht als ausgelassen angezeigt",
+        "Sie läuft und schlägt fehl",
+        "Die ganze Pipeline bricht mit einem Fehler ab"
       ],
       "korrekt": 0,
-      "erklaerung": "Wer früh meldet, gibt anderen Zeit zu reagieren, und baut Vertrauen auf. Wer spät meldet, nimmt ihnen diese Optionen. „Sicher“ ist ein Verzug oft erst, wenn es zu spät ist. Eine wahrscheinliche Verzögerung mit Einschätzung ist eine wertvolle Information.",
+      "erklaerung": "`when` wertet die Bedingung vor der Stage aus. Ist sie falsch, wird die Stage übersprungen, und die Pipeline bleibt grün. So kann dieselbe Pipeline für Pull Requests und `main` dienen.",
       "begruendungen": [
         "Richtig.",
-        "Dann ist es meist zu spät, um noch umzusteuern.",
-        "Hoffen ist keine Strategie, und das Vertrauen leidet, wenn es herauskommt."
+        "Die Schritte werden gar nicht erst ausgeführt.",
+        "Eine falsche `when`-Bedingung ist kein Fehler."
       ]
     },
     {
-      "typ": "reihenfolge",
-      "frage": "Du entdeckst ein neues Risiko. Bringe die Schritte in eine sinnvolle Reihenfolge.",
-      "elemente": [
-        "Das Risiko konkret beschreiben",
-        "Wahrscheinlichkeit und Auswirkung abschätzen",
-        "Gegenmassnahmen und Optionen überlegen",
-        "Mit den Betroffenen besprechen und entscheiden",
-        "Im Blick behalten und regelmässig neu bewerten"
+      "typ": "fehler-finden",
+      "frage": "Welche Zeile ist ein Sicherheitsproblem?",
+      "code": {
+        "sprache": "groovy",
+        "zeilen": [
+          "stage('Upload') {",
+          "    steps {",
+          "        sh 'curl -u ci:Geheim123 -T build/app.tar.gz https://artefakte.firma.ch/'",
+          "    }",
+          "}"
+        ]
+      },
+      "fehlerZeile": 3,
+      "erklaerung": "Das Passwort steht im Repository, in der Git-Historie und im Build-Log. Zugangsdaten gehören in den Credentials-Speicher von Jenkins und werden mit `withCredentials` eingebunden: `withCredentials([usernamePassword(credentialsId: 'artefakte', usernameVariable: 'U', passwordVariable: 'P')]) { sh 'curl -u \"$U:$P\" -T build/app.tar.gz https://artefakte.firma.ch/' }`. Jenkins maskiert die Werte dann im Log. Ein geleaktes Passwort muss sofort geändert werden, auch wenn der Commit rückgängig gemacht wird."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Wozu dient `options { timeout(time: 30, unit: 'MINUTES') }`?",
+      "optionen": [
+        "Ein hängender Build wird nach 30 Minuten abgebrochen, statt einen Agent unbegrenzt zu blockieren",
+        "Jede Stage darf höchstens 30 Minuten warten, bis ein Agent frei ist",
+        "Die Pipeline startet erst nach 30 Minuten"
       ],
-      "erklaerung": "Ein Risiko, das nur in deinem Kopf existiert, kann niemand mitsteuern. Schon das Aufschreiben in einer gemeinsamen Liste ändert viel: Andere können ergänzen, und es gerät nicht in Vergessenheit."
+      "korrekt": 0,
+      "erklaerung": "Ein Test, der in einem Deadlock hängt, würde den Agent sonst für immer belegen. Bald stauen sich dann alle anderen Builds. Ein Timeout gehört deshalb in jede Pipeline, gewählt mit Puffer über der normalen Laufzeit.",
+      "begruendungen": [
+        "Richtig.",
+        "Ein Timeout auf Pipeline-Ebene umfasst die ganze Laufzeit, auch das Warten.",
+        "Für Verzögerungen gibt es andere Mittel, etwa `quietPeriod`."
+      ]
     }
   ],
-  "praxis": "Seniors werden oft daran gemessen, wie wenig Überraschungen es in ihren Projekten gibt, und zwar nicht, weil weniger schiefgeht, sondern weil es früher sichtbar wird. Die Gewohnheit, das Unbekannte zuerst anzupacken und schlechte Nachrichten sofort mit Optionen zu überbringen, macht dich zu einer Person, der Projektleitungen und Kunden vertrauen.",
+  "praxis": "Ein Jenkinsfile ist Code und wird genauso reviewt: Gibt es ein Timeout? Werden Testergebnisse auch bei Fehlern eingelesen? Liegen Zugangsdaten im Credentials-Speicher? Läuft das Deploy nur von `main`? Wird der Workspace aufgeräumt? Und: Steht die eigentliche Logik in Skripten, die man auch lokal ausführen kann, statt in langen Groovy-Blöcken?",
   "labor": {
-    "titel": "Eine Risikoliste anlegen",
-    "anleitung": "Lege für ein aktuelles Vorhaben eine kleine Risikoliste mit fünf Einträgen an: Risiko, Wahrscheinlichkeit, Auswirkung, Massnahme, verantwortliche Person. Sortiere nach dem Produkt aus Wahrscheinlichkeit und Auswirkung.",
+    "titel": "Ein Jenkinsfile prüfen lassen",
+    "anleitung": "Jenkins kann ein Declarative Jenkinsfile prüfen, ohne es auszuführen. Schicke deine Datei an den Validator deiner Jenkins-Instanz.",
     "befehle": [
-      "printf 'Risiko;Wahrscheinlichkeit;Auswirkung (Tage);Massnahme;Wer\\n' > risiken.csv",
-      "sort -t';' -k2,2 -k3,3 -rn risiken.csv | column -t -s';'"
+      "curl -X POST -u benutzer:apitoken -F \"jenkinsfile=<Jenkinsfile\" http://localhost:8080/pipeline-model-converter/validate"
     ],
-    "beobachtung": "Die obersten zwei oder drei Einträge sind die Dinge, die du diese Woche angehen solltest, oft mit einem Spike oder einer frühen Integration."
+    "beobachtung": "Bei einem Fehler, z. B. `step` statt `steps`, meldet Jenkins Zeile und Spalte. Das spart Durchläufe auf echten Agents. Viele Editoren bieten dafür eine Erweiterung an."
   },
   "begriffe": [
-    { "begriff": "Risiko", "englisch": "risk", "erklaerung": "Mögliches Ereignis, das einem Vorhaben schadet, bewertet nach Wahrscheinlichkeit und Auswirkung." },
-    { "begriff": "Walking Skeleton", "englisch": "walking skeleton", "erklaerung": "Früh lauffähige, dünne Version des ganzen Systems, die alle Teile einmal verbindet." },
-    { "begriff": "Risikoliste", "englisch": "risk register", "erklaerung": "Liste der bekannten Risiken mit Bewertung, Massnahmen und Verantwortlichen." }
+    {
+      "begriff": "Jenkinsfile",
+      "englisch": "Jenkinsfile",
+      "erklaerung": "Datei im Repository, die die Pipeline als Code beschreibt."
+    },
+    {
+      "begriff": "Declarative Pipeline",
+      "englisch": "declarative pipeline",
+      "erklaerung": "Pipeline mit fester Struktur (`pipeline`, `stages`, `steps`, `post`), die Jenkins prüfen und anzeigen kann."
+    },
+    {
+      "begriff": "Credentials",
+      "englisch": "credentials",
+      "erklaerung": "In Jenkins gespeicherte Zugangsdaten, die mit `withCredentials` maskiert in Builds eingebunden werden."
+    }
   ],
   "weiterlesen": [
-    { "titel": "Alistair Cockburn: Walking Skeleton", "url": "https://wiki.c2.com/?WalkingSkeleton" }
+    {
+      "titel": "Jenkins: Pipeline Syntax",
+      "url": "https://www.jenkins.io/doc/book/pipeline/syntax/"
+    },
+    {
+      "titel": "Jenkins: Using credentials",
+      "url": "https://www.jenkins.io/doc/book/using/using-credentials/"
+    }
   ]
 }

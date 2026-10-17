@@ -38,6 +38,7 @@ export function lektionAbschliessen(f: Fortschritt, lektionId: string, antworten
   const ersterAbschluss = !bisher;
 
   for (const a of antworten) if (!a.korrekt) alsFalschMerken(f, a.schluessel, tag);
+  if (fehlerfrei) f.perfekt++;
 
   f.lektionen[lektionId] = {
     abgeschlossenAm: bisher?.abgeschlossenAm ?? tag,

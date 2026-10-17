@@ -1,146 +1,127 @@
 {
   "id": "p6-m3-l2",
   "phase": 6,
-  "modul": "6.3 Abhängigkeiten managen",
-  "titel": "Zyklische Abhängigkeiten erkennen und auflösen",
+  "modul": "6.3 Takt, GPIO und Timer",
+  "titel": "Timer und PWM",
   "lernziele": [
-    "Erklären, warum zyklische Abhängigkeiten schaden",
-    "Zyklen im Abhängigkeitsgraphen finden",
-    "Zyklen mit Dependency Inversion und anderen Mitteln auflösen"
+    "Prescaler und Auto-Reload für eine gewünschte Frequenz berechnen",
+    "Das Tastverhältnis einer PWM einstellen",
+    "Typische Einsatzgebiete von Timern kennen"
   ],
   "dauerMinuten": 6,
   "schritte": [
     {
       "typ": "multiple-choice",
-      "frage": "Modul `netz` benutzt `protokoll`, und `protokoll` benutzt `netz`. Was ist das Hauptproblem?",
+      "frage": "Warum benutzt man für eine regelmässige Aufgabe einen Hardware-Timer statt einer Warteschleife?",
       "optionen": [
-        "Keines der beiden lässt sich allein bauen, testen oder verstehen. Faktisch sind sie ein einziges Modul",
-        "Der Code wird langsamer",
-        "Es gibt keines, solange beide gut getestet sind"
+        "Der Timer zählt unabhängig von der CPU. Die Zeit ist genau, und die CPU kann in der Zwischenzeit anderes tun oder schlafen",
+        "Warteschleifen sind in C++ verboten",
+        "Timer verbrauchen weniger Flash"
       ],
       "korrekt": 0,
-      "erklaerung": "Ein Zyklus verklebt Module. Jede Änderung kann in beide Richtungen wirken, Tests brauchen immer beide, und die Link-Reihenfolge wird zum Problem (Modul 1.3). In grossen Systemen wachsen Zyklen oft auf zehn oder mehr Module, bis alles von allem abhängt.",
+      "erklaerung": "Eine Warteschleife hängt von Taktfrequenz, Optimierungsstufe und Interrupts ab. Jede Änderung verschiebt das Timing, und die CPU ist währenddessen blockiert. Ein Timer zählt in Hardware und meldet sich per Interrupt, DMA-Anfrage oder direkt an einem Pin.",
       "begruendungen": [
         "Richtig.",
-        "Die Laufzeit ist nicht betroffen, die Struktur schon.",
-        "Auch gut getestete Module bleiben dadurch untrennbar."
+        "Erlaubt sind sie, aber ungenau und verschwenderisch.",
+        "Um Flash geht es nicht."
       ]
     },
     {
       "typ": "erklaerung",
-      "titel": "Zyklen finden",
-      "text": "Abhängigkeiten zwischen Modulen sollten einen **gerichteten Graphen ohne Kreise** bilden (DAG, *directed acyclic graph*). Zyklen findet man:\n\n- im Abhängigkeitsgraphen der Targets: `cmake --graphviz`\n- über Includes zwischen Modulen\n- am Linker: Braucht der Link `--start-group` oder Bibliotheken doppelt, gibt es einen Zyklus\n\nCMake erlaubt Zyklen zwischen statischen Bibliotheken übrigens stillschweigend. Ein sauberer Graph muss deshalb bewusst geprüft werden, z. B. mit einem Skript in der CI."
+      "titel": "Wie ein Timer zählt",
+      "text": "Ein Timer zählt mit dem Takt `f_timer / (PSC + 1)` hoch. Erreicht der Zähler den Wert im **Auto-Reload-Register** (ARR), beginnt er wieder bei 0 und löst ein *Update-Ereignis* aus, z. B. einen Interrupt. Daraus folgt:\n\n`f_update = f_timer / ((PSC + 1) · (ARR + 1))`\n\nFür eine **PWM** vergleicht der Timer den Zähler zusätzlich mit dem **Compare-Register** (CCR): Unterhalb von CCR ist der Ausgang High, darüber Low. Das Tastverhältnis ist also `CCR / (ARR + 1)`."
     },
     {
-      "typ": "terminal-deuten",
-      "frage": "Ein Ausschnitt aus der von CMake erzeugten Graphviz-Datei. Was zeigt er?",
-      "terminal": {
-        "befehl": "grep -- '->' build/deps.dot",
-        "ausgabe": [
-          "    \"netz\" -> \"protokoll\"",
-          "    \"protokoll\" -> \"logging\"",
-          "    \"logging\" -> \"netz\""
-        ]
+      "typ": "code-lesen",
+      "frage": "Der Timer läuft mit 84 MHz, `PSC = 83`. Welcher ARR-Wert ergibt einen Interrupt pro Millisekunde (1 kHz)?",
+      "code": {
+        "sprache": "text",
+        "zeilen": ["f_update = f_timer / ((PSC + 1) · (ARR + 1))"]
       },
-      "optionen": [
-        "Einen Zyklus über drei Module: netz → protokoll → logging → netz",
-        "Eine saubere Schichtung von netz über protokoll zu logging",
-        "Dass `logging` nicht gebaut wird"
-      ],
+      "optionen": ["999", "1000", "83", "84 000"],
       "korrekt": 0,
-      "erklaerung": "Die dritte Kante schliesst den Kreis. Typische Ursache: Das Logging verschickt Meldungen über das Netz und hängt deshalb von `netz` ab. Ein Basis-Modul wie `logging` sollte aber von gar nichts Höherem abhängen.",
+      "fest": true,
+      "erklaerung": "84 MHz / (83 + 1) = 1 MHz Zähltakt. Für 1 kHz braucht es 1000 Schritte, also ARR = 999. Das „+ 1“ ist die häufigste Fehlerquelle bei Timer-Berechnungen: Der Zähler läuft von 0 bis einschliesslich ARR.",
       "begruendungen": [
         "Richtig.",
-        "Ohne die letzte Kante wäre es eine saubere Kette.",
-        "Der Graph sagt nichts darüber, ob gebaut wird."
+        "Mit 1000 wären es 1001 Schritte, also knapp 999 Hz.",
+        "83 ist der Prescaler.",
+        "Das wäre ohne Prescaler."
+      ]
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "`ARR = 999`, `CCR = 250`. Welches Tastverhältnis hat die PWM?",
+      "code": {
+        "sprache": "text",
+        "zeilen": ["Tastverhältnis = CCR / (ARR + 1)"]
+      },
+      "optionen": ["25 %", "75 %", "2,5 %", "250 %"],
+      "korrekt": 0,
+      "fest": true,
+      "erklaerung": "250 / 1000 = 25 %. Der Ausgang ist ein Viertel der Periode High. Ob „aktiv“ High oder Low bedeutet, legt der PWM-Modus und die Polarität fest. Lohnt sich im Referenzhandbuch zu prüfen.",
+      "begruendungen": [
+        "Richtig.",
+        "75 % wäre der Low-Anteil.",
+        "Das wäre mit ARR = 9999.",
+        "Mehr als 100 % gibt es nicht. CCR grösser als ARR bedeutet dauerhaft aktiv."
       ]
     },
     {
       "typ": "zuordnen",
-      "frage": "Welche Strategie passt zu welcher Situation?",
+      "frage": "Ordne die Register und Funktionen zu.",
       "paare": [
-        { "links": "Interface im unteren Modul, Implementierung im oberen (Dependency Inversion)", "rechts": "Ein unteres Modul muss etwas im oberen auslösen" },
-        { "links": "Gemeinsamen Teil in ein neues Modul auslagern", "rechts": "Beide brauchen dieselben Typen oder Funktionen" },
-        { "links": "Callback oder Ereignis statt direktem Aufruf", "rechts": "Das untere Modul soll obere nur benachrichtigen" },
-        { "links": "Funktion in das andere Modul verschieben", "rechts": "Die Funktion gehört fachlich eigentlich dorthin" }
+        { "links": "Prescaler (PSC)", "rechts": "Teilt den Timertakt herunter" },
+        { "links": "Auto-Reload (ARR)", "rechts": "Legt fest, bis wohin gezählt wird, also die Periode" },
+        { "links": "Compare (CCR)", "rechts": "Schaltpunkt innerhalb der Periode, bestimmt das Tastverhältnis" },
+        { "links": "Input Capture", "rechts": "Speichert den Zählerstand bei einer Flanke, z. B. zum Messen von Frequenzen" }
       ],
-      "erklaerung": "Dependency Inversion ist das wichtigste Werkzeug: Die Richtung der **Abhängigkeit** wird umgedreht, während die Richtung des **Aufrufs** gleich bleibt. Das untere Modul ruft weiterhin oben auf, aber nur über eine Schnittstelle, die es selbst definiert."
+      "erklaerung": "Ein Timer kann mehrere Kanäle haben, z. B. vier PWM-Ausgänge mit derselben Frequenz, aber eigenem Tastverhältnis. Das ist ideal für Motoren oder RGB-LEDs."
     },
     {
       "typ": "erklaerung",
-      "titel": "Dependency Inversion an einem Beispiel",
-      "text": "`protokoll` soll bei ungültigen Paketen einen Fehler in der Oberfläche anzeigen. Statt `ui` einzubinden, definiert `protokoll` selbst eine kleine Schnittstelle. `ui` implementiert sie, und `main` verbindet beides. Jetzt hängt `ui` von `protokoll` ab, aber nicht mehr umgekehrt.",
-      "code": {
-        "sprache": "cpp",
-        "datei": "protokoll/include/protokoll/fehler_melder.h",
-        "zeilen": [
-          "#pragma once",
-          "#include <string_view>",
-          "",
-          "class IFehlerMelder {",
-          "public:",
-          "    virtual ~IFehlerMelder() = default;",
-          "    virtual void melde(std::string_view text) = 0;",
-          "};"
-        ]
-      }
+      "titel": "Wofür PWM gebraucht wird",
+      "text": "- **LEDs dimmen**: Das Auge sieht ab etwa 200 Hz nur noch den Mittelwert.\n- **Motoren steuern** über eine H-Brücke. Hier verhindert eine *Totzeit* (dead time), dass beide Transistoren einer Seite gleichzeitig leiten.\n- **Servos**: 50 Hz, Pulsbreite 1 bis 2 ms für die Position.\n- **Einfacher DAC**: PWM plus Tiefpassfilter ergibt eine Gleichspannung.\n\nBei der Frequenz zählt die Anwendung: Unter etwa 20 kHz kann ein Motor hörbar pfeifen."
     },
     {
-      "typ": "fehler-finden",
-      "frage": "Welche Zeile erzeugt die zyklische Abhängigkeit zwischen `protokoll` und `ui`?",
-      "code": {
-        "sprache": "cpp",
-        "datei": "src/protokoll/protokoll.cpp",
-        "zeilen": [
-          "#include \"protokoll/protokoll.h\"",
-          "#include \"protokoll/paket.h\"",
-          "#include \"ui/hauptfenster.h\"",
-          "",
-          "void Protokoll::verarbeite(const Paket& p) {",
-          "    if (!p.gueltig()) {",
-          "        Hauptfenster::instanz().zeigeFehler(\"Ungültiges Paket\");",
-          "        return;",
-          "    }",
-          "    ...",
-          "}"
-        ]
-      },
-      "fehlerZeile": 3,
-      "erklaerung": "Mit dem Include in Zeile 3 hängt das Protokoll-Modul von der Oberfläche ab, während die Oberfläche das Protokoll benutzt. Zeile 7 ist die Folge davon. Mit einem injizierten `IFehlerMelder& melder_` würde daraus `melder_.melde(\"Ungültiges Paket\");`, und das Include verschwindet."
+      "typ": "lueckentext",
+      "frage": "Ergänze.",
+      "text": "Bei einer PWM mit ARR = {{?}} entspricht CCR = 50 einem Tastverhältnis von 50 %.",
+      "luecken": [{ "loesungen": ["99"] }],
+      "auswahl": ["99", "100", "50", "199"],
+      "erklaerung": "50 / (99 + 1) = 50 %. Mit ARR = 99 entspricht jeder CCR-Schritt genau einem Prozent, eine praktische Wahl, wenn die Auflösung reicht."
     },
     {
       "typ": "multiple-choice",
-      "frage": "Warum sind Zyklen in grossen Projekten schlimmer als in kleinen?",
-      "optionen": [
-        "Sie verbinden immer mehr Module zu einem Klumpen, den man nur noch als Ganzes bauen, testen und ausliefern kann",
-        "Grosse Projekte haben langsamere Compiler",
-        "In kleinen Projekten sind Zyklen verboten"
-      ],
+      "frage": "Ein Servo braucht alle 20 ms (50 Hz) einen Puls. Der Timer zählt mit 1 MHz. Welcher ARR-Wert passt?",
+      "optionen": ["19 999", "49", "20 000", "999"],
       "korrekt": 0,
-      "erklaerung": "Ein Zyklus zieht neue Abhängigkeiten an: Wer eines der Module braucht, bekommt alle. Irgendwann gibt es keine sinnvollen Modulgrenzen mehr, und jedes Team blockiert jedes andere. Zyklen früh zu verhindern ist viel billiger, als sie später aufzulösen.",
+      "fest": true,
+      "erklaerung": "20 ms bei 1 µs pro Schritt sind 20 000 Schritte, also ARR = 19 999. Ein Puls von 1,5 ms (Mittelstellung) entspricht dann CCR = 1500.",
       "begruendungen": [
         "Richtig.",
-        "Der Compiler ist nicht das Problem.",
-        "Verboten sind sie nirgends, schädlich sind sie überall."
+        "Das wäre mit einem Zähltakt von 2,5 kHz.",
+        "Wieder das „+ 1“: 20 000 ergibt 20 001 Schritte.",
+        "Das ergäbe 1 kHz."
       ]
     }
   ],
-  "praxis": "Ein Abhängigkeitsgraph ohne Zyklen ist eines der wenigen Architekturziele, die sich vollständig automatisch prüfen lassen. Viele Teams lassen in der CI ein Skript laufen, das den Graphen aus CMake erzeugt und bei Zyklen oder verbotenen Richtungen (z. B. `drivers` → `ui`) fehlschlägt. Damit wird Architektur von einer Empfehlung zu einer Regel.",
+  "praxis": "Timer sind die Arbeitspferde jedes Mikrocontrollers: Systemtakt für das RTOS, PWM für Aktoren, Input Capture für Drehzahlen, Trigger für den ADC. Im Review prüfst du Berechnungen von PSC und ARR (das „+ 1“!), ob die Taktquelle des Timers stimmt (bei STM32 ist sie oft doppelt so hoch wie der APB-Takt) und ob Konstanten wie die Frequenz an einer Stelle stehen, am besten `constexpr` mit `static_assert`.",
   "labor": {
-    "titel": "Einen Zyklus aufspüren",
-    "anleitung": "Erzeuge den Abhängigkeitsgraphen eines Projekts und suche mit einem kleinen Skript nach Kreisen.",
+    "titel": "Timerwerte zur Kompilierzeit berechnen",
+    "anleitung": "Schreibe eine `constexpr`-Funktion, die aus Timertakt und Zielfrequenz PSC und ARR berechnet, und prüfe Ergebnis und Rundungsfehler mit `static_assert`.",
     "befehle": [
-      "cmake -S . -B build --graphviz=build/deps.dot",
-      "python3 -c \"import networkx as nx; g=nx.DiGraph(nx.nx_pydot.read_dot('build/deps.dot')); print(list(nx.simple_cycles(g)))\""
+      "g++ -std=c++20 -fsyntax-only timer.cpp"
     ],
-    "beobachtung": "Eine leere Liste heisst: keine Zyklen. Findest du welche, beginne mit dem kürzesten Kreis und prüfe, welche einzelne Kante sich am einfachsten umdrehen lässt."
+    "beobachtung": "Ist eine Frequenz mit den 16-Bit-Registern nicht genau erreichbar, schlägt ein `static_assert` fehl, schon beim Kompilieren und nicht erst am Oszilloskop."
   },
   "begriffe": [
-    { "begriff": "Zyklische Abhängigkeit", "englisch": "cyclic dependency", "erklaerung": "Module hängen über einen Kreis voneinander ab, z. B. A → B → A." },
-    { "begriff": "DAG", "englisch": "directed acyclic graph", "erklaerung": "Gerichteter Graph ohne Kreise. Die gewünschte Form des Abhängigkeitsgraphen." },
-    { "begriff": "Dependency Inversion", "englisch": "dependency inversion principle", "erklaerung": "Module hängen von Abstraktionen ab. Das untere Modul definiert eine Schnittstelle, das obere implementiert sie." }
+    { "begriff": "Prescaler", "englisch": "prescaler", "erklaerung": "Teiler, der den Eingangstakt eines Timers herunterteilt." },
+    { "begriff": "Auto-Reload-Register", "englisch": "auto-reload register, ARR", "erklaerung": "Endwert des Zählers. Bestimmt die Periode des Timers." },
+    { "begriff": "PWM", "englisch": "pulse-width modulation", "erklaerung": "Rechtecksignal mit fester Frequenz und einstellbarem Tastverhältnis." },
+    { "begriff": "Tastverhältnis", "englisch": "duty cycle", "erklaerung": "Anteil der Periode, in dem das Signal aktiv ist." }
   ],
   "weiterlesen": [
-    { "titel": "Robert C. Martin: The Dependency Inversion Principle", "url": "https://web.archive.org/web/20110714224327/http://www.objectmentor.com/resources/articles/dip.pdf" }
+    { "titel": "ST: AN4776 General-purpose timer cookbook", "url": "https://www.st.com/resource/en/application_note/an4776-generalpurpose-timer-cookbook-for-stm32-microcontrollers-stmicroelectronics.pdf" }
   ]
 }

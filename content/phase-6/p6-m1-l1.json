@@ -1,121 +1,143 @@
 {
   "id": "p6-m1-l1",
   "phase": 6,
-  "modul": "6.1 Modularisierung und Separation of Concerns",
-  "titel": "Kohäsion und Kopplung",
+  "modul": "6.1 Der Mikrocontroller",
+  "titel": "Aufbau eines Mikrocontrollers",
   "lernziele": [
-    "Kohäsion und Kopplung an Beispielen beurteilen",
-    "Separation of Concerns in einer Funktion oder Klasse umsetzen",
-    "Warnzeichen für Klassen mit zu vielen Aufgaben erkennen"
+    "Die Bausteine eines Mikrocontrollers und ihre Aufgaben benennen",
+    "Eine Speicherkarte (memory map) lesen",
+    "Abschätzen, ob Code und Daten in Flash und RAM passen"
   ],
   "dauerMinuten": 6,
   "schritte": [
     {
       "typ": "multiple-choice",
-      "frage": "Eine Klasse `SensorManager` liest CAN-Nachrichten, rechnet Rohwerte in °C um, speichert sie in einer Datenbank, zeichnet ein Diagramm in der Oberfläche und verschickt Warn-E-Mails. Was ist das Hauptproblem?",
+      "frage": "Was unterscheidet einen Mikrocontroller grundsätzlich von der CPU in deinem PC?",
       "optionen": [
-        "Sie hat viele unabhängige Gründe, sich zu ändern, und vermischt Hardware, Fachlogik, Speicherung und Darstellung",
-        "Sie hat zu wenige Memberfunktionen",
-        "Der Name ist zu lang"
+        "CPU, Programmspeicher, Arbeitsspeicher und Peripherie wie Timer und Schnittstellen sitzen zusammen auf einem Chip",
+        "Ein Mikrocontroller kann kein C++ ausführen",
+        "Ein Mikrocontroller hat immer ein Betriebssystem wie Linux"
       ],
       "korrekt": 0,
-      "erklaerung": "Ändert sich das CAN-Protokoll, die Umrechnungsformel, die Datenbank, das Diagramm oder der Mail-Server, muss immer dieselbe Klasse angefasst werden. Jede Änderung riskiert, etwas anderes kaputt zu machen, und keiner der Teile lässt sich allein testen.",
+      "erklaerung": "Ein **Mikrocontroller** (MCU) ist ein kleiner, vollständiger Rechner auf einem Chip, mit wenigen hundert Kilobyte Flash, einigen Dutzend Kilobyte RAM und eingebauter Peripherie. Meist läuft darauf kein Betriebssystem, sondern direkt deine Firmware (*bare metal*) oder ein kleines RTOS.",
       "begruendungen": [
-        "Richtig. Man spricht von geringer Kohäsion.",
-        "Die Anzahl der Funktionen ist nicht das Problem, sondern ihre Unterschiedlichkeit.",
-        "Der Name ist eher ein Symptom: „Manager“ verrät oft, dass die Aufgabe unklar ist."
+        "Richtig.",
+        "C++ läuft auf praktisch jedem 32-Bit-Mikrocontroller, mit ein paar Einschränkungen (Phase 7).",
+        "Die meisten Mikrocontroller laufen ohne Betriebssystem oder mit einem RTOS. Linux braucht deutlich mehr Speicher und eine MMU."
       ]
     },
     {
       "typ": "erklaerung",
-      "titel": "Zwei Masse für gute Struktur",
-      "text": "- **Kohäsion** (cohesion): Wie stark gehören die Teile **innerhalb** eines Moduls zusammen? Hoch ist gut: Alles dient einer klar umrissenen Aufgabe.\n- **Kopplung** (coupling): Wie stark hängen **verschiedene** Module voneinander ab? Lose ist gut: Ein Modul kennt vom anderen nur eine kleine, stabile Schnittstelle.\n\nDas Ziel lautet: **hohe Kohäsion, lose Kopplung**. Dahinter steht das Prinzip **Separation of Concerns**: Jeder Belang (Hardware-Zugriff, Fachlogik, Speicherung, Darstellung) gehört an eine eigene Stelle."
+      "titel": "Die Bausteine",
+      "text": "Ein typischer 32-Bit-Mikrocontroller, z. B. ein STM32F4 mit ARM Cortex-M4, 168 MHz, 1 MB Flash und 192 KB RAM, besteht aus:",
+      "tabelle": {
+        "kopf": ["Baustein", "Aufgabe"],
+        "zeilen": [
+          ["CPU-Kern (z. B. Cortex-M4)", "führt die Befehle aus, oft mit FPU für Gleitkomma"],
+          ["Flash", "Programmcode und Konstanten, bleibt ohne Strom erhalten"],
+          ["SRAM", "Variablen, Heap und Stack, verliert seinen Inhalt ohne Strom"],
+          ["Peripherie", "GPIO, Timer, UART, SPI, I²C, CAN, ADC, DMA …"],
+          ["Busse (AHB, APB)", "verbinden CPU, Speicher und Peripherie"],
+          ["NVIC", "Interrupt-Controller mit Prioritäten"],
+          ["Taktsystem", "erzeugt und verteilt die Takte"]
+        ]
+      }
     },
     {
       "typ": "zuordnen",
-      "frage": "Ordne die Beispiele zu.",
+      "frage": "Ordne die Bausteine zu.",
       "paare": [
-        { "links": "Modul A greift über `friend` oder Zeiger-Tricks auf private Member von Modul B zu", "rechts": "Starke Kopplung über Interna" },
-        { "links": "Modul A ruft eine kleine, dokumentierte Schnittstelle von Modul B auf", "rechts": "Lose Kopplung" },
-        { "links": "Eine Klasse enthält nur Funktionen rund um die CRC-Berechnung", "rechts": "Hohe Kohäsion" },
-        { "links": "`utils.cpp` mit Zeitformatierung, CRC, Logging und Dateizugriff", "rechts": "Niedrige Kohäsion" }
+        { "links": "Flash", "rechts": "Programmcode und Konstanten, ohne Strom erhalten" },
+        { "links": "SRAM", "rechts": "Variablen und Stack, ohne Strom verloren" },
+        { "links": "Peripherie", "rechts": "Hardwareblöcke wie Timer oder UART, über Register gesteuert" },
+        { "links": "NVIC", "rechts": "Verwaltet Interrupts und ihre Prioritäten" },
+        { "links": "AHB und APB", "rechts": "Busse, die CPU, Speicher und Peripherie verbinden" }
       ],
-      "erklaerung": "Eine Datei `utils.cpp` wächst fast immer weiter, weil „irgendwo muss es ja hin“. Besser sind mehrere kleine Module mit klaren Namen: `crc`, `zeitformat`, `dateizugriff`."
+      "erklaerung": "Die Peripherie hängt meist am langsameren APB-Bus, schnelle Blöcke wie DMA und GPIO am AHB. Das wirkt sich auf Takt und Zugriffszeiten aus und ist der Grund, warum du für jede Peripherie den Takt auf dem richtigen Bus einschalten musst (Modul 6.3)."
     },
     {
       "typ": "multiple-choice",
-      "frage": "Um ein Feld im Datenformat von Modul A zu ändern, musst du fünf andere Module anpassen. Was zeigt das?",
-      "optionen": [
-        "Starke Kopplung: Die anderen Module hängen von Interna von A ab statt von einer stabilen Schnittstelle",
-        "Hohe Kohäsion von Modul A",
-        "Dass Modul A zu klein ist"
-      ],
+      "frage": "Auf einem STM32 liegt der Flash ab `0x0800 0000`, der SRAM ab `0x2000 0000` und die Peripherie ab `0x4000 0000`. Wozu gehört die Adresse `0x4002 0014` am wahrscheinlichsten?",
+      "optionen": ["Zu einem Peripherie-Register", "Zum Flash", "Zum SRAM"],
       "korrekt": 0,
-      "erklaerung": "Bei loser Kopplung bleibt eine Änderung lokal. Wenn sich Änderungen dagegen durch das ganze System ziehen (*Schrotflinten-Chirurgie*, shotgun surgery), kennen zu viele Module Details, die sie nicht kennen sollten.",
+      "fest": true,
+      "erklaerung": "Bei Cortex-M ist der Adressraum in feste Bereiche aufgeteilt, die **Speicherkarte** (memory map). `0x4002 0014` liegt im Peripheriebereich, beim STM32F4 ist es das Ausgangsregister `ODR` von GPIO-Port A. Wer Adressen lesen kann, versteht Fehlermeldungen, Map-Files und Debugger-Ausgaben viel schneller.",
       "begruendungen": [
         "Richtig.",
-        "Kohäsion beschreibt das Innere eines Moduls, nicht seine Wirkung auf andere.",
-        "Die Grösse ist nicht das Problem, sondern wie viel A von sich preisgibt."
+        "Flash beginnt bei `0x0800 0000`.",
+        "SRAM beginnt bei `0x2000 0000`."
       ]
     },
     {
       "typ": "erklaerung",
-      "titel": "Belange trennen",
-      "text": "Eine hilfreiche Frage lautet: **Wer oder was könnte eine Änderung an diesem Code verlangen?** Die Hardware-Abteilung, die Fachabteilung, die Datenbank-Leute, das UI-Team? Jede dieser Quellen ist ein eigener Belang und sollte ihr eigenes Modul haben.\n\nIn der Praxis heisst das oft: Fachlogik als reine Berechnung ohne Ein- und Ausgabe. Hardware, Dateien, Netzwerk und Oberfläche am Rand. Dann lässt sich die Fachlogik mit einfachen Unit-Tests prüfen, und der Rand bleibt dünn."
-    },
-    {
-      "typ": "fehler-finden",
-      "frage": "Welche Zeile gehört am wenigsten in eine Funktion namens `durchschnittsTemperatur`?",
-      "code": {
-        "sprache": "cpp",
-        "zeilen": [
-          "double Messung::durchschnittsTemperatur() {",
-          "    auto rohwerte = can_.lese(0x120, 100);",
-          "    std::vector<double> celsius;",
-          "    for (auto r : rohwerte) celsius.push_back(r * 0.1 - 40.0);",
-          "    double mittel = std::accumulate(celsius.begin(), celsius.end(), 0.0) / celsius.size();",
-          "    db_.speichere(\"temperatur\", mittel);",
-          "    return mittel;",
-          "}"
-        ]
-      },
-      "fehlerZeile": 6,
-      "erklaerung": "Der Name verspricht eine Berechnung. Zeile 6 hat aber einen versteckten **Seiteneffekt**: Sie schreibt in die Datenbank. Wer die Funktion nur zum Anzeigen aufruft, erzeugt unbeabsichtigt Datensätze. Auch das Lesen vom CAN-Bus in Zeile 2 ist ein eigener Belang. Gut wäre: lesen, umrechnen und mitteln, speichern als drei getrennte Funktionen."
+      "titel": "Familien und Architekturen",
+      "text": "- **Cortex-M0/M0+**: sehr klein und stromsparend, ohne Divisionsbefehl und ohne atomare Exklusivbefehle\n- **Cortex-M3/M4**: der verbreitete Mittelweg, M4 mit DSP-Befehlen und FPU\n- **Cortex-M7**: schnell, mit Caches, das bringt eigene Tücken (Modul 6.6)\n- **Cortex-M33**: mit TrustZone für Sicherheitsfunktionen\n- daneben **RISC-V**, 8-Bit-**AVR** und **ESP32**\n\nMikrocontroller haben keine MMU, also keinen virtuellen Speicher und keinen Schutz zwischen Programmteilen. Viele haben aber eine **MPU** (Memory Protection Unit)."
     },
     {
       "typ": "multiple-choice",
-      "frage": "Im Code findest du `DatenManager`, `ProtokollHelper` und `SystemUtils`. Was verraten solche Namen oft?",
+      "frage": "Was kann eine **MPU** auf einem Cortex-M?",
       "optionen": [
-        "Dass die Verantwortung unklar ist und sich dort sehr Verschiedenes sammelt",
-        "Dass es sich um besonders gut entworfene Hilfsklassen handelt",
-        "Nichts, Namen sind Geschmackssache"
+        "Für Speicherbereiche Rechte festlegen und z. B. einen Stacküberlauf oder Zugriffe auf Adresse 0 als Fehler erkennen",
+        "Virtuellen Speicher bereitstellen wie unter Linux",
+        "Die Taktfrequenz automatisch erhöhen"
       ],
       "korrekt": 0,
-      "erklaerung": "Ein guter Name sagt, **was** eine Klasse tut: `CrcRechner`, `MesswertSpeicher`, `CanEmpfaenger`. Wer keinen präzisen Namen findet, hat oft noch keine präzise Aufgabe. Das ist ein guter Anlass, die Klasse aufzuteilen.",
+      "erklaerung": "Die MPU teilt den Adressraum in einige Regionen mit Rechten (lesen, schreiben, ausführen). Ein verbotener Zugriff löst einen *MemManage Fault* aus. So lassen sich Stacküberläufe, Nullzeiger und ausgeführte Daten erkennen, statt dass sie still Daten zerstören. Ein RTOS kann damit Tasks voneinander abschotten.",
       "begruendungen": [
         "Richtig.",
-        "Meist ist das Gegenteil der Fall.",
-        "Namen sind die wichtigste Dokumentation im Code."
+        "Dafür bräuchte es eine MMU, die Cortex-M nicht hat.",
+        "Mit dem Takt hat die MPU nichts zu tun."
       ]
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Der Mikrocontroller hat 128 KB RAM. Passt dieser Puffer?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": ["static std::uint32_t puffer[40'000];"]
+      },
+      "optionen": [
+        "Nein, er braucht 160 000 Byte, mehr als 128 KB (131 072 Byte). Der Linker meldet einen Überlauf der RAM-Region",
+        "Ja, 40 000 ist kleiner als 128 000",
+        "Ja, `static` legt ihn in den Flash"
+      ],
+      "korrekt": 0,
+      "fest": true,
+      "erklaerung": "40 000 Elemente zu je 4 Byte ergeben 160 000 Byte. Der Puffer liegt in `.bss`, also im RAM. Der Linker kennt die Grösse aus dem Linker-Skript und bricht mit `region 'RAM' overflowed` ab (Modul 1.4). Rechne bei Embedded-Code immer in Byte, nicht in Elementen. Und denk an Stack, Heap und die anderen Variablen.",
+      "begruendungen": [
+        "Richtig.",
+        "Die Zahl sind Elemente, nicht Byte.",
+        "`static` bestimmt Lebenszeit und Sichtbarkeit. In den Flash kommt nur, was `const` ist und einen Startwert hat."
+      ]
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze die Startadressen für einen STM32.",
+      "text": "Der Flash beginnt bei {{?}}, der SRAM bei {{?}} und die Peripherie bei {{?}}.",
+      "luecken": [{ "loesungen": ["0x08000000"] }, { "loesungen": ["0x20000000"] }, { "loesungen": ["0x40000000"] }],
+      "auswahl": ["0x08000000", "0x20000000", "0x40000000", "0xE0000000"],
+      "erklaerung": "Ab `0xE000 0000` liegt bei allen Cortex-M die *System Control Space* mit NVIC, SysTick und Debug-Registern. Diese Aufteilung schreibt ARM vor. Die genauen Grössen und die Peripherie-Adressen stehen im Referenzhandbuch des Herstellers."
     }
   ],
-  "praxis": "Kohäsion und Kopplung sind die Grundbegriffe jeder Architektur-Diskussion. Im Review fragst du: Wofür ist diese Klasse da, in einem Satz? Wie viele andere Module müssten sich bei einer Änderung mitändern? Im eigenen Code hilft ein einfacher Test: Kannst du die Fachlogik ohne Hardware, Datei oder Netzwerk aufrufen? Wenn nicht, sind die Belange vermischt.",
+  "praxis": "Die wichtigsten Dokumente im Embedded-Alltag sind das **Datenblatt** (Pins, elektrische Werte), das **Referenzhandbuch** (Register jeder Peripherie) und das **Errata-Sheet** (bekannte Hardwarefehler). Wer bei einem merkwürdigen Verhalten zuerst ins Errata-Sheet schaut, spart manchmal Tage. Gewöhne dir an, bei jeder neuen Peripherie das Kapitel im Referenzhandbuch zumindest zu überfliegen.",
   "labor": {
-    "titel": "Eine Klasse zerlegen",
-    "anleitung": "Suche in einem eigenen oder einem Open-Source-Projekt die grösste Klasse. Liste ihre Memberfunktionen auf und gruppiere sie nach Belang. Wie viele Gruppen findest du?",
+    "titel": "Speicherkarte ansehen",
+    "anleitung": "Wenn du ein STM32-Board hast: Lade das Referenzhandbuch und suche das Kapitel *Memory map*. Ohne Board: Erzeuge mit der ARM-Toolchain ein leeres Projekt und sieh dir an, wo der Linker die Sektionen platziert.",
     "befehle": [
-      "find src -name '*.cpp' | xargs wc -l | sort -rn | head",
-      "rg -c '^\\w.*::\\w+\\(' src/grosse_klasse.cpp"
+      "arm-none-eabi-gcc -mcpu=cortex-m4 -mthumb -specs=nosys.specs -T stm32f4.ld main.c -o app.elf",
+      "arm-none-eabi-size -A app.elf",
+      "arm-none-eabi-objdump -h app.elf"
     ],
-    "beobachtung": "Findest du drei oder mehr unabhängige Gruppen, ist die Klasse ein Kandidat zum Aufteilen. Jede Gruppe wird eine eigene Klasse, und die ursprüngliche setzt sie nur noch zusammen."
+    "beobachtung": "`.text` beginnt bei `0x0800 0000` (plus Vektortabelle), `.data` und `.bss` bei `0x2000 0000`. `size -A` zeigt die Grösse jeder Sektion."
   },
   "begriffe": [
-    { "begriff": "Kohäsion", "englisch": "cohesion", "erklaerung": "Wie stark die Teile eines Moduls zu einer gemeinsamen Aufgabe gehören. Hoch ist gut." },
-    { "begriff": "Kopplung", "englisch": "coupling", "erklaerung": "Wie stark Module voneinander abhängen. Lose ist gut." },
-    { "begriff": "Separation of Concerns", "englisch": "separation of concerns", "erklaerung": "Jeder Belang, z. B. Hardware, Fachlogik, Speicherung, Darstellung, gehört an eine eigene Stelle." },
-    { "begriff": "Seiteneffekt", "englisch": "side effect", "erklaerung": "Wirkung einer Funktion über ihr Ergebnis hinaus, z. B. Schreiben in eine Datei oder Datenbank." }
+    { "begriff": "Mikrocontroller", "englisch": "microcontroller, MCU", "erklaerung": "Chip mit CPU, Flash, RAM und Peripherie, auf dem Firmware meist ohne Betriebssystem läuft." },
+    { "begriff": "Speicherkarte", "englisch": "memory map", "erklaerung": "Aufteilung des Adressraums in Bereiche für Flash, RAM, Peripherie und Systemregister." },
+    { "begriff": "MPU", "englisch": "memory protection unit", "erklaerung": "Hardware, die Zugriffsrechte für Speicherregionen prüft, ohne virtuellen Speicher." },
+    { "begriff": "Bare Metal", "englisch": "bare metal", "erklaerung": "Firmware, die ohne Betriebssystem direkt auf der Hardware läuft." }
   ],
   "weiterlesen": [
-    { "titel": "Martin Fowler: Coupling and Cohesion (Code Smells)", "url": "https://martinfowler.com/bliki/CodeSmell.html" }
+    { "titel": "ARM: Cortex-M4 Technical Reference Manual", "url": "https://developer.arm.com/documentation/100166/latest/" },
+    { "titel": "ARM: Cortex-M Memory Model (Armv7-M)", "url": "https://developer.arm.com/documentation/ddi0403/latest/" }
   ]
 }

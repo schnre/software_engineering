@@ -1,0 +1,112 @@
+{
+  "id": "p11-m5-l2",
+  "phase": 11,
+  "modul": "11.5 Automotive und Robotik",
+  "titel": "AUTOSAR Adaptive und serviceorientierte Fahrzeugarchitektur",
+  "lernziele": [
+    "Den Unterschied zwischen AUTOSAR Classic und Adaptive erklären",
+    "Serviceorientierte Kommunikation mit SOME/IP verstehen",
+    "Den Wandel zu zentralen Fahrzeugrechnern einordnen"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "zuordnen",
+      "frage": "Classic oder Adaptive? Ordne zu.",
+      "paare": [
+        { "links": "AUTOSAR Classic", "rechts": "Mikrocontroller, statische Konfiguration, harte Echtzeit, Signale" },
+        { "links": "AUTOSAR Adaptive", "rechts": "Mehrkernprozessor mit POSIX-Betriebssystem, Services, Updates zur Laufzeit" },
+        { "links": "Classic: Sprache", "rechts": "Überwiegend C" },
+        { "links": "Adaptive: Sprache", "rechts": "C++14 und neuer, mit eigenen Programmierrichtlinien" }
+      ],
+      "erklaerung": "Adaptive kam für Fahrerassistenz, Infotainment und zentrale Rechner, die viel Rechenleistung und Software-Updates über die Luft (*OTA*) brauchen. Beide Plattformen laufen im selben Fahrzeug und kommunizieren miteinander."
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Services statt Signale",
+      "text": "In Classic werden **Signale** zyklisch verteilt, egal ob jemand sie braucht. Adaptive ist **serviceorientiert**: Eine Anwendung bietet einen Service an (z. B. `Fahrzeugposition`) mit:\n\n- **Methoden** (Anfrage und Antwort)\n- **Events** (Benachrichtigungen an Abonnenten)\n- **Fields** (Werte mit Getter, Setter und Änderungsbenachrichtigung)\n\nClients finden Services zur Laufzeit über **Service Discovery** und abonnieren nur, was sie brauchen. Auf dem Netzwerk übernimmt das meist **SOME/IP** über Automotive Ethernet, alternativ DDS. Die Anwendung sieht davon nur generierte C++-Proxy- und Skeleton-Klassen."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Was macht dieser Client-Code (vereinfacht nach ara::com)?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "auto handles = PositionProxy::FindService(InstanceSpecifier{\"Navi/Position\"});",
+          "if (handles.empty()) return;",
+          "PositionProxy proxy{handles.front()};",
+          "proxy.Aktuell.SetReceiveHandler([&] {",
+          "    proxy.Aktuell.GetNewSamples([](auto sample) { karte.zeige(*sample); });",
+          "});",
+          "proxy.Aktuell.Subscribe(10);"
+        ]
+      },
+      "optionen": [
+        "Er sucht einen Positionsdienst, abonniert dessen Event `Aktuell` mit einem Puffer für 10 Werte und verarbeitet neue Werte in einem Callback",
+        "Er sendet zyklisch die eigene Position",
+        "Er liest direkt eine CAN-Nachricht"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Der Proxy verbirgt, ob der Dienst im selben Prozess, auf einem anderen Kern oder in einem anderen Steuergerät läuft. Das ist Ports & Adapters (Modul 10.3) auf Fahrzeugebene. Die Zahl bei `Subscribe` legt fest, wie viele Werte zwischengespeichert werden, also auch, wie viel Speicher dafür reserviert wird.",
+      "begruendungen": [
+        "Richtig.",
+        "Das wäre die Serverseite mit einem Skeleton.",
+        "SOME/IP läuft typischerweise über Ethernet, nicht CAN."
+      ]
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Was ist der Hauptgrund für den Trend zu wenigen zentralen Fahrzeugrechnern statt vieler kleiner Steuergeräte?",
+      "optionen": [
+        "Funktionen lassen sich als Software verteilen und per Update erweitern, Verkabelung und Hardwarekosten sinken. Man spricht vom **Software-Defined Vehicle**",
+        "Weil Mikrocontroller nicht mehr hergestellt werden",
+        "Weil zentrale Rechner keine Echtzeit brauchen"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Die neue Architektur heisst oft **zonal**: Zonensteuergeräte sammeln Sensoren und Aktoren einer Fahrzeugregion und sind per Ethernet mit Zentralrechnern verbunden. Auf diesen laufen Hypervisoren mit mehreren Partitionen: Linux oder QNX für Infotainment, ein Echtzeitbetriebssystem für sicherheitskritische Funktionen. Mikrocontroller mit AUTOSAR Classic bleiben in den Zonen und für harte Echtzeit.",
+      "begruendungen": [
+        "Richtig.",
+        "Mikrocontroller bleiben wichtig, nur ihre Rolle ändert sich.",
+        "Auch Zentralrechner haben Echtzeitanforderungen."
+      ]
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Welche Herausforderung bringt die serviceorientierte Architektur gegenüber festen Signalen mit sich?",
+      "optionen": [
+        "Das Zeitverhalten ist schwerer vorherzusagen: Dienste kommen und gehen, Last und Latenz hängen davon ab, wer was abonniert hat",
+        "Man kann keine Daten mehr übertragen",
+        "Es gibt keine Typsicherheit"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Dynamik bringt Flexibilität, aber auch neue Fehlerbilder: Dienst noch nicht gestartet, Discovery zu langsam, Netzwerk überlastet. Darum gibt es in Adaptive den **Execution Manager** (Startreihenfolge, Zustände), den **Platform Health Manager** (Überwachung) und Zeitbudgets. Auch Security wird wichtiger, weil Dienste über das Netzwerk erreichbar sind.",
+      "begruendungen": [
+        "Richtig.",
+        "Daten werden weiterhin übertragen, nur anders organisiert.",
+        "Die generierten C++-Proxies sind typsicher."
+      ]
+    }
+  ],
+  "praxis": "Für C++-Entwickler ist der Automotive-Bereich durch Adaptive, Fahrerassistenz und zentrale Rechner deutlich attraktiver geworden. Gefragt sind modernes C++, Linux/QNX, Nebenläufigkeit, Ethernet-Kommunikation und funktionale Sicherheit. Neben AUTOSAR wächst Open Source: Eclipse SDV, COVESA VSS (ein einheitlicher Signalkatalog) und SOME/IP-Implementierungen wie vsomeip.",
+  "labor": {
+    "titel": "SOME/IP mit vsomeip",
+    "anleitung": "Baue die Beispiele von vsomeip (Open-Source-Implementierung von SOME/IP) und lass einen Service und einen Client auf demselben Rechner kommunizieren.",
+    "befehle": [
+      "git clone https://github.com/COVESA/vsomeip.git && cd vsomeip",
+      "cmake -S . -B build -DENABLE_SIGNAL_HANDLING=1 && cmake --build build --target examples",
+      "VSOMEIP_CONFIGURATION=config/vsomeip-local.json ./build/examples/response-sample &",
+      "VSOMEIP_CONFIGURATION=config/vsomeip-local.json ./build/examples/request-sample"
+    ],
+    "beobachtung": "Der Client findet den Service über die lokale Discovery und erhält Antworten. Mit Wireshark und dem SOME/IP-Dissector kannst du die Nachrichten im Netzwerk ansehen, wenn du die Konfiguration auf UDP umstellst."
+  },
+  "begriffe": [
+    { "begriff": "AUTOSAR Adaptive", "englisch": "AUTOSAR Adaptive Platform", "erklaerung": "Serviceorientierte AUTOSAR-Plattform für leistungsfähige Rechner mit POSIX-Betriebssystem." },
+    { "begriff": "SOME/IP", "englisch": "scalable service-oriented middleware over IP", "erklaerung": "Protokoll für serviceorientierte Kommunikation im Fahrzeug über Ethernet." },
+    { "begriff": "Service Discovery", "englisch": "service discovery", "erklaerung": "Mechanismus, mit dem Clients zur Laufzeit verfügbare Dienste finden." },
+    { "begriff": "Software-Defined Vehicle", "englisch": "software-defined vehicle", "erklaerung": "Fahrzeug, dessen Funktionen überwiegend durch aktualisierbare Software bestimmt werden." }
+  ],
+  "weiterlesen": [
+    { "titel": "AUTOSAR: Adaptive Platform", "url": "https://www.autosar.org/standards/adaptive-platform" },
+    { "titel": "COVESA vsomeip", "url": "https://github.com/COVESA/vsomeip" }
+  ]
+}

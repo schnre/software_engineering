@@ -1,0 +1,134 @@
+{
+  "id": "p11-m6-l1",
+  "phase": 11,
+  "modul": "11.6 Datenorientiertes Design",
+  "titel": "Datenorientiertes Design und Entity Component System",
+  "lernziele": [
+    "Daten nach ihren Zugriffsmustern statt nach Objekten anordnen",
+    "Array of Structures und Structure of Arrays unterscheiden",
+    "Das Entity-Component-System-Muster verstehen"
+  ],
+  "dauerMinuten": 7,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Was ist die Grundidee von **datenorientiertem Design**?",
+      "optionen": [
+        "Die Daten so anordnen, wie sie verarbeitet werden, damit die CPU sie mit wenigen Cache-Misses lesen kann",
+        "Möglichst viele Klassen mit Vererbung bilden",
+        "Alle Daten in einer Datenbank speichern"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Ein Speicherzugriff, der nicht im Cache liegt, kostet auf modernen CPUs 100 Takte und mehr (Modul 5.4). Objektorientierter Code verteilt Daten oft über viele Objekte auf dem Heap. Datenorientiertes Design fragt: Welche Daten werden zusammen gelesen? Die gehören zusammen in den Speicher.",
+      "begruendungen": [
+        "Richtig.",
+        "Tiefe Hierarchien führen oft zu verstreuten Daten.",
+        "Es geht um die Anordnung im Hauptspeicher."
+      ]
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Eine Schleife aktualisiert nur die Positionen von 100 000 Partikeln. Warum ist Variante B schneller?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "// A: Array of Structures (AoS)",
+          "struct Partikel { float x, y, z, vx, vy, vz; uint32_t farbe; char name[36]; };",
+          "std::vector<Partikel> partikel;",
+          "",
+          "// B: Structure of Arrays (SoA)",
+          "struct Partikel { std::vector<float> x, y, z, vx, vy, vz; std::vector<uint32_t> farbe; };",
+          "",
+          "for (std::size_t i = 0; i < n; ++i) x[i] += vx[i] * dt;   // usw."
+        ]
+      },
+      "optionen": [
+        "In B liegen die benötigten Werte dicht hintereinander. Jede Cache-Zeile enthält nur nützliche Daten, und der Compiler kann die Schleife vektorisieren (SIMD)",
+        "Weil B weniger Speicher braucht",
+        "Weil `std::vector<float>` schneller ist als `std::vector<Partikel>`"
+      ],
+      "korrekt": 0,
+      "erklaerung": "In A ist jedes Partikel 64 Byte gross. Für `x += vx * dt` braucht man 8 Byte davon, der Rest wird mitgeladen und verschwendet. In B füllen 16 `float`-Werte eine 64-Byte-Cache-Zeile vollständig. Mit AVX kann die CPU 8 Werte pro Instruktion bearbeiten. Unterschiede um Faktor 3 bis 10 sind typisch.",
+      "begruendungen": [
+        "Richtig.",
+        "Der Speicherbedarf ist etwa gleich, nur anders angeordnet.",
+        "Der Unterschied liegt in der Anordnung, nicht im Container."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Entity Component System",
+      "text": "**ECS** ist eine datenorientierte Architektur, die aus der Spieleentwicklung stammt und auch in Simulation und Robotik verwendet wird:\n\n- **Entity**: nur eine ID, keine Klasse, kein Verhalten\n- **Component**: reine Daten, z. B. `Position`, `Geschwindigkeit`, `Sensor`, je Typ dicht in einem Array gespeichert\n- **System**: Funktion, die alle Entities mit bestimmten Komponenten verarbeitet, z. B. `Bewegung` für alle mit `Position` und `Geschwindigkeit`\n\nStatt `class Drohne : public Fahrzeug, public Sensorträger` gibt es Entities mit passenden Komponenten. Neue Kombinationen braucht keine neue Klasse. Bekannte C++-Bibliotheken sind EnTT und flecs."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Ordne die Begriffe zu.",
+      "paare": [
+        { "links": "Entity", "rechts": "Eine ID, die Komponenten zusammenhält" },
+        { "links": "Component", "rechts": "Reine Daten ohne Verhalten" },
+        { "links": "System", "rechts": "Verarbeitet alle Entities mit bestimmten Komponenten" },
+        { "links": "Hot/Cold Splitting", "rechts": "Häufig gelesene Daten von selten gelesenen trennen" }
+      ],
+      "erklaerung": "Hot/Cold Splitting ist der einfachste Einstieg ins datenorientierte Design: Ein Objekt behält die Felder, die in der Hauptschleife gebraucht werden. Selten benötigte Felder (Name, Konfiguration, Statistik) wandern in eine separate Struktur."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Wann lohnt sich datenorientiertes Design, und wann nicht?",
+      "optionen": [
+        "Es lohnt sich bei vielen gleichartigen Elementen in heissen Schleifen. Bei wenigen, unterschiedlichen Objekten mit komplexem Verhalten ist objektorientierter Code oft klarer",
+        "Es lohnt sich immer, Objektorientierung ist veraltet",
+        "Nur auf Spielkonsolen"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Ein Steuergerät mit zehn Zustandsautomaten profitiert kaum. Eine Punktwolke mit einer Million Punkten, eine Simulation mit vielen Körpern oder eine Signalverarbeitung mit vielen Kanälen dagegen sehr. Wie immer gilt: zuerst messen (Profiler, `perf stat` für Cache-Misses), dann umbauen.",
+      "begruendungen": [
+        "Richtig.",
+        "Beide Ansätze haben ihren Platz.",
+        "Das Prinzip gilt auf jeder CPU mit Cache."
+      ]
+    },
+    {
+      "typ": "terminal-deuten",
+      "frage": "Du vergleichst beide Varianten mit `perf stat`. Was erklärt den Laufzeitunterschied?",
+      "terminal": {
+        "befehl": "perf stat -e cycles,cache-misses ./partikel_aos && perf stat -e cycles,cache-misses ./partikel_soa",
+        "ausgabe": [
+          "AoS:  2 914 233 102  cycles      18 422 917  cache-misses",
+          "SoA:    611 448 920  cycles       2 304 118  cache-misses"
+        ]
+      },
+      "optionen": [
+        "SoA hat etwa achtmal weniger Cache-Misses und braucht knapp ein Fünftel der Takte",
+        "Beide sind gleich schnell",
+        "AoS ist schneller, weil es mehr Takte nutzt"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Die Zahlen zeigen den Zusammenhang direkt: Weniger verschwendete Cache-Zeilen bedeuten weniger Wartezeit auf den Speicher. Zusätzlich hilft die Vektorisierung, die man mit `-fopt-info-vec` beim Übersetzen sichtbar macht.",
+      "begruendungen": [
+        "Richtig.",
+        "Die Unterschiede sind deutlich.",
+        "Mehr Takte heisst langsamer."
+      ]
+    }
+  ],
+  "praxis": "Datenorientiertes Denken hilft auch ohne vollständiges ECS: Strukturen nach Zugriffsmustern schneiden, Daten in zusammenhängenden Arrays statt verstreuten Objekten halten, Indizes statt Zeigern verwenden, Polymorphie über Typ-Gruppierung statt virtuelle Aufrufe in heissen Schleifen. Mike Actons Vortrag „Data-Oriented Design and C++“ ist ein Klassiker zum Thema.",
+  "labor": {
+    "titel": "AoS gegen SoA messen",
+    "anleitung": "Implementiere beide Varianten für 1 Million Partikel und miss die Aktualisierung der Positionen mit Google Benchmark und `perf stat`.",
+    "befehle": [
+      "g++ -std=c++20 -O3 -march=native partikel.cpp -lbenchmark -lpthread -o partikel",
+      "./partikel",
+      "perf stat -e cycles,cache-misses,instructions ./partikel"
+    ],
+    "beobachtung": "Variiere die Grösse der Struktur in AoS, indem du den `name`-Puffer vergrösserst. Die Laufzeit der AoS-Variante steigt mit, die der SoA-Variante bleibt gleich."
+  },
+  "begriffe": [
+    { "begriff": "Datenorientiertes Design", "englisch": "data-oriented design", "erklaerung": "Gestaltung von Software ausgehend von Daten und ihren Zugriffsmustern." },
+    { "begriff": "SoA / AoS", "englisch": "structure of arrays / array of structures", "erklaerung": "Zwei Arten, viele gleichartige Datensätze im Speicher anzuordnen." },
+    { "begriff": "ECS", "englisch": "entity component system", "erklaerung": "Architektur aus IDs, reinen Datenkomponenten und Systemen, die sie verarbeiten." }
+  ],
+  "weiterlesen": [
+    { "titel": "Mike Acton: Data-Oriented Design and C++ (CppCon 2014)", "url": "https://www.youtube.com/watch?v=rX0ItVEVjHc" },
+    { "titel": "EnTT", "url": "https://github.com/skypjack/entt" }
+  ]
+}

@@ -1,110 +1,180 @@
 {
   "id": "p8-m2-l1",
   "phase": 8,
-  "modul": "8.2 Entscheidungen und Trade-offs",
-  "titel": "Trade-offs begründen",
+  "modul": "8.2 Pipeline-Stufen und Quality Gates",
+  "titel": "Build, Analyse, Tests, Packaging",
   "lernziele": [
-    "Lösungen anhand ausdrücklicher Kriterien vergleichen",
-    "Typische Trade-offs in C++-Systemen benennen",
-    "„Es kommt darauf an“ in eine hilfreiche Antwort verwandeln"
+    "Die Stufen einer C++-Pipeline und ihren Zweck kennen",
+    "Eine Build-Matrix lesen",
+    "Ein Artefakt eindeutig versionieren"
   ],
   "dauerMinuten": 6,
   "schritte": [
     {
       "typ": "multiple-choice",
-      "frage": "Für die Verarbeitung von Messwerten gibt es zwei Entwürfe. A: einfach, zwei Tage Aufwand, schafft 5 000 Nachrichten pro Sekunde. B: lock-free und hochoptimiert, drei Wochen Aufwand, schafft 500 000. Gefordert sind 800 pro Sekunde, für die nächsten Jahre wird höchstens eine Verdopplung erwartet. Was empfiehlst du?",
+      "frage": "Warum laufen in einer Pipeline die schnellen Prüfungen wie Formatierung und Kompilieren zuerst?",
       "optionen": [
-        "A: Er erfüllt die Anforderung mit grossem Puffer. B kostet mehr in Entwicklung und Wartung, ohne dass jemand den Nutzen braucht",
-        "B, weil schneller immer besser ist",
-        "Keinen von beiden, sondern zuerst ein noch schnelleres C",
-        "B, weil man nie weiss, was kommt"
+        "Damit offensichtliche Fehler nach Sekunden auffallen, statt erst nach einer halben Stunde Systemtests",
+        "Weil langsame Prüfungen sonst nicht starten können",
+        "Weil Jenkins die Stufen alphabetisch sortiert"
       ],
       "korrekt": 0,
-      "erklaerung": "Eine gute Entscheidung misst Lösungen an den **Anforderungen**, nicht an technischer Eleganz. A hat sechsfachen Puffer gegenüber der erwarteten Spitze. B wäre schwerer zu verstehen, zu testen und zu ändern, also Kosten für jeden, der den Code später anfasst. Ändern sich die Anforderungen, kann man neu entscheiden.",
+      "erklaerung": "Das Prinzip heisst **fail fast**: billige Prüfungen zuerst, teure zuletzt. Ein Tippfehler soll nicht erst nach 30 Minuten Hardware-Test auffallen. Unabhängige Prüfungen laufen ausserdem **parallel**.",
       "begruendungen": [
         "Richtig.",
-        "Schnelligkeit ohne Bedarf ist ein Kostenfaktor.",
-        "Ohne Bedarf ist das noch mehr Aufwand ohne Nutzen.",
-        "Für ungewisse Zukunft hält man Code einfach und änderbar. Das spricht für A."
+        "Technisch könnten sie auch zuerst laufen, es wäre nur verschwenderisch.",
+        "Die Reihenfolge legst du selbst fest."
       ]
     },
     {
       "typ": "erklaerung",
-      "titel": "Es gibt keine beste Lösung, nur Abwägungen",
-      "text": "Fast jede technische Entscheidung tauscht etwas gegen etwas anderes: Leistung gegen Einfachheit, Flexibilität gegen Verständlichkeit, Kompilierzeit gegen Laufzeit. Die Kunst ist, diese **Trade-offs** sichtbar zu machen.\n\nHilfreich sind **Qualitätsmerkmale** als Kriterien, z. B. nach ISO 25010: Leistung, Zuverlässigkeit, Sicherheit, Wartbarkeit, Portierbarkeit, Benutzbarkeit. Für jedes Projekt sind andere wichtig. In einem Herzschrittmacher ist Zuverlässigkeit wichtiger als Entwicklungstempo, in einem Messe-Prototyp ist es umgekehrt."
+      "titel": "Typische Stufen einer C++-Pipeline",
+      "text": "- **Checkout**: genau den Commit holen, der geprüft wird.\n- **Build**, oft als **Matrix**: mehrere Compiler, Plattformen und Build-Typen.\n- **Statische Analyse**: Format (`clang-format`), `clang-tidy`, Warnungen als Fehler.\n- **Unit-Tests**, dazu Jobs mit Sanitizern (ASan/UBSan, TSan).\n- **Integrationstests**, z. B. auf Hardware-Prüfständen.\n- **Packaging**: ein versioniertes Artefakt mit Prüfsumme und Liste der enthaltenen Abhängigkeiten (SBOM), abgelegt in einem Artefakt-Speicher.\n\nCaches für Abhängigkeiten und `ccache` halten die Laufzeit kurz. Ziel für Pull Requests: unter zehn Minuten."
+    },
+    {
+      "typ": "reihenfolge",
+      "frage": "Bringe die Stufen in eine sinnvolle Reihenfolge.",
+      "elemente": [
+        "Checkout",
+        "Build",
+        "Statische Analyse und Unit-Tests",
+        "Integrationstests",
+        "Packaging und Ablage des Artefakts"
+      ],
+      "erklaerung": "Statische Analyse und Unit-Tests können parallel laufen. Integrationstests brauchen oft das gebaute Programm und teure Ressourcen wie Prüfstände. Gepackt wird erst, wenn alles grün ist."
     },
     {
       "typ": "zuordnen",
-      "frage": "Was wird bei diesen Entscheidungen gegeneinander getauscht?",
+      "frage": "Wofür ist welche Stufe da?",
       "paare": [
-        { "links": "PIMPL einsetzen", "rechts": "Stabile ABI und schnellere Builds gegen eine Allokation und Indirektion" },
-        { "links": "Templates statt virtueller Funktionen", "rechts": "Laufzeit gegen Kompilierzeit und Code im Header" },
-        { "links": "Statisch linken", "rechts": "Einfache Auslieferung gegen Updates nur durch Neubau" },
-        { "links": "Exceptions abschalten", "rechts": "Vorhersagbare Laufzeit gegen umständlichere Fehlerbehandlung" }
+        {
+          "links": "Build-Matrix",
+          "rechts": "Baut mit mehreren Compilern und Plattformen, um Portabilitätsprobleme früh zu sehen"
+        },
+        {
+          "links": "Sanitizer-Job",
+          "rechts": "Führt die Tests mit ASan und UBSan aus und findet Speicherfehler"
+        },
+        {
+          "links": "Packaging",
+          "rechts": "Erzeugt ein versioniertes, auslieferbares Artefakt"
+        },
+        {
+          "links": "SBOM",
+          "rechts": "Liste aller enthaltenen Abhängigkeiten mit Versionen"
+        }
       ],
-      "erklaerung": "Alle vier kennst du aus früheren Phasen. Einem Senior fällt bei jeder Technik sofort ein, was sie kostet, nicht nur was sie bringt."
+      "erklaerung": "Eine **Software Bill of Materials** (SBOM) wird zunehmend vorgeschrieben, z. B. durch den Cyber Resilience Act der EU. Wird in einer Bibliothek eine Sicherheitslücke bekannt, sieht man sofort, welche ausgelieferten Versionen betroffen sind."
     },
     {
-      "typ": "multiple-choice",
-      "frage": "Warum lohnt es sich, die Bewertungskriterien **vor** dem Vergleich der Lösungen aufzuschreiben?",
+      "typ": "code-lesen",
+      "frage": "Wie viele Jobs erzeugt diese Matrix in GitHub Actions?",
+      "code": {
+        "sprache": "yaml",
+        "zeilen": [
+          "strategy:",
+          "  matrix:",
+          "    compiler: [gcc-13, clang-17]",
+          "    build_type: [Debug, Release]",
+          "    include:",
+          "      - compiler: clang-17",
+          "        build_type: Debug",
+          "        sanitize: true"
+        ]
+      },
       "optionen": [
-        "So rechtfertigt man nicht nachträglich die Lieblingslösung, und Meinungsverschiedenheiten über Gewichtungen werden sichtbar",
-        "Weil man ohne Kriterien keine Tabelle zeichnen kann",
-        "Weil das Management es so verlangt"
+        "4",
+        "5",
+        "2"
       ],
       "korrekt": 0,
-      "erklaerung": "Wer zuerst die Lösung mag, findet danach immer passende Argumente. Werden die Kriterien vorher festgelegt, streitet man produktiver: über die Gewichtung („Ist Wartbarkeit hier wichtiger als Leistung?“) und über Fakten („Schafft A wirklich 5 000?“), statt über Vorlieben.",
+      "fest": true,
+      "erklaerung": "2 Compiler × 2 Build-Typen = 4 Kombinationen. Der `include`-Eintrag passt genau zu einer bestehenden Kombination (clang-17, Debug) und ergänzt dort nur das Feld `sanitize`. Er erzeugt keinen neuen Job. Erst ein `include`, das zu keiner Kombination passt, würde einen fünften Job anlegen.",
       "begruendungen": [
         "Richtig.",
-        "Die Tabelle ist nur ein Hilfsmittel.",
-        "Es hilft vor allem dem Team selbst."
+        "Das `include` passt zu einer bestehenden Kombination und ergänzt sie nur.",
+        "Die Werte der beiden Achsen werden miteinander kombiniert."
       ]
     },
     {
       "typ": "erklaerung",
-      "titel": "„Es kommt darauf an“, aber richtig",
-      "text": "„Es kommt darauf an“ ist die ehrlichste Antwort auf viele Fragen, aber allein nutzlos. Eine Senior-Antwort sagt, **worauf** es ankommt und was daraus folgt:\n\n„Es kommt auf die Datenmenge und den Zugriff an. Bei wenigen hundert Einträgen ist ein sortierter Vektor meist am schnellsten. Brauchst du sortierte Ausgabe und häufiges Einfügen, nimm `std::map`. Für grosse Mengen mit reinem Nachschlagen `std::unordered_map`. Wenn es zeitkritisch ist, messen wir.“"
+      "titel": "Schnell bleiben",
+      "text": "Eine Pipeline, die eine Stunde braucht, wird umgangen. Die wichtigsten Hebel:\n\n- **ccache** oder ein Remote-Cache für Compiler-Ergebnisse\n- Abhängigkeiten zwischenspeichern (Conan-/vcpkg-Cache, vorgebaute Docker-Images mit Toolchain)\n- Jobs **parallel** statt nacheinander\n- Artefakte zwischen Stufen weitergeben statt neu zu bauen\n- lange Tests (Hardware, Fuzzing, Langzeittests) nachts statt bei jedem Pull Request"
     },
     {
       "typ": "multiple-choice",
-      "frage": "Ein Junior fragt: „Was ist besser, `std::map` oder `std::unordered_map`?“ Welche Antwort hilft am meisten?",
+      "frage": "Was muss ein ausgeliefertes Artefakt unbedingt haben?",
       "optionen": [
-        "„Das hängt davon ab, ob du sortiert durchlaufen musst, wie viele Einträge es sind und wie oft du suchst. Erzähl mir den Fall, dann überlegen wir zusammen.“",
-        "„Immer `unordered_map`, die ist schneller.“",
-        "„Immer `map`, die ist sicherer.“"
+        "Eine eindeutige Version, die auf den Commit zurückführt, und eine Prüfsumme",
+        "Einen Dateinamen mit dem Datum des Builds",
+        "Eine möglichst kleine Dateigrösse"
       ],
       "korrekt": 0,
-      "erklaerung": "Die erste Antwort gibt Kriterien, die der Junior auch beim nächsten Mal anwenden kann, und lädt zum gemeinsamen Denken ein. Pauschale Regeln sind schneller gesagt, aber manchmal falsch: `unordered_map` ist bei kleinen Mengen oft langsamer, und `map` ist nicht „sicherer“.",
+      "erklaerung": "Meldet ein Kunde einen Fehler in „Version 2.4.1“, muss eindeutig sein, aus welchem Commit diese Version gebaut wurde und welche Abhängigkeiten sie enthält. Die Prüfsumme (z. B. SHA-256) beweist, dass die Datei unterwegs nicht verändert wurde. Oft kommt eine digitale Signatur hinzu.",
       "begruendungen": [
         "Richtig.",
-        "Nicht immer, z. B. bei kleinen Mengen oder wenn die Hash-Funktion teuer ist.",
-        "Beide sind gleich sicher. Sie unterscheiden sich in Ordnung und Leistung."
+        "Ein Datum sagt nicht, welcher Code enthalten ist, und zwei Builds am selben Tag wären nicht unterscheidbar.",
+        "Die Grösse ist zweitrangig."
       ]
     },
     {
-      "typ": "lueckentext",
-      "frage": "Ergänze.",
-      "text": "Gute Architektur-Entscheidungen machen die {{?}} ausdrücklich und halten die Begründung in einem {{?}} fest.",
-      "luecken": [{ "loesungen": ["Kriterien"] }, { "loesungen": ["ADR"] }],
-      "auswahl": ["Kriterien", "ADR", "Kosten", "Kommentar"],
-      "erklaerung": "Kriterien, Abwägung und verworfene Alternativen sind genau das, was in den Abschnitt „Konsequenzen“ eines ADR gehört (Modul 7.7)."
+      "typ": "terminal-deuten",
+      "frage": "Ein Build-Skript übernimmt diese Ausgabe als Versionsnummer. Was sagt sie?",
+      "terminal": {
+        "befehl": "git describe --tags --dirty",
+        "ausgabe": [
+          "v2.4.0-17-g3f9c2ab-dirty"
+        ]
+      },
+      "optionen": [
+        "17 Commits nach dem Tag `v2.4.0`, aktueller Commit `3f9c2ab`, mit nicht committeten Änderungen im Arbeitsverzeichnis",
+        "Version 2.4.0, Build Nummer 17",
+        "Der Tag `v2.4.0` ist beschädigt"
+      ],
+      "korrekt": 0,
+      "erklaerung": "`git describe` beschreibt einen Commit relativ zum letzten Tag. `-dirty` heisst: Es gibt lokale Änderungen, die in keinem Commit stehen. Ein solches Artefakt ist nicht reproduzierbar. Release-Pipelines sollten bei `-dirty` deshalb abbrechen.",
+      "begruendungen": [
+        "Richtig. Das `g` vor dem Hash steht für Git.",
+        "17 ist die Anzahl Commits seit dem Tag, keine Build-Nummer.",
+        "Der Tag ist in Ordnung."
+      ]
     }
   ],
-  "praxis": "In Design-Diskussionen erkennt man Seniors daran, dass sie Optionen und Kriterien auf den Tisch legen, statt eine Lösung zu verteidigen. Ein einfaches Werkzeug dafür ist eine Tabelle mit Optionen als Spalten und Kriterien als Zeilen. Sie passt in jeden Pull Request und jedes ADR und macht Entscheidungen auch für die Kolleginnen und Kollegen nachvollziehbar, die nicht dabei waren.",
+  "praxis": "Eine gute Pipeline ist schnell, zuverlässig und lückenlos rückverfolgbar. Wenn du eine neue aufsetzt oder eine bestehende übernimmst, prüfe: Wird das Artefakt genau einmal gebaut? Trägt es eine eindeutige Version aus Git? Laufen Sanitizer und statische Analyse? Wie lange dauert ein Pull Request? Wo verschwindet die meiste Zeit?",
   "labor": {
-    "titel": "Eine Entscheidung nachträglich bewerten",
-    "anleitung": "Nimm eine technische Entscheidung aus deinem Projekt, die schon ein Jahr alt ist. Schreib auf: Welche Kriterien waren damals wichtig? Welche Alternativen gab es? Würdest du heute gleich entscheiden?",
+    "titel": "Version aus Git ins Binary",
+    "anleitung": "Lass CMake beim Konfigurieren `git describe` ausführen und die Version als Makro an den Compiler geben. Gib sie im Programm mit `--version` aus.",
     "befehle": [
-      "git log --diff-filter=A --format='%ad %s' --date=short -- CMakeLists.txt conanfile.* vcpkg.json | tail"
+      "git tag v0.1.0 && git commit --allow-empty -m 'Test' && git describe --tags --dirty",
+      "cmake -S . -B build && cmake --build build && ./build/app --version"
     ],
-    "beobachtung": "Der Befehl zeigt, wann zentrale Build-Dateien hinzugefügt wurden. Oft fehlt zu genau diesen Entscheidungen jede Begründung, ein guter Anlass für ein nachträgliches ADR."
+    "beobachtung": "In CMake z. B.: `execute_process(COMMAND git describe --tags --dirty OUTPUT_VARIABLE VERSION OUTPUT_STRIP_TRAILING_WHITESPACE)` und `target_compile_definitions(app PRIVATE APP_VERSION=\"${VERSION}\")`. Achtung: Die Version wird nur beim Konfigurieren aktualisiert."
   },
   "begriffe": [
-    { "begriff": "Trade-off", "englisch": "trade-off", "erklaerung": "Abwägung, bei der man einen Vorteil mit einem Nachteil an anderer Stelle bezahlt." },
-    { "begriff": "Qualitätsmerkmal", "englisch": "quality attribute", "erklaerung": "Eigenschaft wie Leistung, Zuverlässigkeit, Wartbarkeit oder Sicherheit, an der man Lösungen misst." },
-    { "begriff": "Entscheidungsmatrix", "englisch": "decision matrix", "erklaerung": "Tabelle mit Optionen und gewichteten Kriterien zum Vergleich von Lösungen." }
+    {
+      "begriff": "Fail fast",
+      "englisch": "fail fast",
+      "erklaerung": "Schnelle Prüfungen zuerst, damit Fehler früh und günstig auffallen."
+    },
+    {
+      "begriff": "Build-Matrix",
+      "englisch": "build matrix",
+      "erklaerung": "Derselbe Build in mehreren Kombinationen aus Compiler, Plattform und Build-Typ."
+    },
+    {
+      "begriff": "SBOM",
+      "englisch": "software bill of materials",
+      "erklaerung": "Stückliste einer Software: alle enthaltenen Komponenten mit Versionen und Lizenzen."
+    }
   ],
   "weiterlesen": [
-    { "titel": "ISO 25010: Product quality model", "url": "https://iso25000.com/index.php/en/iso-25000-standards/iso-25010" }
+    {
+      "titel": "GitHub Docs: Using a matrix for your jobs",
+      "url": "https://docs.github.com/en/actions/using-jobs/using-a-matrix-for-your-jobs"
+    },
+    {
+      "titel": "Git: git-describe",
+      "url": "https://git-scm.com/docs/git-describe"
+    }
   ]
 }

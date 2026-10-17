@@ -1,0 +1,128 @@
+{
+  "id": "p6-m5-l1",
+  "phase": 6,
+  "modul": "6.5 Kommunikationsschnittstellen",
+  "titel": "UART und SPI",
+  "lernziele": [
+    "Aufbau eines UART-Rahmens und die Rolle der Baudrate erklären",
+    "Die Signale und Modi von SPI kennen",
+    "Typische Verdrahtungs- und Konfigurationsfehler erkennen"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Warum müssen bei einem **UART** beide Seiten auf dieselbe Baudrate eingestellt sein?",
+      "optionen": [
+        "Es gibt keine Taktleitung. Der Empfänger tastet die Bits nach seiner eigenen Uhr ab und muss wissen, wie lang ein Bit dauert",
+        "Weil sonst die Spannungspegel nicht passen",
+        "Weil der Sender sonst kein Startbit senden kann"
+      ],
+      "korrekt": 0,
+      "erklaerung": "UART ist **asynchron**: Nur die fallende Flanke des Startbits synchronisiert den Empfänger. Danach tastet er in der Mitte jedes Bits ab, im Abstand seiner eigenen Baudrate. Weichen die Uhren um mehr als etwa 2 bis 3 % ab, liegen die Abtastpunkte gegen Ende des Rahmens im falschen Bit.",
+      "begruendungen": [
+        "Richtig.",
+        "Die Pegel sind ein eigenes Thema, siehe unten.",
+        "Das Startbit sendet der Sender immer. Das Problem liegt beim Empfänger."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Ein UART-Rahmen",
+      "text": "Im Ruhezustand liegt die Leitung auf High. Ein Rahmen im üblichen Format **8N1** besteht aus: 1 Startbit (Low), 8 Datenbits (niederwertigstes zuerst), keinem Paritätsbit, 1 Stoppbit (High). Das sind 10 Bit pro Byte. Bei 115 200 Baud kommen also etwa 11 520 Byte pro Sekunde an.\n\nVerdrahtung: TX des einen an RX des anderen, dazu eine gemeinsame Masse. Achtung bei den **Pegeln**: Mikrocontroller arbeiten meist mit 3,3 V (TTL-Pegel), RS-232 mit ±12 V, RS-485 differentiell über längere Strecken. Direkt verbinden zerstört im schlimmsten Fall den Chip."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Wie lange dauert es, 100 Byte bei 115 200 Baud im Format 8N1 zu übertragen?",
+      "code": {
+        "sprache": "text",
+        "zeilen": ["Dauer = Bytes · Bits pro Rahmen / Baudrate"]
+      },
+      "optionen": ["etwa 8,7 ms", "etwa 6,9 ms", "etwa 0,87 ms", "etwa 87 ms"],
+      "korrekt": 0,
+      "fest": true,
+      "erklaerung": "100 · 10 / 115 200 ≈ 8,7 ms. Wer mit 8 statt 10 Bit rechnet, kommt auf 6,9 ms und unterschätzt den Bedarf um 20 %. Solche Abschätzungen brauchst du ständig: Reicht die Schnittstelle für die Datenmenge? Wie gross muss der Empfangspuffer sein?",
+      "begruendungen": [
+        "Richtig.",
+        "Das wäre ohne Start- und Stoppbit gerechnet.",
+        "Eine Zehnerpotenz zu wenig.",
+        "Eine Zehnerpotenz zu viel."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "SPI",
+      "text": "**SPI** ist **synchron**: Der Master erzeugt den Takt SCK, und mit jeder Taktflanke wird ein Bit in jede Richtung übertragen (Vollduplex). Jeder Slave hat eine eigene **Chip-Select**-Leitung (CS), die ihn auswählt. Es gibt keine Adressen und keine Bestätigung. Dafür ist SPI einfach und schnell, oft 10 bis 50 MHz, und eignet sich gut für Displays, Flash-Speicher und schnelle Sensoren.\n\nDie vier **SPI-Modi** legen fest, ob der Takt in Ruhe High oder Low ist (CPOL) und an welcher Flanke abgetastet wird (CPHA). Master und Slave müssen denselben Modus verwenden."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Ordne die SPI-Signale zu.",
+      "paare": [
+        { "links": "SCK", "rechts": "Takt vom Master" },
+        { "links": "MOSI", "rechts": "Daten vom Master zum Slave" },
+        { "links": "MISO", "rechts": "Daten vom Slave zum Master" },
+        { "links": "CS", "rechts": "Wählt den angesprochenen Slave aus, meist aktiv Low" }
+      ],
+      "erklaerung": "Neuere Dokumente verwenden oft die Bezeichnungen COPI (*controller out, peripheral in*) und CIPO. Die Funktion ist dieselbe."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Ein SPI-Sensor liefert Werte, die wie um ein Bit verschoben aussehen. Was ist die häufigste Ursache?",
+      "optionen": [
+        "Ein falscher SPI-Modus (CPOL/CPHA): Der Master tastet an der falschen Flanke ab",
+        "Eine falsche Baudrate auf dem Slave",
+        "Ein fehlender Pull-up auf MISO"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Wird an der Flanke abgetastet, an der der Slave das nächste Bit anlegt, liest man jeweils das falsche oder ein halb gewechseltes Bit. Das Datenblatt des Sensors nennt den Modus, oft als Timing-Diagramm. Mit einem Logikanalysator sieht man es in Sekunden.",
+      "begruendungen": [
+        "Richtig.",
+        "Den Takt gibt der Master vor, der Slave hat keine eigene Baudrate.",
+        "Das würde eher zu konstanten Werten wie `0xFF` führen."
+      ]
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Laut dieser Verdrahtungsnotiz kommt vom Funkmodul nichts an. Welche Zeile ist falsch?",
+      "code": {
+        "sprache": "text",
+        "datei": "verdrahtung.txt",
+        "zeilen": [
+          "Verbindung zum Funkmodul (UART, 3,3 V)",
+          "MCU TX (PA2)  ->  Modul TX",
+          "MCU RX (PA3)  <-  Modul RX",
+          "MCU GND       --  Modul GND"
+        ]
+      },
+      "fehlerZeile": 2,
+      "erklaerung": "TX muss immer an RX der Gegenseite, und umgekehrt. Hier treffen zwei Sender aufeinander, und Zeile 3 hat denselben Fehler gespiegelt. Ein Blick mit dem Oszilloskop auf die Leitung zeigt, ob überhaupt jemand sendet. Gemeinsame Masse (Zeile 4) ist richtig und wird übrigens auch oft vergessen."
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze.",
+      "text": "Ein UART-Rahmen im Format 8N1 besteht aus 1 Startbit, {{?}} Datenbits und 1 {{?}}.",
+      "luecken": [{ "loesungen": ["8"] }, { "loesungen": ["Stoppbit"] }],
+      "auswahl": ["8", "Stoppbit", "7", "Paritätsbit"],
+      "erklaerung": "Das N steht für „no parity“. Mit Parität (z. B. 8E1) kommt ein Bit zur Fehlererkennung hinzu, dann sind es 11 Bit pro Byte."
+    }
+  ],
+  "praxis": "Die UART-Konsole ist oft die erste und wichtigste Debug-Schnittstelle eines neuen Boards. Wenn nur Zeichensalat ankommt, ist fast immer die Baudrate oder der Takt falsch eingestellt. Wenn gar nichts ankommt, sind TX und RX vertauscht, Masse fehlt oder der Pin hat die falsche Alternativfunktion. Bei SPI lohnt sich bei jedem neuen Gerät ein Blick mit dem Logikanalysator, bevor man stundenlang im Code sucht.",
+  "labor": {
+    "titel": "Einen UART mitschneiden",
+    "anleitung": "Verbinde einen günstigen USB-Logikanalysator mit der TX-Leitung deines Boards und dekodiere die Übertragung mit PulseView.",
+    "befehle": [
+      "sigrok-cli -d fx2lafw --config samplerate=4m --channels D0 --time 200ms -o uart.sr",
+      "sigrok-cli -i uart.sr -P uart:rx=D0:baudrate=115200 -A uart=rx-data"
+    ],
+    "beobachtung": "Der Decoder zeigt jedes Byte mit Start- und Stoppbit. Stell im Decoder bewusst eine falsche Baudrate ein: Dann erscheinen Rahmenfehler (*framing error*), genau wie beim Empfänger mit falscher Einstellung."
+  },
+  "begriffe": [
+    { "begriff": "UART", "englisch": "universal asynchronous receiver-transmitter", "erklaerung": "Asynchrone serielle Schnittstelle ohne Taktleitung, Punkt zu Punkt." },
+    { "begriff": "Baudrate", "englisch": "baud rate", "erklaerung": "Anzahl übertragener Symbole pro Sekunde, bei UART gleich der Bits pro Sekunde." },
+    { "begriff": "SPI", "englisch": "serial peripheral interface", "erklaerung": "Synchrone serielle Schnittstelle mit Takt vom Master und Chip-Select pro Slave." },
+    { "begriff": "SPI-Modus", "englisch": "SPI mode (CPOL/CPHA)", "erklaerung": "Legt Ruhepegel des Takts und Abtastflanke fest. Master und Slave müssen übereinstimmen." }
+  ],
+  "weiterlesen": [
+    { "titel": "Analog Devices: Introduction to SPI Interface", "url": "https://www.analog.com/en/resources/analog-dialogue/articles/introduction-to-spi-interface.html" }
+  ]
+}

@@ -1,0 +1,126 @@
+{
+  "id": "p7-m2-l3",
+  "phase": 7,
+  "modul": "7.2 RTOS-Grundlagen",
+  "titel": "Prioritätsinversion und Deadlocks",
+  "lernziele": [
+    "Prioritätsinversion an einem Beispiel erklären",
+    "Prioritätsvererbung und Priority Ceiling unterscheiden",
+    "Deadlocks erkennen und vermeiden"
+  ],
+  "dauerMinuten": 7,
+  "schritte": [
+    {
+      "typ": "erklaerung",
+      "titel": "Mars Pathfinder, 1997",
+      "text": "Wenige Tage nach der Landung auf dem Mars startete der Rover-Rechner immer wieder neu. Ursache: Eine niedrig priorisierte Wetter-Task hielt einen Mutex für den Datenbus. Die hochpriorisierte Bus-Task wartete darauf. Dazwischen lief eine mittel priorisierte Kommunikations-Task lange und verdrängte die Wetter-Task, die den Mutex darum nie freigab. Die Bus-Task verpasste ihre Frist, und ein Watchdog löste den Reset aus.\n\nDas Phänomen heisst **Prioritätsinversion**. Behoben wurde es aus 190 Millionen Kilometern Entfernung, indem man im VxWorks-RTOS die **Prioritätsvererbung** für diesen Mutex einschaltete."
+    },
+    {
+      "typ": "reihenfolge",
+      "frage": "Bringe den Ablauf einer Prioritätsinversion in die richtige Reihenfolge.",
+      "elemente": [
+        "Task Niedrig nimmt den Mutex",
+        "Task Hoch wird bereit und wartet auf den Mutex",
+        "Task Mittel wird bereit und verdrängt Niedrig",
+        "Mittel rechnet lange, Niedrig kommt nicht dazu, den Mutex freizugeben",
+        "Hoch verpasst ihre Frist, obwohl sie gar nicht auf Mittel wartet"
+      ],
+      "erklaerung": "Das Gemeine daran: Hoch wird indirekt von Mittel blockiert, einer Task, mit der sie nichts zu tun hat. Die Blockierzeit ist damit nicht mehr durch die Länge des kritischen Abschnitts begrenzt."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Wie löst **Prioritätsvererbung** das Problem?",
+      "optionen": [
+        "Solange Hoch auf den Mutex wartet, erhält Niedrig vorübergehend die Priorität von Hoch. So kann Mittel sie nicht verdrängen",
+        "Hoch bekommt eine noch höhere Priorität",
+        "Mittel wird beendet"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Niedrig erbt die Priorität und gibt den Mutex schnell frei, danach fällt sie auf ihre alte Priorität zurück. FreeRTOS-Mutexe machen das automatisch, binäre Semaphore nicht. Darum ist es wichtig, für gegenseitigen Ausschluss den Mutex zu verwenden.",
+      "begruendungen": [
+        "Richtig.",
+        "Hoch wartet ja auf den Mutex, mehr Priorität hilft ihr nicht.",
+        "Mittel macht nichts falsch und läuft weiter, nur später."
+      ]
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Ordne die Verfahren zu.",
+      "paare": [
+        { "links": "Prioritätsvererbung", "rechts": "Der Besitzer erbt die Priorität des höchsten Wartenden, erst wenn jemand wartet" },
+        { "links": "Priority Ceiling", "rechts": "Wer die Ressource nimmt, erhält sofort die höchste Priorität aller möglichen Nutzer" },
+        { "links": "Interrupts sperren", "rechts": "Für sehr kurze Abschnitte, auch gegenüber ISRs" },
+        { "links": "Gatekeeper-Task", "rechts": "Kein gemeinsamer Zugriff, nur Nachrichten" }
+      ],
+      "erklaerung": "Das **Priority Ceiling Protocol** verhindert zusätzlich Deadlocks zwischen den betroffenen Ressourcen und wird in AUTOSAR OS und sicherheitskritischen RTOS verwendet. Es setzt voraus, dass man vorab weiss, welche Tasks welche Ressourcen nutzen."
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Diese zwei Tasks hängen gelegentlich beide für immer. Welche Zeile verursacht den Deadlock?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "void taskA(void*) {",
+          "    for (;;) {",
+          "        MutexSperre s1{spiMutex};",
+          "        MutexSperre s2{flashMutex};",
+          "        sichereMesswerte();",
+          "    }",
+          "}",
+          "void taskB(void*) {",
+          "    for (;;) {",
+          "        MutexSperre s1{flashMutex};",
+          "        MutexSperre s2{spiMutex};",
+          "        aktualisiereKonfig();",
+          "    }",
+          "}"
+        ]
+      },
+      "fehlerZeile": 10,
+      "erklaerung": "A hält `spiMutex` und wartet auf `flashMutex`, B hält `flashMutex` und wartet auf `spiMutex`: Keine kann weitermachen. Die Regel lautet: Mehrere Sperren immer in derselben, global festgelegten Reihenfolge nehmen. Hier also auch in B zuerst `spiMutex`. Noch besser: Nur eine Sperre gleichzeitig halten oder die Ressourcen in einer Task bündeln."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Wie erkennst du in einem laufenden System, dass es einen Deadlock gibt?",
+      "optionen": [
+        "Ein Watchdog, der nur gefüttert wird, wenn sich alle Tasks melden, schlägt an. Der Debugger zeigt beide Tasks als Blocked auf einem Mutex",
+        "Die CPU-Auslastung steigt auf 100 %",
+        "Das System wird langsamer, läuft aber weiter"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Bei einem Deadlock rechnen die betroffenen Tasks nicht, sie warten. Die Auslastung sinkt eher. RTOS-fähige Debugger (z. B. mit der FreeRTOS-Erweiterung in VS Code oder Segger Ozone) zeigen für jede Task, worauf sie wartet. Timeouts statt `portMAX_DELAY` machen Deadlocks zusätzlich sichtbar.",
+      "begruendungen": [
+        "Richtig.",
+        "Wartende Tasks verbrauchen keine Rechenzeit.",
+        "Die beteiligten Tasks stehen vollständig."
+      ]
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze.",
+      "text": "Bei Prioritätsinversion wird eine hohe Task indirekt durch eine {{?}} Task blockiert. Ein Deadlock entsteht oft, wenn Sperren in unterschiedlicher {{?}} genommen werden.",
+      "luecken": [{ "loesungen": ["mittlere"] }, { "loesungen": ["Reihenfolge"] }],
+      "auswahl": ["mittlere", "Reihenfolge", "niedrige", "Priorität"],
+      "erklaerung": "Beide Fehler sind schwer zu reproduzieren, weil sie nur bei bestimmten Zeitverläufen auftreten. Darum verhindert man sie durch Regeln im Entwurf, nicht durch Testen allein."
+    }
+  ],
+  "praxis": "In Code-Reviews von RTOS-Projekten lohnt es sich, für jeden Mutex zu fragen: Wer nimmt ihn? Wie lange wird er gehalten? Werden mehrere gleichzeitig gehalten, und in welcher Reihenfolge? Wird ein binärer Semaphor als Mutex missbraucht? Eine kurze Tabelle in der Architekturdokumentation beantwortet diese Fragen für das ganze Team.",
+  "labor": {
+    "titel": "Prioritätsinversion nachstellen",
+    "anleitung": "Baue im FreeRTOS-POSIX-Port drei Tasks wie bei Pathfinder. Verwende zuerst einen binären Semaphor als Sperre, dann einen Mutex, und miss jeweils die Wartezeit von Hoch.",
+    "befehle": [
+      "make -C FreeRTOS/FreeRTOS/Demo/Posix_GCC",
+      "./build/posix_demo"
+    ],
+    "beobachtung": "Mit dem Semaphor wächst die Wartezeit von Hoch auf die gesamte Rechenzeit von Mittel, mit dem Mutex nur auf die Länge des kritischen Abschnitts."
+  },
+  "begriffe": [
+    { "begriff": "Prioritätsinversion", "englisch": "priority inversion", "erklaerung": "Eine hochpriorisierte Task wird indirekt von einer niedriger priorisierten aufgehalten." },
+    { "begriff": "Prioritätsvererbung", "englisch": "priority inheritance", "erklaerung": "Der Besitzer einer Sperre erbt vorübergehend die Priorität des wartenden Tasks." },
+    { "begriff": "Priority Ceiling", "englisch": "priority ceiling protocol", "erklaerung": "Beim Nehmen einer Ressource erhält die Task sofort deren Höchstpriorität." },
+    { "begriff": "Deadlock", "englisch": "deadlock", "erklaerung": "Mehrere Tasks warten gegenseitig aufeinander, keine kommt weiter." }
+  ],
+  "weiterlesen": [
+    { "titel": "Glenn Reeves: What really happened on Mars?", "url": "https://www.cs.cornell.edu/courses/cs614/1999sp/papers/pathfinder.html" }
+  ]
+}

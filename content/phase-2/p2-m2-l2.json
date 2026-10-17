@@ -63,8 +63,25 @@
           "};"
         ]
       },
-      "luecken": [{ "loesungen": ["~"] }, { "loesungen": ["delete"] }],
-      "auswahl": ["~", "delete", "default", "virtual", "!"],
+      "luecken": [
+        {
+          "loesungen": [
+            "~"
+          ]
+        },
+        {
+          "loesungen": [
+            "delete"
+          ]
+        }
+      ],
+      "auswahl": [
+        "~",
+        "delete",
+        "default",
+        "virtual",
+        "!"
+      ],
       "erklaerung": "`~Datei()` ist der Destruktor. `= delete` verbietet das Kopieren, sonst würden zwei Objekte dasselbe Handle schliessen. Wirft der Konstruktor, existiert kein Objekt, und es läuft auch kein Destruktor. Deshalb prüft man direkt im Konstruktor."
     },
     {
@@ -86,7 +103,11 @@
     {
       "typ": "reihenfolge",
       "frage": "In welcher Reihenfolge laufen die Destruktoren am Ende von `f()`?",
-      "elemente": ["`~C()`", "`~B()`", "`~A()`"],
+      "elemente": [
+        "`~C()`",
+        "`~B()`",
+        "`~A()`"
+      ],
       "hinweis": "In `f()` stehen nacheinander: `A a; B b; C c;`",
       "erklaerung": "Lokale Objekte werden in **umgekehrter** Reihenfolge ihrer Konstruktion zerstört. So kann sich ein später erzeugtes Objekt darauf verlassen, dass frühere noch leben. Das gilt genauso für Member einer Klasse: Sie werden in umgekehrter Deklarationsreihenfolge zerstört."
     },
@@ -94,10 +115,22 @@
       "typ": "zuordnen",
       "frage": "Welche Standard-Klasse verwaltet welche Ressource?",
       "paare": [
-        { "links": "Heap-Speicher für ein Objekt", "rechts": "`std::unique_ptr`" },
-        { "links": "Ein gesperrter Mutex", "rechts": "`std::lock_guard`" },
-        { "links": "Eine geöffnete Datei", "rechts": "`std::ofstream`" },
-        { "links": "Ein laufender Thread", "rechts": "`std::jthread`" }
+        {
+          "links": "Heap-Speicher für ein Objekt",
+          "rechts": "`std::unique_ptr`"
+        },
+        {
+          "links": "Ein gesperrter Mutex",
+          "rechts": "`std::lock_guard`"
+        },
+        {
+          "links": "Eine geöffnete Datei",
+          "rechts": "`std::ofstream`"
+        },
+        {
+          "links": "Ein laufender Thread",
+          "rechts": "`std::jthread`"
+        }
       ],
       "erklaerung": "`std::jthread` (C++20) wartet im Destruktor automatisch auf das Ende des Threads. Ein `std::thread`, der beim Zerstören noch läuft, ruft dagegen `std::terminate` auf."
     },
@@ -133,12 +166,30 @@
     "beobachtung": "Alle drei Destruktoren laufen in umgekehrter Reihenfolge, bevor der `catch`-Block erreicht wird. Ohne `try`/`catch` ruft das Programm `std::terminate` auf, und ob die Destruktoren dann noch laufen, ist implementierungsabhängig."
   },
   "begriffe": [
-    { "begriff": "RAII", "englisch": "resource acquisition is initialization", "erklaerung": "Ressource im Konstruktor erwerben, im Destruktor freigeben. Aufräumen ist so automatisch und exception-sicher." },
-    { "begriff": "Flache Kopie", "englisch": "shallow copy", "erklaerung": "Kopie, die nur Zeiger kopiert, nicht das, worauf sie zeigen. Bei Ressourcen meist falsch." },
-    { "begriff": "Deadlock", "englisch": "deadlock", "erklaerung": "Ein Thread wartet auf eine Sperre, die nie freigegeben wird." }
+    {
+      "begriff": "RAII",
+      "englisch": "resource acquisition is initialization",
+      "erklaerung": "Ressource im Konstruktor erwerben, im Destruktor freigeben. Aufräumen ist so automatisch und exception-sicher."
+    },
+    {
+      "begriff": "Flache Kopie",
+      "englisch": "shallow copy",
+      "erklaerung": "Kopie, die nur Zeiger kopiert, nicht das, worauf sie zeigen. Bei Ressourcen meist falsch."
+    },
+    {
+      "begriff": "Deadlock",
+      "englisch": "deadlock",
+      "erklaerung": "Ein Thread wartet auf eine Sperre, die nie freigegeben wird."
+    }
   ],
   "weiterlesen": [
-    { "titel": "cppreference: RAII", "url": "https://en.cppreference.com/w/cpp/language/raii" },
-    { "titel": "C++ Core Guidelines: R.1 – Manage resources automatically using RAII", "url": "https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#Rr-raii" }
+    {
+      "titel": "cppreference: RAII",
+      "url": "https://en.cppreference.com/w/cpp/language/raii"
+    },
+    {
+      "titel": "C++ Core Guidelines: R.1 – Manage resources automatically using RAII",
+      "url": "https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#Rr-raii"
+    }
   ]
 }

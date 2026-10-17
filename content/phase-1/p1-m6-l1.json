@@ -44,9 +44,18 @@
           "\tg++ -c vektor.cpp"
         ],
         "anmerkungen": [
-          { "zeile": 1, "text": "`app` hängt von zwei Object-Files ab." },
-          { "zeile": 2, "text": "Der Befehl, der `app` erzeugt. Die Einrückung muss ein Tabulator sein." },
-          { "zeile": 4, "text": "`main.o` muss neu entstehen, wenn sich `main.cpp` **oder** `vektor.h` ändert." }
+          {
+            "zeile": 1,
+            "text": "`app` hängt von zwei Object-Files ab."
+          },
+          {
+            "zeile": 2,
+            "text": "Der Befehl, der `app` erzeugt. Die Einrückung muss ein Tabulator sein."
+          },
+          {
+            "zeile": 4,
+            "text": "`main.o` muss neu entstehen, wenn sich `main.cpp` **oder** `vektor.h` ändert."
+          }
         ]
       }
     },
@@ -124,9 +133,18 @@
           "\trm -f app $(OBJ) $(OBJ:.o=.d)"
         ],
         "anmerkungen": [
-          { "zeile": 7, "text": "Musterregel: Jede `.o` entsteht aus der gleichnamigen `.cpp`." },
-          { "zeile": 10, "text": "Liest die vom Compiler erzeugten Abhängigkeiten. Das `-` unterdrückt Fehler, solange die `.d`-Dateien noch fehlen." },
-          { "zeile": 12, "text": "`clean` ist kein Dateiname, sondern eine Aktion." }
+          {
+            "zeile": 7,
+            "text": "Musterregel: Jede `.o` entsteht aus der gleichnamigen `.cpp`."
+          },
+          {
+            "zeile": 10,
+            "text": "Liest die vom Compiler erzeugten Abhängigkeiten. Das `-` unterdrückt Fehler, solange die `.d`-Dateien noch fehlen."
+          },
+          {
+            "zeile": 12,
+            "text": "`clean` ist kein Dateiname, sondern eine Aktion."
+          }
         ]
       }
     },
@@ -134,10 +152,22 @@
       "typ": "zuordnen",
       "frage": "Was bedeutet was?",
       "paare": [
-        { "links": "`$@`", "rechts": "Name des Ziels" },
-        { "links": "`$<`", "rechts": "Erste Voraussetzung" },
-        { "links": "`$^`", "rechts": "Alle Voraussetzungen" },
-        { "links": "`-MMD -MP`", "rechts": "Compiler schreibt die Header-Abhängigkeiten in `.d`-Dateien" }
+        {
+          "links": "`$@`",
+          "rechts": "Name des Ziels"
+        },
+        {
+          "links": "`$<`",
+          "rechts": "Erste Voraussetzung"
+        },
+        {
+          "links": "`$^`",
+          "rechts": "Alle Voraussetzungen"
+        },
+        {
+          "links": "`-MMD -MP`",
+          "rechts": "Compiler schreibt die Header-Abhängigkeiten in `.d`-Dateien"
+        }
       ],
       "erklaerung": "In der Musterregel `%.o: %.cpp` ist `$<` die `.cpp`-Datei und `$@` die `.o`-Datei. `-MP` fügt für jeden Header eine leere Regel hinzu. Löscht man später einen Header, bricht Make dann nicht mit „No rule to make target“ ab."
     },
@@ -146,7 +176,9 @@
       "frage": "Was ist die Ursache?",
       "terminal": {
         "befehl": "make",
-        "ausgabe": ["Makefile:2: *** missing separator.  Stop."]
+        "ausgabe": [
+          "Makefile:2: *** missing separator.  Stop."
+        ]
       },
       "optionen": [
         "Der Befehl in Zeile 2 ist mit Leerzeichen statt mit einem Tabulator eingerückt",
@@ -191,11 +223,25 @@
     "beobachtung": "Der zweite `make`-Aufruf meldet `'app' is up to date`. Nach `touch vektor.h` werden beide Object-Files neu gebaut. `main.d` enthält die vom Compiler ermittelten Abhängigkeiten. `-n` zeigt Befehle an, ohne sie auszuführen."
   },
   "begriffe": [
-    { "begriff": "Abhängigkeitsgraph", "englisch": "dependency graph", "erklaerung": "Welche Datei aus welchen anderen entsteht. Grundlage jedes inkrementellen Builds." },
-    { "begriff": "Phony-Ziel", "englisch": "phony target", "erklaerung": "Make-Ziel, das eine Aktion bezeichnet und keine Datei, z. B. `clean` oder `test`." }
+    {
+      "begriff": "Abhängigkeitsgraph",
+      "englisch": "dependency graph",
+      "erklaerung": "Welche Datei aus welchen anderen entsteht. Grundlage jedes inkrementellen Builds."
+    },
+    {
+      "begriff": "Phony-Ziel",
+      "englisch": "phony target",
+      "erklaerung": "Make-Ziel, das eine Aktion bezeichnet und keine Datei, z. B. `clean` oder `test`."
+    }
   ],
   "weiterlesen": [
-    { "titel": "GNU Make Manual", "url": "https://www.gnu.org/software/make/manual/make.html" },
-    { "titel": "GCC: Preprocessor Options (-MMD, -MP)", "url": "https://gcc.gnu.org/onlinedocs/gcc/Preprocessor-Options.html" }
+    {
+      "titel": "GNU Make Manual",
+      "url": "https://www.gnu.org/software/make/manual/make.html"
+    },
+    {
+      "titel": "GCC: Preprocessor Options (-MMD, -MP)",
+      "url": "https://gcc.gnu.org/onlinedocs/gcc/Preprocessor-Options.html"
+    }
   ]
 }

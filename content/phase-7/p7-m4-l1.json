@@ -1,127 +1,133 @@
 {
   "id": "p7-m4-l1",
   "phase": 7,
-  "modul": "7.4 Entwurfsmuster",
-  "titel": "State Machine",
+  "modul": "7.4 C++ auf Mikrocontrollern",
+  "titel": "Was Sprachmittel kosten",
   "lernziele": [
-    "Zustände, Ereignisse und Übergänge eines Systems modellieren",
-    "Eine Zustandsmaschine mit `enum class` und `switch` umsetzen",
-    "Wissen, warum `default` in solchen `switch`-Anweisungen gefährlich ist"
+    "Die Kosten von Exceptions, RTTI, virtuellen Funktionen und Templates einschätzen",
+    "Sinnvolle Compileroptionen für Mikrocontroller wählen",
+    "Codegrösse messen und reduzieren"
   ],
-  "dauerMinuten": 6,
+  "dauerMinuten": 7,
   "schritte": [
     {
       "typ": "multiple-choice",
-      "frage": "Ein Gerät merkt sich seinen Zustand in drei Variablen: `bool gestartet`, `bool bereit`, `bool fehler`. Was ist das Problem?",
+      "frage": "Ein Kollege sagt: „C++ ist auf Mikrocontrollern zu teuer.“ Was ist die fachlich richtige Antwort?",
       "optionen": [
-        "Es gibt acht Kombinationen, aber nur vier sinnvolle Zustände. Unmögliche Kombinationen wie „bereit und fehlerhaft“ lassen sich trotzdem herstellen",
-        "Drei `bool` brauchen zu viel Speicher",
-        "Kein Problem, so ist es am flexibelsten"
+        "Es kommt auf die Sprachmittel an: Klassen, Templates, `constexpr` und RAII kosten nichts zusätzlich. Exceptions, RTTI und der Heap haben echte Kosten und werden oft abgeschaltet",
+        "Er hat recht, C ist immer kleiner",
+        "C++ ist auf Mikrocontrollern immer gleich teuer wie C"
       ],
       "korrekt": 0,
-      "erklaerung": "Verteilt man einen Zustand auf mehrere Flags, muss jede Stelle im Code darauf achten, sie konsistent zu halten. Irgendwann setzt eine Stelle `bereit = true` und vergisst `fehler = false`. Ein einziger Zustandswert macht unmögliche Zustände unmöglich.",
+      "erklaerung": "C++ folgt dem Prinzip: *What you don't use, you don't pay for.* Eine Klasse mit nicht virtuellen Methoden erzeugt denselben Code wie Funktionen mit einem Zeiger auf eine Struktur. Teuer wird es bei Sprachmitteln mit Laufzeitunterstützung. Diese schaltet man gezielt ab.",
       "begruendungen": [
         "Richtig.",
-        "Der Speicher ist nicht das Problem.",
-        "Gerade diese Flexibilität erzeugt Fehler."
+        "Gut eingesetztes C++ ist oft sogar kleiner, weil `constexpr` und Templates Arbeit zur Übersetzungszeit erledigen.",
+        "Manche Sprachmittel haben durchaus messbare Kosten."
       ]
-    },
-    {
-      "typ": "erklaerung",
-      "titel": "Zustandsmaschinen",
-      "text": "Eine **Zustandsmaschine** (state machine) beschreibt ein System durch:\n\n- **Zustände**: Aus, Startet, Bereit, Fehler\n- **Ereignisse**: Einschalten, Fertig, Fehler, Reset\n- **Übergänge**: In Zustand X führt Ereignis Y zu Zustand Z\n- **Aktionen**: was beim Übergang oder beim Betreten eines Zustands passiert\n\nIn C++ ist die einfachste Umsetzung ein `enum class` für den Zustand und eine Funktion mit `switch`, die für jedes Paar aus Zustand und Ereignis den nächsten Zustand liefert. Zustandsmaschinen sind in Embedded-Software, Protokollen und Bedienoberflächen allgegenwärtig, weil sie sich gut zeichnen, prüfen und testen lassen."
-    },
-    {
-      "typ": "code-lesen",
-      "frage": "Das Gerät ist im Zustand `Bereit` und bekommt das Ereignis `Einschalten`. Was liefert die Funktion?",
-      "code": {
-        "sprache": "cpp",
-        "zeilen": [
-          "enum class Zustand { Aus, Startet, Bereit, Fehler };",
-          "enum class Ereignis { Einschalten, Fertig, Stoerung, Reset };",
-          "",
-          "Zustand naechster(Zustand z, Ereignis e) {",
-          "    switch (z) {",
-          "    case Zustand::Aus:     return e == Ereignis::Einschalten ? Zustand::Startet : z;",
-          "    case Zustand::Startet: return e == Ereignis::Fertig ? Zustand::Bereit",
-          "                                : e == Ereignis::Stoerung ? Zustand::Fehler : z;",
-          "    case Zustand::Bereit:  return e == Ereignis::Stoerung ? Zustand::Fehler : z;",
-          "    case Zustand::Fehler:  return e == Ereignis::Reset ? Zustand::Aus : z;",
-          "    }",
-          "    return z;",
-          "}"
-        ]
-      },
-      "optionen": ["`Bereit`", "`Startet`", "`Aus`", "`Fehler`"],
-      "korrekt": 0,
-      "fest": true,
-      "erklaerung": "Im Zustand `Bereit` reagiert die Maschine nur auf `Stoerung`. Alle anderen Ereignisse lassen den Zustand unverändert (`: z`). Ob „ignorieren“ richtig ist oder ein unerwartetes Ereignis als Fehler gelten soll, ist eine fachliche Entscheidung. Eine Zustandsmaschine zwingt dazu, sie bewusst zu treffen.",
-      "begruendungen": [
-        "Richtig.",
-        "Der Übergang nach `Startet` gibt es nur aus `Aus`.",
-        "Nach `Aus` führt nur `Reset` aus `Fehler`.",
-        "Nach `Fehler` führt nur `Stoerung`."
-      ]
-    },
-    {
-      "typ": "reihenfolge",
-      "frage": "Das Gerät startet in `Aus` und bekommt nacheinander: Einschalten, Fertig, Stoerung, Reset. Welche Zustände durchläuft es?",
-      "elemente": ["`Startet`", "`Bereit`", "`Fehler`", "`Aus`"],
-      "erklaerung": "Genau so schreibt man auch einen Test für eine Zustandsmaschine: eine Folge von Ereignissen und die erwartete Folge von Zuständen. Weil `naechster` eine reine Funktion ohne Seiteneffekte ist, ist dieser Test trivial."
-    },
-    {
-      "typ": "erklaerung",
-      "titel": "Zustände mit eigenen Daten",
-      "text": "Brauchen Zustände eigene Daten (z. B. der Fehlerzustand einen Fehlercode, der Startzustand einen Zeitpunkt), eignet sich `std::variant`: Jeder Zustand ist ein eigener `struct`, und der Zustand der Maschine ist eine `std::variant<Aus, Startet, Bereit, Fehler>`. Mit `std::visit` behandelt man jeden Zustand. Vergisst man einen, meldet der Compiler einen Fehler.\n\nFür grosse Maschinen gibt es Bibliotheken wie *Boost.SML*, die Übergänge als Tabelle beschreiben. Wichtiger als die Technik ist ein **Zustandsdiagramm**, das zur Implementierung passt und mit ihr gepflegt wird."
-    },
-    {
-      "typ": "fehler-finden",
-      "frage": "Später kommt ein neuer Zustand `Wartung` hinzu. Der Compiler warnt nicht, dass er im `switch` fehlt. Welche Zeile verhindert die Warnung?",
-      "code": {
-        "sprache": "cpp",
-        "zeilen": [
-          "Zustand naechster(Zustand z, Ereignis e) {",
-          "    switch (z) {",
-          "    case Zustand::Aus:     return e == Ereignis::Einschalten ? Zustand::Startet : z;",
-          "    case Zustand::Startet: return e == Ereignis::Fertig ? Zustand::Bereit : z;",
-          "    case Zustand::Bereit:  return e == Ereignis::Stoerung ? Zustand::Fehler : z;",
-          "    default:               return z;",
-          "    }",
-          "}"
-        ]
-      },
-      "fehlerZeile": 6,
-      "erklaerung": "Mit `-Wall` warnt GCC (`-Wswitch`), wenn ein `switch` über ein `enum` nicht alle Werte behandelt, aber nur ohne `default`. Hier fängt `default` den Fehlerzustand und jeden künftigen Zustand still ab. Neue Zustände bleiben so unbemerkt unbehandelt. Besser: jeden Zustand ausdrücklich aufführen und auf `default` verzichten."
     },
     {
       "typ": "zuordnen",
-      "frage": "Ordne die Begriffe zu.",
+      "frage": "Ordne jedem Sprachmittel seine Kosten zu.",
       "paare": [
-        { "links": "Zustand", "rechts": "Situation, in der sich das System gerade befindet" },
-        { "links": "Ereignis", "rechts": "Auslöser von aussen oder von innen" },
-        { "links": "Übergang", "rechts": "Wechsel von einem Zustand in einen anderen" },
-        { "links": "Aktion", "rechts": "Was beim Übergang oder beim Betreten eines Zustands ausgeführt wird" }
+        { "links": "Exceptions", "rechts": "Unwind-Tabellen und Laufzeitbibliothek, oft 10 bis 30 KB, Laufzeit beim Werfen schwer vorhersagbar" },
+        { "links": "RTTI", "rechts": "Typinformationen und Namen für jede polymorphe Klasse, nötig für `dynamic_cast` und `typeid`" },
+        { "links": "Virtuelle Funktionen", "rechts": "Ein Zeiger pro Objekt, eine Tabelle pro Klasse, ein indirekter Aufruf" },
+        { "links": "Templates", "rechts": "Keine Laufzeitkosten, aber Code pro Instanziierung" }
       ],
-      "erklaerung": "Eine gute Gewohnheit: Übergang und Aktionen trennen. Die Funktion `naechster` berechnet nur den neuen Zustand. Eine zweite Stelle führt die Aktionen aus, z. B. Relais schalten oder Meldungen senden. So bleibt die Logik testbar."
+      "erklaerung": "Virtuelle Funktionen sind günstig und auf Mikrocontrollern völlig in Ordnung. Ihr Hauptnachteil ist, dass der Compiler über die Aufrufgrenze hinweg nicht optimieren kann. Bei Templates lohnt sich ein Blick auf die Codegrösse, wenn viele Typen instanziiert werden."
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Typische Compileroptionen",
+      "text": "- `-Os` oder `-O2`: für Grösse bzw. Geschwindigkeit optimieren\n- `-fno-exceptions -fno-rtti`: Exceptions und RTTI abschalten\n- `-ffunction-sections -fdata-sections` plus Linkeroption `-Wl,--gc-sections`: unbenutzte Funktionen entfernen\n- `-fno-threadsafe-statics`: keine Sperre um lokale statische Objekte, wenn kein RTOS sie braucht\n- `--specs=nano.specs`: die kleine Variante der newlib\n- `-flto`: Optimierung über Dateigrenzen\n\nOhne Exceptions braucht die Fehlerbehandlung andere Mittel, etwa Rückgabewerte mit `std::expected` (Modul 2.7) oder `etl::expected`."
+    },
+    {
+      "typ": "terminal-deuten",
+      "frage": "Du vergleichst zwei Builds desselben Programms. Was hat den grössten Effekt?",
+      "terminal": {
+        "befehl": "arm-none-eabi-size build-*/firmware.elf",
+        "ausgabe": [
+          "   text    data     bss     dec     hex filename",
+          " 112460    1408   10212  124080   1e4b0 build-standard/firmware.elf",
+          "  64308    1236    9956   75500   126ec build-ohne-exceptions/firmware.elf",
+          "  41120    1236    9956   52312    cc58 build-ohne-exceptions-gc/firmware.elf"
+        ]
+      },
+      "optionen": [
+        "Exceptions abschalten spart hier etwa 48 KB, das Entfernen unbenutzter Abschnitte nochmals etwa 23 KB",
+        "Die Optionen ändern vor allem den RAM-Bedarf",
+        "Keine der Optionen hat einen nennenswerten Effekt"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Besonders bei kleinen Programmen ist der Anteil der Laufzeitunterstützung gross: Mit Exceptions kommt oft auch `iostream`- oder Formatierungscode mit. Die genauen Zahlen hängen vom Projekt ab. Messen ist besser als Vermuten.",
+      "begruendungen": [
+        "Richtig.",
+        "`data` und `bss` ändern sich kaum, der Effekt liegt im Flash.",
+        "Der Unterschied liegt bei über 60 % der Codegrösse."
+      ]
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Diese Firmware ist nach einer kleinen Änderung 60 KB grösser geworden. Welche Zeile ist der wahrscheinliche Grund?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "#include <cstdint>",
+          "#include <iostream>",
+          "",
+          "void meldeFehler(uint32_t code) {",
+          "    uart.schreibe(\"Fehler \");",
+          "    uart.schreibeZahl(code);",
+          "}"
+        ]
+      },
+      "fehlerZeile": 2,
+      "erklaerung": "Schon das Einbinden von `<iostream>` erzeugt globale Objekte (`std::cout` und Co.) und zieht Locale-, Formatierungs- und Puffercode mit. Auf Mikrocontrollern meidet man `iostream` vollständig. Für Formatierung nimmt man kleine Bibliotheken wie `printf` aus nanolib, `fmt` mit eingeschränkten Funktionen oder eigene Funktionen."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Woher weisst du, welche Funktionen am meisten Flash belegen?",
+      "optionen": [
+        "Aus der Map-Datei des Linkers oder mit Werkzeugen wie `nm --size-sort` oder Bloaty",
+        "Man zählt die Zeilen im Quellcode",
+        "Das lässt sich nicht herausfinden"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Mit `-Wl,-Map=firmware.map` erzeugt der Linker eine Map-Datei mit jedem Symbol, seiner Grösse und Herkunft. `arm-none-eabi-nm --size-sort -C -S firmware.elf | tail -20` zeigt die grössten Symbole. Googles Bloaty fasst zudem nach Dateien oder Bibliotheken zusammen.",
+      "begruendungen": [
+        "Richtig.",
+        "Codezeilen sagen wenig über die erzeugte Codegrösse.",
+        "Die Werkzeuge gibt es, und sie sind Standard."
+      ]
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze die Optionen.",
+      "text": "Mit {{?}} und {{?}} schaltet man Exceptions und Typinformationen ab.",
+      "luecken": [{ "loesungen": ["-fno-exceptions"] }, { "loesungen": ["-fno-rtti"] }],
+      "auswahl": ["-fno-exceptions", "-fno-rtti", "-Os", "-flto"],
+      "erklaerung": "Ohne RTTI funktioniert `dynamic_cast` nicht mehr. Gut entworfener Code braucht ihn ohnehin selten, oft ist er ein Hinweis auf eine fehlende virtuelle Funktion."
     }
   ],
-  "praxis": "Wenn du in Code viele `bool`-Flags siehst, die zusammen einen Ablauf steuern, oder verschachtelte `if`-Abfragen wie `if (gestartet && !fehler && bereit)`, steckt dahinter fast immer eine unentdeckte Zustandsmaschine. Sie ausdrücklich zu machen, mit Diagramm, Enum und Tests, ist eine der wirkungsvollsten Aufräumarbeiten in Embedded-Software.",
+  "praxis": "Lege die Compileroptionen und die erlaubten Sprachmittel am Projektanfang in einem Coding-Standard fest, mit Begründung. Überwache die Codegrösse in der CI: Ein Build, der plötzlich 10 KB wächst, verdient einen Blick in die Map-Datei. Viele Teams geben die Grösse von Flash und RAM bei jedem Pull Request als Kommentar aus.",
   "labor": {
-    "titel": "Eine Zustandsmaschine testen",
-    "anleitung": "Baue die Funktion `naechster` aus der Lektion und schreibe einen parametrisierten Test (Modul 3.1) mit allen 16 Kombinationen aus Zustand und Ereignis.",
+    "titel": "Codegrösse untersuchen",
+    "anleitung": "Baue ein Beispielprojekt mit und ohne `-fno-exceptions -fno-rtti` und mit `--gc-sections`. Vergleiche die Grössen und sieh dir die grössten Symbole an.",
     "befehle": [
-      "g++ -std=c++20 -Wall -Werror -c zustand.cpp",
-      "ctest --test-dir build -R Zustand --output-on-failure"
+      "arm-none-eabi-size build/firmware.elf",
+      "arm-none-eabi-nm --size-sort -C -S build/firmware.elf | tail -20",
+      "bloaty build/firmware.elf -d compileunits"
     ],
-    "beobachtung": "Mit `-Wall -Werror` bricht der Build ab, sobald du einen neuen Zustand hinzufügst und im `switch` vergisst, solange kein `default` dort steht. Die 16 Testfälle sind gleichzeitig die vollständige Übergangstabelle."
+    "beobachtung": "Unter den grössten Symbolen tauchen oft Laufzeitfunktionen auf, die man nie bewusst aufgerufen hat, zum Beispiel `__cxa_throw`, `_dtoa_r` (Gleitkomma-Formatierung) oder Locale-Code."
   },
   "begriffe": [
-    { "begriff": "Zustandsmaschine", "englisch": "state machine, finite state machine", "erklaerung": "Modell eines Systems aus Zuständen, Ereignissen und Übergängen." },
-    { "begriff": "Übergang", "englisch": "transition", "erklaerung": "Wechsel von einem Zustand in einen anderen, ausgelöst durch ein Ereignis." },
-    { "begriff": "Zustandsdiagramm", "englisch": "state diagram", "erklaerung": "Grafische Darstellung einer Zustandsmaschine mit Zuständen als Knoten und Übergängen als Pfeilen." }
+    { "begriff": "Zero-Overhead-Prinzip", "englisch": "zero-overhead principle", "erklaerung": "Was man nicht verwendet, kostet nichts. Was man verwendet, ist nicht teurer als von Hand geschrieben." },
+    { "begriff": "RTTI", "englisch": "run-time type information", "erklaerung": "Typinformationen zur Laufzeit für `dynamic_cast` und `typeid`." },
+    { "begriff": "Map-Datei", "englisch": "map file", "erklaerung": "Ausgabe des Linkers mit Adresse und Grösse aller Symbole und Abschnitte." }
   ],
   "weiterlesen": [
-    { "titel": "cppreference: std::variant", "url": "https://en.cppreference.com/w/cpp/utility/variant" },
-    { "titel": "Boost.SML", "url": "https://boost-ext.github.io/sml/" }
+    { "titel": "Interrupt (Memfault): Code Size Optimization: GCC Compiler Flags", "url": "https://interrupt.memfault.com/blog/code-size-optimization-gcc-flags" },
+    { "titel": "Google: Bloaty", "url": "https://github.com/google/bloaty" }
   ]
 }

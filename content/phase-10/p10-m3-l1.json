@@ -1,0 +1,169 @@
+{
+  "id": "p10-m3-l1",
+  "phase": 10,
+  "modul": "10.3 Ports & Adapters",
+  "titel": "Hexagonale Architektur",
+  "lernziele": [
+    "Ports und Adapter unterscheiden",
+    "Die Abhängigkeitsrichtung zum fachlichen Kern einhalten",
+    "Einen Ablauf durch Adapter, Kern und Ports nachvollziehen"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Wovon sollte der fachliche Kern einer Anwendung abhängen?",
+      "optionen": [
+        "Von nichts Technischem. Datenbank, Netzwerk, Oberfläche und Hardware hängen vom Kern ab, nicht umgekehrt",
+        "Von der Datenbank, weil dort die Daten liegen",
+        "Von der Oberfläche, weil sie den Ablauf steuert"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Die Fachlogik ist der wertvollste und langlebigste Teil eines Systems. Datenbanken, Protokolle und Oberflächen wechseln öfter. Hängt der Kern von ihnen ab, zieht jeder Technikwechsel Änderungen an der Fachlogik nach sich.",
+      "begruendungen": [
+        "Richtig.",
+        "Dann ist die Fachlogik an eine Datenbank gekoppelt und ohne sie nicht testbar.",
+        "Auch die Oberfläche ist austauschbar und sollte den Kern nur benutzen."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Ports und Adapter",
+      "text": "Die **hexagonale Architektur** (Alistair Cockburn, auch *Ports & Adapters*) stellt den fachlichen **Kern** in die Mitte:\n\n- Ein **Port** ist eine Schnittstelle, die der Kern **selbst definiert**: „Ich muss Messwerte speichern können“ (`IMesswertSpeicher`).\n- Ein **Adapter** setzt einen Port mit einer konkreten Technik um: `SqliteSpeicher`, `CanAusgang`, `RestHandler`, `FakeSpeicher` im Test.\n\n**Treibende** Adapter rufen den Kern auf (Kommandozeile, Netzwerk-Handler, Tests). **Getriebene** Adapter werden vom Kern aufgerufen (Datenbank, Hardware, E-Mail). Alle Abhängigkeiten zeigen nach innen."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Ordne die Begriffe zu.",
+      "paare": [
+        {
+          "links": "Port",
+          "rechts": "Schnittstelle, die der Kern selbst definiert"
+        },
+        {
+          "links": "Adapter",
+          "rechts": "Umsetzung eines Ports für eine konkrete Technik"
+        },
+        {
+          "links": "Kern",
+          "rechts": "Fachlogik ohne Abhängigkeit von Technik"
+        },
+        {
+          "links": "Treibender Adapter",
+          "rechts": "Ruft den Kern auf, z. B. ein Netzwerk-Handler"
+        },
+        {
+          "links": "Getriebener Adapter",
+          "rechts": "Wird vom Kern aufgerufen, z. B. die Datenbank"
+        }
+      ],
+      "erklaerung": "Der Unterschied zur Schichtenarchitektur ist vor allem die Sicht: Statt oben und unten gibt es innen und aussen. Datenbank und Oberfläche sind beide aussen und beide austauschbar. Die Idee ist dieselbe wie Dependency Inversion aus Modul 9.3, angewendet auf das ganze System."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Welches Include in einer Datei des Kerns verletzt die hexagonale Architektur?",
+      "optionen": [
+        "`#include <sqlite3.h>`",
+        "`#include <vector>`",
+        "`#include \"kern/messwert.h\"`"
+      ],
+      "korrekt": 0,
+      "erklaerung": "SQLite ist eine konkrete Technik und gehört in einen Adapter. Die Standardbibliothek ist dagegen Teil der Sprache und überall erlaubt. Ein Header des Kerns selbst sowieso.",
+      "begruendungen": [
+        "Richtig.",
+        "Die Standardbibliothek darf der Kern benutzen.",
+        "Das ist ein Teil des Kerns selbst."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Ein Port im Code",
+      "code": {
+        "sprache": "cpp",
+        "datei": "kern/include/kern/ports.h",
+        "zeilen": [
+          "#pragma once",
+          "#include <vector>",
+          "#include \"kern/messwert.h\"",
+          "",
+          "class IMesswertSpeicher {",
+          "public:",
+          "    virtual ~IMesswertSpeicher() = default;",
+          "    virtual void speichere(const Messwert& m) = 0;",
+          "    virtual std::vector<Messwert> lade(Zeitraum z) const = 0;",
+          "};"
+        ],
+        "anmerkungen": [
+          {
+            "zeile": 5,
+            "text": "Der Name beschreibt die fachliche Aufgabe, nicht die Technik: nicht `IDatenbank`, sondern `IMesswertSpeicher`."
+          },
+          {
+            "zeile": 9,
+            "text": "Die Typen gehören dem Kern. Kein SQL, keine Zeilen-Objekte einer Datenbankbibliothek."
+          }
+        ]
+      },
+      "text": "Der Adapter `SqliteMesswertSpeicher` liegt in einem eigenen Modul `adapter/sqlite`, das vom Kern und von SQLite abhängt. Der Kern kennt ihn nicht."
+    },
+    {
+      "typ": "reihenfolge",
+      "frage": "Ein Messwert kommt über das Netz und wird gespeichert. In welcher Reihenfolge laufen die Teile?",
+      "elemente": [
+        "Der Netzwerk-Adapter empfängt die Anfrage und übersetzt sie in einen Kern-Typ",
+        "Der Adapter ruft einen Anwendungsfall im Kern auf",
+        "Der Kern prüft den Wert und ruft den Port `IMesswertSpeicher` auf",
+        "Der SQLite-Adapter schreibt den Messwert in die Datenbank"
+      ],
+      "erklaerung": "Der Aufruf geht von aussen über den Kern wieder nach aussen. Die **Abhängigkeiten** zeigen aber beide nach innen: Der Netzwerk-Adapter kennt den Kern, der SQLite-Adapter kennt den Port des Kerns. Der Kern kennt keinen der beiden."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Was ist der grösste Gewinn dieser Architektur für Tests?",
+      "optionen": [
+        "Der gesamte Kern lässt sich mit einfachen Fakes für die Ports schnell und deterministisch testen. Adapter testet man separat mit wenigen Integrationstests",
+        "Man braucht keine Tests mehr, weil die Architektur Fehler verhindert",
+        "Tests können direkt gegen die Produktionsdatenbank laufen"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Die Fachlogik, wo die meisten und wichtigsten Fehler entstehen, ist vollständig ohne Datenbank, Netzwerk oder Hardware testbar, in Millisekunden. Die Adapter sind dünn und brauchen nur wenige, langsamere Integrationstests. Das ist genau die Testpyramide aus Modul 4.2.",
+      "begruendungen": [
+        "Richtig.",
+        "Architektur ersetzt keine Tests, sie macht sie möglich.",
+        "Genau das wird damit überflüssig."
+      ]
+    }
+  ],
+  "praxis": "Ports & Adapters lohnt sich besonders für Systeme mit langlebiger Fachlogik und wechselnder Technik: Steuerungen, Medizingeräte, Fahrzeugfunktionen, Server-Backends. Für ein kleines Werkzeug ist es oft zu viel. Im Review prüfst du die Includes im Kern: Taucht dort eine Datenbank-, Netzwerk- oder Hardware-Bibliothek auf, ist die Grenze verletzt.",
+  "labor": {
+    "titel": "Den Kern freilegen",
+    "anleitung": "Prüfe in einem Projekt, ob der fachliche Teil von Technik-Bibliotheken abhängt.",
+    "befehle": [
+      "rg -n '#include <(sqlite3|curl|boost/asio|QtWidgets|grpc)' src/kern/ src/domain/ 2>/dev/null | head",
+      "cmake -S . -B build --graphviz=build/deps.dot && grep kern build/deps.dot"
+    ],
+    "beobachtung": "Idealerweise zeigt der Graph nur Pfeile **zum** Kern, keine vom Kern zu Technik-Bibliotheken. Jeder Pfeil nach aussen ist ein Kandidat für einen neuen Port."
+  },
+  "begriffe": [
+    {
+      "begriff": "Hexagonale Architektur",
+      "englisch": "hexagonal architecture, ports and adapters",
+      "erklaerung": "Der fachliche Kern ist unabhängig von Technik. Er definiert Ports, die Adapter umsetzen."
+    },
+    {
+      "begriff": "Port",
+      "englisch": "port",
+      "erklaerung": "Vom Kern definierte Schnittstelle für eine Fähigkeit, die er von aussen braucht oder anbietet."
+    },
+    {
+      "begriff": "Adapter",
+      "englisch": "adapter",
+      "erklaerung": "Umsetzung eines Ports mit einer konkreten Technik, z. B. Datenbank oder Netzwerk."
+    }
+  ],
+  "weiterlesen": [
+    {
+      "titel": "Alistair Cockburn: Hexagonal Architecture",
+      "url": "https://alistair.cockburn.us/hexagonal-architecture/"
+    }
+  ]
+}

@@ -19,7 +19,11 @@
         "README, Architektur-Dokumentation und ADRs lesen",
         "Sofort mit einem grösseren Refactoring beginnen, um den Code kennenzulernen"
       ],
-      "korrekt": [0, 1, 2],
+      "korrekt": [
+        0,
+        1,
+        2
+      ],
       "erklaerung": "Wer selbst baut, lernt Toolchain, Abhängigkeiten und die Stolpersteine kennen. Die Struktur zeigt die beabsichtigte Architektur, die Dokumentation die Gründe dahinter. Ein Refactoring ohne Verständnis ist riskant und wirkt im Team schnell respektlos gegenüber bestehenden Entscheidungen.",
       "begruendungen": [
         "Richtig. Danach weisst du, wie man das System überhaupt startet und prüft.",
@@ -68,10 +72,22 @@
       "typ": "zuordnen",
       "frage": "Wo findest du die Antwort?",
       "paare": [
-        { "links": "Welche Module hängen voneinander ab?", "rechts": "`target_link_libraries` bzw. ein CMake-Abhängigkeitsgraph" },
-        { "links": "Warum wurde X so entschieden?", "rechts": "ADRs und Commit-Nachrichten" },
-        { "links": "Wie benutzt man diese Komponente?", "rechts": "Die Unit-Tests der Komponente" },
-        { "links": "Welche Threads laufen?", "rechts": "Suche nach `std::thread`/`jthread` und `info threads` im Debugger" }
+        {
+          "links": "Welche Module hängen voneinander ab?",
+          "rechts": "`target_link_libraries` bzw. ein CMake-Abhängigkeitsgraph"
+        },
+        {
+          "links": "Warum wurde X so entschieden?",
+          "rechts": "ADRs und Commit-Nachrichten"
+        },
+        {
+          "links": "Wie benutzt man diese Komponente?",
+          "rechts": "Die Unit-Tests der Komponente"
+        },
+        {
+          "links": "Welche Threads laufen?",
+          "rechts": "Suche nach `std::thread`/`jthread` und `info threads` im Debugger"
+        }
       ],
       "erklaerung": "Tests sind ausführbare Dokumentation: Sie zeigen, wie eine Komponente gedacht ist, und sind im Gegensatz zu Kommentaren garantiert aktuell, solange sie grün sind."
     },
@@ -85,8 +101,19 @@
           "dot -Tsvg build/deps.dot -o deps.svg"
         ]
       },
-      "luecken": [{ "loesungen": ["graphviz"] }],
-      "auswahl": ["graphviz", "trace", "graph", "build"],
+      "luecken": [
+        {
+          "loesungen": [
+            "graphviz"
+          ]
+        }
+      ],
+      "auswahl": [
+        "graphviz",
+        "trace",
+        "graph",
+        "build"
+      ],
       "erklaerung": "`--graphviz` schreibt eine `.dot`-Datei mit allen Targets und ihren Verbindungen. Graphviz (`dot`) macht ein Bild daraus. Bei grossen Projekten hilft es, auf ein Target zu filtern, z. B. mit `deps.dot.app` (CMake schreibt für jedes Target eine eigene Datei)."
     },
     {
@@ -123,11 +150,25 @@
     "beobachtung": "Der letzte Befehl zeigt, wer am meisten am Projekt gearbeitet hat. Das sind gute Ansprechpersonen für Architekturfragen."
   },
   "begriffe": [
-    { "begriff": "Mentales Modell", "englisch": "mental model", "erklaerung": "Eigenes, vereinfachtes Bild davon, wie ein System aufgebaut ist und funktioniert." },
-    { "begriff": "Chesterton's fence", "englisch": "Chesterton's fence", "erklaerung": "Prinzip: Erst herausfinden, warum etwas existiert, bevor man es entfernt." }
+    {
+      "begriff": "Mentales Modell",
+      "englisch": "mental model",
+      "erklaerung": "Eigenes, vereinfachtes Bild davon, wie ein System aufgebaut ist und funktioniert."
+    },
+    {
+      "begriff": "Chesterton's fence",
+      "englisch": "Chesterton's fence",
+      "erklaerung": "Prinzip: Erst herausfinden, warum etwas existiert, bevor man es entfernt."
+    }
   ],
   "weiterlesen": [
-    { "titel": "CMake: --graphviz", "url": "https://cmake.org/cmake/help/latest/module/CMakeGraphVizOptions.html" },
-    { "titel": "Git: git-blame", "url": "https://git-scm.com/docs/git-blame" }
+    {
+      "titel": "CMake: --graphviz",
+      "url": "https://cmake.org/cmake/help/latest/module/CMakeGraphVizOptions.html"
+    },
+    {
+      "titel": "Git: git-blame",
+      "url": "https://git-scm.com/docs/git-blame"
+    }
   ]
 }

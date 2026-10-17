@@ -19,7 +19,10 @@
         "Ein Zeiger kann `nullptr` sein",
         "Eine Referenz verlängert immer die Lebenszeit des Objekts, an das sie gebunden ist"
       ],
-      "korrekt": [0, 2],
+      "korrekt": [
+        0,
+        2
+      ],
       "erklaerung": "Eine **Referenz** ist ein zweiter Name für ein bestehendes Objekt, fest gebunden und nie null. Ein **Zeiger** ist eine eigene Variable, die eine Adresse enthält. Er darf null sein und neu zugewiesen werden.",
       "begruendungen": [
         "Richtig. `int& r;` ohne Initialisierung ist ein Compilerfehler.",
@@ -78,11 +81,26 @@
       "typ": "zuordnen",
       "frage": "Was sagt die Signatur über den Umgang mit dem `Sensor`?",
       "paare": [
-        { "links": "`void f(const Sensor& s)`", "rechts": "Liest nur, braucht ein gültiges Objekt, keine Kopie" },
-        { "links": "`void f(Sensor& s)`", "rechts": "Verändert das Objekt des Aufrufers" },
-        { "links": "`void f(Sensor* s)`", "rechts": "Objekt ist optional, `nullptr` ist erlaubt" },
-        { "links": "`void f(Sensor s)`", "rechts": "Arbeitet mit einer eigenen Kopie" },
-        { "links": "`void f(std::unique_ptr<Sensor> s)`", "rechts": "Übernimmt den Besitz" }
+        {
+          "links": "`void f(const Sensor& s)`",
+          "rechts": "Liest nur, braucht ein gültiges Objekt, keine Kopie"
+        },
+        {
+          "links": "`void f(Sensor& s)`",
+          "rechts": "Verändert das Objekt des Aufrufers"
+        },
+        {
+          "links": "`void f(Sensor* s)`",
+          "rechts": "Objekt ist optional, `nullptr` ist erlaubt"
+        },
+        {
+          "links": "`void f(Sensor s)`",
+          "rechts": "Arbeitet mit einer eigenen Kopie"
+        },
+        {
+          "links": "`void f(std::unique_ptr<Sensor> s)`",
+          "rechts": "Übernimmt den Besitz"
+        }
       ],
       "erklaerung": "Gute Signaturen sind Dokumentation. Die C++ Core Guidelines (F.15 ff.) empfehlen genau diese Konventionen. Der rohe Zeiger als Parameter heisst dabei nur „vielleicht vorhanden“, nie „du musst es löschen“."
     },
@@ -113,8 +131,24 @@
       "typ": "lueckentext",
       "frage": "Ergänze die Faustregel aus den C++ Core Guidelines.",
       "text": "Ein roher Zeiger `T*` ist {{?}} besitzend. Muss ein Objekt existieren, nimmt man als Parameter eine {{?}}.",
-      "luecken": [{ "loesungen": ["nicht"] }, { "loesungen": ["Referenz"] }],
-      "auswahl": ["nicht", "immer", "Referenz", "Kopie"],
+      "luecken": [
+        {
+          "loesungen": [
+            "nicht"
+          ]
+        },
+        {
+          "loesungen": [
+            "Referenz"
+          ]
+        }
+      ],
+      "auswahl": [
+        "nicht",
+        "immer",
+        "Referenz",
+        "Kopie"
+      ],
       "erklaerung": "Wer einen rohen Zeiger bekommt, darf ihn nie `delete`n. Besitz wird mit `std::unique_ptr` oder `std::shared_ptr` übergeben."
     }
   ],
@@ -128,12 +162,30 @@
     "beobachtung": "ASan meldet `heap-use-after-free` und zeigt drei Stacktraces: den Lesezugriff, die Freigabe und die ursprüngliche Allokation. Ohne ASan läuft das Programm oft scheinbar korrekt."
   },
   "begriffe": [
-    { "begriff": "Lebenszeit", "englisch": "lifetime", "erklaerung": "Zeitraum vom Ende der Konstruktion bis zum Beginn der Destruktion eines Objekts." },
-    { "begriff": "Hängende Referenz", "englisch": "dangling reference", "erklaerung": "Referenz oder Zeiger auf ein Objekt, dessen Lebenszeit vorbei ist." },
-    { "begriff": "Ownership", "englisch": "ownership", "erklaerung": "Wer für die Freigabe eines Objekts verantwortlich ist." }
+    {
+      "begriff": "Lebenszeit",
+      "englisch": "lifetime",
+      "erklaerung": "Zeitraum vom Ende der Konstruktion bis zum Beginn der Destruktion eines Objekts."
+    },
+    {
+      "begriff": "Hängende Referenz",
+      "englisch": "dangling reference",
+      "erklaerung": "Referenz oder Zeiger auf ein Objekt, dessen Lebenszeit vorbei ist."
+    },
+    {
+      "begriff": "Ownership",
+      "englisch": "ownership",
+      "erklaerung": "Wer für die Freigabe eines Objekts verantwortlich ist."
+    }
   ],
   "weiterlesen": [
-    { "titel": "C++ Core Guidelines: F.15–F.22 Parameter passing", "url": "https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#fcall-parameter-passing" },
-    { "titel": "cppreference: Lifetime", "url": "https://en.cppreference.com/w/cpp/language/lifetime" }
+    {
+      "titel": "C++ Core Guidelines: F.15–F.22 Parameter passing",
+      "url": "https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#fcall-parameter-passing"
+    },
+    {
+      "titel": "cppreference: Lifetime",
+      "url": "https://en.cppreference.com/w/cpp/language/lifetime"
+    }
   ]
 }

@@ -1,160 +1,127 @@
 {
   "id": "p7-m1-l1",
   "phase": 7,
-  "modul": "7.1 Prinzipien",
-  "titel": "SOLID",
+  "modul": "7.1 Ablaufmodelle und Echtzeit",
+  "titel": "Superloop und kooperatives Scheduling",
   "lernziele": [
-    "Die fünf SOLID-Prinzipien in eigenen Worten erklären",
-    "Verstösse gegen Open/Closed, Liskov und Interface Segregation erkennen",
-    "SOLID als Heuristik statt als Dogma einsetzen"
+    "Superloop, Zeitscheiben und Ereignisschleife unterscheiden",
+    "Nicht blockierende Abläufe mit Zustandsautomaten bauen",
+    "Die Grenzen kooperativer Modelle erkennen"
   ],
-  "dauerMinuten": 7,
+  "dauerMinuten": 6,
   "schritte": [
     {
       "typ": "multiple-choice",
-      "frage": "Was besagt das **Single Responsibility Principle**?",
-      "optionen": [
-        "Eine Klasse sollte nur einen Grund haben, sich zu ändern",
-        "Eine Klasse sollte nur eine einzige Memberfunktion haben",
-        "Jede Klasse sollte nur von einer Person bearbeitet werden"
-      ],
+      "frage": "Eine Firmware besteht aus `while (true) { leseSensor(); regle(); zeigeAn(); }`. Wie nennt man dieses Ablaufmodell?",
+      "optionen": ["**Superloop**", "Präemptives Multitasking", "Ereignisgesteuerte Architektur"],
       "korrekt": 0,
-      "erklaerung": "Gemeint ist keine Zählregel, sondern eine Frage der Verantwortung: Für wen oder wofür ändert sich diese Klasse? Gibt es mehrere unabhängige Antworten, z. B. „wenn sich das Datenformat ändert“ und „wenn sich die Anzeige ändert“, sollte sie aufgeteilt werden. Das ist die Kohäsion aus Modul 6.1.",
+      "erklaerung": "Der **Superloop** ist das einfachste Modell: eine Endlosschleife, die nacheinander alle Aufgaben aufruft, ergänzt um ISRs für dringende Ereignisse. Er ist leicht zu verstehen und braucht kein Betriebssystem. Seine Reaktionszeit ist aber die Dauer eines ganzen Durchlaufs.",
       "begruendungen": [
         "Richtig.",
-        "Viele Memberfunktionen sind in Ordnung, solange sie einer Aufgabe dienen.",
-        "Mit Personen hat das Prinzip nichts zu tun."
+        "Dabei würde ein Scheduler Aufgaben unterbrechen. Hier läuft jede Funktion bis zum Ende.",
+        "Dort reagiert man auf Nachrichten statt auf eine feste Reihenfolge."
       ]
-    },
-    {
-      "typ": "erklaerung",
-      "titel": "Die fünf Prinzipien",
-      "text": "**SOLID** fasst fünf Entwurfsprinzipien für objektorientierten Code zusammen (geprägt von Robert C. Martin):\n\n- **S**ingle Responsibility: ein Grund zur Änderung pro Klasse\n- **O**pen/Closed: offen für Erweiterung, geschlossen für Änderung\n- **L**iskov Substitution: Unterklassen müssen sich überall wie ihre Basisklasse verhalten\n- **I**nterface Segregation: lieber mehrere kleine, passende Schnittstellen als eine grosse\n- **D**ependency Inversion: von Abstraktionen abhängen, nicht von konkreten Implementierungen"
-    },
-    {
-      "typ": "zuordnen",
-      "frage": "Ordne die Prinzipien zu.",
-      "paare": [
-        { "links": "Single Responsibility", "rechts": "Eine Klasse hat genau einen Grund, sich zu ändern" },
-        { "links": "Open/Closed", "rechts": "Neues Verhalten durch Hinzufügen statt durch Ändern bestehenden Codes" },
-        { "links": "Liskov Substitution", "rechts": "Eine Unterklasse ist überall einsetzbar, wo die Basisklasse erwartet wird" },
-        { "links": "Interface Segregation", "rechts": "Niemand soll von Methoden abhängen, die er nicht braucht" },
-        { "links": "Dependency Inversion", "rechts": "Fachlogik hängt von Schnittstellen ab, nicht von konkreten Details" }
-      ],
-      "erklaerung": "Dependency Inversion kennst du schon aus Modul 6.3. Es ist das Prinzip hinter Dependency Injection und dem Auflösen von Zyklen."
-    },
-    {
-      "typ": "multiple-choice",
-      "frage": "Um einen neuen Sensortyp zu unterstützen, musst du in sieben `switch`-Anweisungen über `SensorTyp` einen neuen `case` ergänzen. Welches Prinzip wird verletzt?",
-      "code": {
-        "sprache": "cpp",
-        "zeilen": [
-          "double lies(const Sensor& s) {",
-          "    switch (s.typ) {",
-          "    case SensorTyp::Can: return leseCan(s);",
-          "    case SensorTyp::I2c: return leseI2c(s);",
-          "    }",
-          "}"
-        ]
-      },
-      "optionen": ["Open/Closed", "Liskov Substitution", "Interface Segregation"],
-      "korrekt": 0,
-      "erklaerung": "Jede Erweiterung erzwingt Änderungen an bestehendem Code an vielen Stellen, und eine vergessene Stelle ist ein Fehler. Mit einer Schnittstelle `ISensor` und einer Klasse pro Typ wäre ein neuer Sensor eine neue Klasse, ohne bestehenden Code anzufassen. Ein `switch` an **einer** Stelle, etwa in einer Fabrikfunktion, ist dagegen völlig in Ordnung.",
-      "begruendungen": [
-        "Richtig.",
-        "Es gibt hier keine Vererbung, die Liskov verletzen könnte.",
-        "Es geht nicht um zu grosse Schnittstellen."
-      ]
-    },
-    {
-      "typ": "code-lesen",
-      "frage": "`Quadrat` erbt von `Rechteck`. `setzeBreite` setzt beim Quadrat auch die Höhe. Was passiert, wenn `verdopple` ein `Quadrat` bekommt?",
-      "code": {
-        "sprache": "cpp",
-        "zeilen": [
-          "void verdopple(Rechteck& r) {",
-          "    double alt = r.flaeche();",
-          "    r.setzeBreite(r.breite() * 2);",
-          "    assert(r.flaeche() == 2 * alt);",
-          "}"
-        ]
-      },
-      "optionen": [
-        "Das `assert` schlägt fehl: Die Fläche vervierfacht sich, weil auch die Höhe verdoppelt wird",
-        "Alles funktioniert, ein Quadrat ist ja ein Rechteck",
-        "Compilerfehler"
-      ],
-      "korrekt": 0,
-      "erklaerung": "Mathematisch ist ein Quadrat ein Rechteck, im Code aber nicht: Ein `Rechteck` verspricht, dass Breite und Höhe unabhängig sind. `Quadrat` bricht dieses Versprechen. Das ist eine Verletzung des **Liskov-Prinzips**: Unterklassen müssen die Zusagen der Basisklasse einhalten, nicht nur ihre Signaturen.",
-      "begruendungen": [
-        "Richtig.",
-        "„Ist ein“ im Alltag heisst nicht „verhält sich wie“ im Code.",
-        "Der Code kompiliert, das Problem zeigt sich erst zur Laufzeit."
-      ]
-    },
-    {
-      "typ": "erklaerung",
-      "titel": "Interface Segregation und Dependency Inversion",
-      "text": "**Interface Segregation**: Eine grosse Schnittstelle zwingt alle Implementierungen, alles anzubieten, und alle Nutzer, von allem abzuhängen. Besser sind kleine, gezielte Schnittstellen: `ILesbar`, `ISchreibbar`, `IKalibrierbar`. Eine Klasse kann mehrere davon implementieren.\n\n**Dependency Inversion**: Die Fachlogik definiert, was sie braucht (`ITemperaturQuelle`), und die technischen Details implementieren es. So zeigen die Abhängigkeiten vom Detail zur Fachlogik, nicht umgekehrt."
     },
     {
       "typ": "fehler-finden",
-      "frage": "Welche Zeile zeigt am deutlichsten, dass die Schnittstelle zu gross ist?",
+      "frage": "Seit dieser Änderung reagiert die Tastatur nur noch träge. Welche Zeile ist das Problem?",
       "code": {
         "sprache": "cpp",
         "zeilen": [
-          "class IGeraet {",
+          "while (true) {",
+          "    tastenAbfragen();",
+          "    led.ein();",
+          "    warteMs(500);",
+          "    led.aus();",
+          "    warteMs(500);",
+          "}"
+        ]
+      },
+      "fehlerZeile": 4,
+      "erklaerung": "Das aktive Warten blockiert die ganze Schleife: Die Tasten werden nur noch einmal pro Sekunde abgefragt. Auch Zeile 6 hat dasselbe Problem. Im Superloop darf keine Aufgabe warten. Stattdessen merkt sich jede Aufgabe ihren Zustand und prüft bei jedem Durchlauf, ob etwas zu tun ist."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Wie funktioniert das Blinken in dieser Version?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "class Blinker {",
           "public:",
-          "    virtual ~IGeraet() = default;",
-          "    virtual double lies() = 0;",
-          "    virtual void schreibe(double wert) = 0;",
-          "    virtual void kalibriere() = 0;",
-          "};",
-          "",
-          "class Temperaturfuehler : public IGeraet {",
-          "public:",
-          "    double lies() override;",
-          "    void schreibe(double) override { throw std::logic_error(\"nicht unterstützt\"); }",
-          "    void kalibriere() override;",
+          "    void tick(uint32_t jetzt) {",
+          "        if (jetzt - letzter_ >= 500) {",
+          "            letzter_ = jetzt;",
+          "            led_.umschalten();",
+          "        }",
+          "    }",
+          "private:",
+          "    uint32_t letzter_ = 0;",
+          "    Led& led_;",
           "};"
         ]
       },
-      "fehlerZeile": 12,
-      "erklaerung": "Ein Fühler kann nicht schreiben, muss es aber anbieten, also wirft er. Das verletzt Interface Segregation (die Schnittstelle ist zu breit) und Liskov (ein `IGeraet` kann man nicht überall gleich benutzen). Mit getrennten Schnittstellen `ILesbar` und `ISchreibbar` implementiert der Fühler nur, was er kann."
+      "optionen": [
+        "`tick` kehrt sofort zurück und schaltet nur um, wenn 500 ms vergangen sind. Die Schleife bleibt frei für andere Aufgaben",
+        "`tick` wartet 500 ms und schaltet dann um",
+        "Die LED blinkt nach 49 Tagen nicht mehr, weil `jetzt` überläuft"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Das ist ein **nicht blockierender** Ablauf. Die Subtraktion `jetzt - letzter_` mit vorzeichenlosen Zahlen ist übrigens auch beim Überlauf des Millisekundenzählers nach 49,7 Tagen korrekt. `jetzt >= letzter_ + 500` wäre dagegen falsch.",
+      "begruendungen": [
+        "Richtig.",
+        "Es gibt keine Warteschleife.",
+        "Gerade diese Form ist überlaufsicher, weil vorzeichenlose Arithmetik modulo 2³² rechnet."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Varianten kooperativer Modelle",
+      "text": "- **Superloop**: alle Aufgaben nacheinander, so schnell es geht.\n- **Zeitgesteuert** (*time-triggered*): Ein Timer-Interrupt gibt einen festen Takt vor, z. B. 1 ms. Jede Aufgabe läuft in ihrem Raster (alle 1, 10, 100 ms). Sehr vorhersagbar, beliebt in der Sicherheitstechnik.\n- **Ereignisschleife**: ISRs legen Ereignisse in eine Queue, die Schleife verarbeitet sie nacheinander und schläft, wenn nichts ansteht.\n\nAllen gemeinsam: Jede Aufgabe läuft bis zum Ende (*run to completion*). Darum braucht man unter den Aufgaben keine Mutexe. Eine einzige zu lange Aufgabe verzögert aber alle anderen."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Welches Modell passt?",
+      "paare": [
+        { "links": "Superloop", "rechts": "Kleines Gerät mit wenigen, kurzen Aufgaben" },
+        { "links": "Zeitgesteuerter Scheduler", "rechts": "Regelung mit festem Takt, Zertifizierung verlangt Vorhersagbarkeit" },
+        { "links": "Ereignisschleife", "rechts": "Batteriegerät, das meist schläft und auf Ereignisse reagiert" },
+        { "links": "Präemptives RTOS", "rechts": "Viele Aufgaben mit unterschiedlichen Fristen, einige rechnen lange" }
+      ],
+      "erklaerung": "Ein RTOS ist nicht automatisch besser. Es bringt Komplexität: Synchronisation, Stacks pro Task, neue Fehlerklassen. Wähle das einfachste Modell, das die Zeitanforderungen sicher erfüllt."
     },
     {
       "typ": "multiple-choice",
-      "frage": "Wie geht man mit SOLID am besten um?",
+      "frage": "Ein zeitgesteuerter Scheduler läuft mit 1 ms Takt. Eine Aufgabe im 10-ms-Raster braucht manchmal 1,5 ms. Was passiert?",
       "optionen": [
-        "Als Denkwerkzeug: Wenn Code schwer zu ändern oder zu testen ist, helfen die Prinzipien, die Ursache zu finden",
-        "Als Pflicht: Jede Klasse bekommt von Anfang an Schnittstellen für alle denkbaren Erweiterungen",
-        "Gar nicht, die Prinzipien sind veraltet"
+        "Sie überschreitet den Takt und verschiebt alle folgenden Aufgaben. Das muss man erkennen (Überlaufzähler) oder die Aufgabe aufteilen",
+        "Der Scheduler unterbricht sie automatisch",
+        "Nichts, 1,5 ms sind weniger als 10 ms"
       ],
       "korrekt": 0,
-      "erklaerung": "Zu viel Abstraktion ist ebenfalls ein Problem: Schnittstellen mit nur einer Implementierung, die es nie geben wird, machen Code schwerer lesbar. Das Prinzip **YAGNI** (*you aren't gonna need it*) ist das Gegengewicht. Eine gute Faustregel: Abstraktion einführen, wenn eine zweite Variante oder ein Test sie wirklich braucht.",
+      "erklaerung": "In einem kooperativen Scheduler kann niemand eine laufende Aufgabe unterbrechen, ausser Interrupts. Darum muss man die Laufzeit jeder Aufgabe kennen und überwachen. Lange Berechnungen teilt man in Schritte auf, die über mehrere Takte verteilt laufen.",
       "begruendungen": [
         "Richtig.",
-        "Das führt zu Überabstraktion und unnötiger Komplexität.",
-        "Die Ideen sind zeitlos, nur nicht als starre Regeln gedacht."
+        "Unterbrechen kann nur ein präemptiver Scheduler.",
+        "Entscheidend ist der 1-ms-Takt, in dem auch andere Aufgaben laufen müssen."
       ]
     }
   ],
-  "praxis": "Im Review hilft SOLID, ein Unbehagen in Worte zu fassen: „Diese Klasse hat zwei Gründe, sich zu ändern“ oder „Diese Unterklasse hält das Versprechen der Basis nicht ein“. Das ist konkreter als „gefällt mir nicht“. Ein Senior erkennt aber auch das Gegenteil: Schnittstellen und Fabriken für Dinge, die es nur einmal gibt, sind kein gutes Design, sondern Aufwand ohne Nutzen.",
+  "praxis": "Sehr viele Produkte laufen bis heute ohne RTOS mit einem sauber gebauten Superloop oder zeitgesteuerten Scheduler, auch in sicherheitskritischen Bereichen. Ein guter Superloop besteht aus Objekten mit einer `tick`-Methode und Zustandsautomaten statt Warteschleifen. Wenn du im Code `delay` oder `while (!flag) {}` siehst, ist das fast immer ein Hinweis auf ein Ablaufproblem.",
   "labor": {
-    "titel": "Einen switch auflösen",
-    "anleitung": "Suche in einem Projekt nach `switch`-Anweisungen über denselben Typ-Enum an mehreren Stellen.",
+    "titel": "Kooperativer Scheduler",
+    "anleitung": "Schreibe einen kleinen Scheduler, der Aufgaben mit Periode und Funktionszeiger in einem `std::array` hält, und miss die Laufzeit jeder Aufgabe mit einem Zykluszähler (auf dem PC mit `std::chrono::steady_clock`).",
     "befehle": [
-      "rg -n 'switch \\(.*typ' src/ | head",
-      "rg -c 'case SensorTyp::' src/"
+      "g++ -std=c++20 -O2 scheduler.cpp -o scheduler",
+      "./scheduler"
     ],
-    "beobachtung": "Kommt derselbe Enum in vielen `switch`-Anweisungen vor, ist er ein Kandidat für Polymorphie (virtuelle Funktionen oder `std::variant` mit `std::visit`). Kommt er nur an einer Stelle vor, ist der `switch` meist die einfachste und beste Lösung."
+    "beobachtung": "Gib für jede Aufgabe maximale Laufzeit und Anzahl verpasster Perioden aus. Diese zwei Zahlen sind die wichtigste Diagnose für jedes kooperative System."
   },
   "begriffe": [
-    { "begriff": "SOLID", "englisch": "SOLID", "erklaerung": "Fünf Entwurfsprinzipien: Single Responsibility, Open/Closed, Liskov Substitution, Interface Segregation, Dependency Inversion." },
-    { "begriff": "Liskov-Prinzip", "englisch": "Liskov substitution principle", "erklaerung": "Eine Unterklasse muss sich überall so verhalten, wie es die Basisklasse verspricht." },
-    { "begriff": "YAGNI", "englisch": "you aren't gonna need it", "erklaerung": "Keine Abstraktion oder Funktion auf Vorrat bauen, die man noch nicht braucht." }
+    { "begriff": "Superloop", "englisch": "superloop", "erklaerung": "Endlosschleife, die alle Aufgaben nacheinander aufruft." },
+    { "begriff": "Run to completion", "englisch": "run to completion", "erklaerung": "Jede Aufgabe läuft bis zum Ende, bevor die nächste beginnt." },
+    { "begriff": "Zeitgesteuerter Scheduler", "englisch": "time-triggered scheduler", "erklaerung": "Startet Aufgaben in einem festen Zeitraster, ausgelöst von einem Timer." }
   ],
   "weiterlesen": [
-    { "titel": "C++ Core Guidelines: C.hier – Class hierarchies", "url": "https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#S-hier" }
+    { "titel": "Michael J. Pont: Patterns for Time-Triggered Embedded Systems (frei verfügbar)", "url": "https://www.safetty.net/publications/pttes" }
   ]
 }

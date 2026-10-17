@@ -8,7 +8,7 @@ export default defineConfig({
     sourcemap: false,
     // Die Lektionen machen den Grossteil des Bundles aus. Als eigener Chunk werden
     // App-Code und Inhalte getrennt gecacht.
-    chunkSizeWarningLimit: 1200,
+    chunkSizeWarningLimit: 2000,
     rollupOptions: {
       output: {
         manualChunks(id) {

@@ -1,155 +1,127 @@
 {
   "id": "p3-m4-l1",
   "phase": 3,
-  "modul": "3.4 Sanitizer und Valgrind",
-  "titel": "AddressSanitizer und UBSan",
+  "modul": "3.4 Moderne Bibliothekstypen",
+  "titel": "span und string_view",
   "lernziele": [
-    "Erklären, wie AddressSanitizer Speicherfehler findet",
-    "Einen ASan-Bericht lesen und die Ursache finden",
-    "Sanitizer sinnvoll in Build und CI einbinden"
+    "Nicht besitzende Sichten auf Daten an Schnittstellen verwenden",
+    "Die Lebensdauerregeln von `std::span` und `std::string_view` einhalten",
+    "Feste und dynamische Ausdehnung bei `std::span` unterscheiden"
   ],
   "dauerMinuten": 6,
   "schritte": [
     {
       "typ": "multiple-choice",
-      "frage": "Was macht `-fsanitize=address`?",
+      "frage": "Eine Funktion soll eine Folge von Bytes verarbeiten, egal ob sie aus einem `std::array`, einem `std::vector` oder einem C-Array kommt. Welche Signatur passt am besten?",
       "optionen": [
-        "Der Compiler baut vor jedem Speicherzugriff eine Prüfung ein und meldet ungültige Zugriffe zur Laufzeit",
-        "Der Compiler analysiert den Quelltext und meldet mögliche Fehler schon beim Kompilieren",
-        "Das Programm wird so gebaut, dass Speicherfehler nicht mehr abstürzen"
+        "`void verarbeite(std::span<const std::byte> daten);`",
+        "`void verarbeite(const std::vector<std::byte>& daten);`",
+        "`void verarbeite(const std::byte* daten);`"
       ],
       "korrekt": 0,
-      "erklaerung": "**AddressSanitizer** (ASan) instrumentiert jeden Lese- und Schreibzugriff. Eine Laufzeitbibliothek merkt sich in einem **Schattenspeicher** (shadow memory), welche Bytes gültig sind. Ein ungültiger Zugriff beendet das Programm sofort mit einem genauen Bericht. Gefunden wird nur, was zur Laufzeit tatsächlich passiert. Deshalb braucht ASan gute Tests.",
+      "erklaerung": "Ein **`std::span`** ist ein Zeiger plus Länge: eine nicht besitzende Sicht auf zusammenhängenden Speicher. Er lässt sich aus allen genannten Quellen ohne Kopie erzeugen. `const std::vector&` zwingt Aufrufer zu einem Vektor, ein nackter Zeiger verliert die Länge. Das ist die Quelle unzähliger Pufferüberläufe.",
       "begruendungen": [
         "Richtig.",
-        "Das wäre statische Analyse. ASan prüft zur Laufzeit.",
-        "Im Gegenteil: ASan beendet das Programm beim ersten Fehler gezielt."
-      ]
-    },
-    {
-      "typ": "erklaerung",
-      "titel": "So arbeitet ASan",
-      "text": "- Um jeden Heap-Block und jedes lokale Array legt ASan **Schutzzonen** (redzones). Ein Zugriff darauf ist ein Überlauf.\n- Freigegebener Speicher kommt in eine **Quarantäne** und wird nicht sofort wiederverwendet. So fällt ein späterer Zugriff auf.\n- Am Programmende meldet der integrierte **LeakSanitizer** Speicherlecks.\n\nKosten: etwa doppelte Laufzeit, zwei- bis dreifacher Speicherbedarf. Gebaut wird mit `-fsanitize=address -fno-omit-frame-pointer -g`. **UBSan** (`-fsanitize=undefined`) ist deutlich günstiger und lässt sich mit ASan kombinieren. Mit `-fno-sanitize-recover=all` bricht UBSan beim ersten Fund ab, statt nur zu melden."
-    },
-    {
-      "typ": "terminal-deuten",
-      "frage": "Was ist passiert?",
-      "terminal": {
-        "befehl": "./sitzung_test",
-        "ausgabe": [
-          "==12345==ERROR: AddressSanitizer: heap-use-after-free on address 0x602000000010",
-          "READ of size 4 at 0x602000000010 thread T0",
-          "    #0 0x55d4a1 in Sitzung::nutzerId() const sitzung.cpp:27",
-          "    #1 0x55d4b7 in main main.cpp:15",
-          "freed by thread T0 here:",
-          "    #0 0x7f1c22 in operator delete(void*, unsigned long)",
-          "    #1 0x55d4c3 in Sitzung::abmelden() sitzung.cpp:40",
-          "previously allocated by thread T0 here:",
-          "    #0 0x7f1c10 in operator new(unsigned long)",
-          "    #1 0x55d4d9 in Sitzung::anmelden() sitzung.cpp:33"
-        ]
-      },
-      "optionen": [
-        "`abmelden()` gibt den Nutzer frei, danach liest `nutzerId()` noch aus diesem Speicher",
-        "`anmelden()` reserviert zu wenig Speicher",
-        "In `main.cpp` Zeile 15 fehlt ein `delete`"
-      ],
-      "korrekt": 0,
-      "erklaerung": "Ein ASan-Bericht hat drei Teile: **wo** der fehlerhafte Zugriff passiert (`nutzerId`, Zeile 27), **wo** der Speicher freigegeben wurde (`abmelden`, Zeile 40) und **wo** er angelegt wurde (`anmelden`, Zeile 33). Damit ist die Geschichte vollständig: Nach dem Abmelden hält jemand noch einen Zeiger auf den alten Nutzer.",
-      "begruendungen": [
-        "Richtig.",
-        "Dann hiesse der Fehler `heap-buffer-overflow`.",
-        "Ein fehlendes `delete` wäre ein Leck. Hier wurde im Gegenteil zu früh freigegeben."
-      ]
-    },
-    {
-      "typ": "zuordnen",
-      "frage": "Was bedeuten die Fehlerarten im ASan-Bericht?",
-      "paare": [
-        { "links": "`heap-buffer-overflow`", "rechts": "Zugriff hinter das Ende eines Heap-Blocks" },
-        { "links": "`stack-buffer-overflow`", "rechts": "Zugriff hinter das Ende eines lokalen Arrays" },
-        { "links": "`heap-use-after-free`", "rechts": "Zugriff auf bereits freigegebenen Heap-Speicher" },
-        { "links": "`detected memory leaks`", "rechts": "Speicher wurde nie freigegeben (LeakSanitizer)" }
-      ],
-      "erklaerung": "Dazu kommen z. B. `stack-use-after-return` (Zugriff auf eine lokale Variable einer beendeten Funktion) und `double-free`. Die Fehlerart steht immer in der ersten Zeile des Berichts."
-    },
-    {
-      "typ": "lueckentext",
-      "frage": "Ergänze die CMake-Option: Mit `-DSANITIZE=ON` soll das Projekt mit ASan und UBSan gebaut werden.",
-      "code": {
-        "sprache": "cmake",
-        "zeilen": [
-          "option(SANITIZE \"Mit ASan und UBSan bauen\" OFF)",
-          "if(SANITIZE)",
-          "  add_compile_options(-fsanitize=address,undefined -fno-omit-frame-pointer)",
-          "  add_link_options(-fsanitize={{?}})",
-          "endif()"
-        ]
-      },
-      "luecken": [{ "loesungen": ["address,undefined"] }],
-      "auswahl": ["address,undefined", "thread", "memory"],
-      "erklaerung": "Die Option muss auch beim **Linken** stehen, damit die Laufzeitbibliothek der Sanitizer eingebunden wird. Fehlt sie dort, kommen Linkerfehler wie `undefined reference to __asan_report_load4`. Hier sind globale Optionen ausnahmsweise passend, weil der ganze Build instrumentiert werden soll."
-    },
-    {
-      "typ": "multiple-choice",
-      "frage": "Warum liefert man keine ASan-Builds an Kunden aus?",
-      "optionen": [
-        "Sie sind deutlich langsamer, brauchen mehr Speicher, und die Laufzeitbibliothek ist nicht für den Einsatz in sicherheitskritischen Umgebungen gehärtet",
-        "ASan-Builds funktionieren nur auf dem Rechner, auf dem sie gebaut wurden",
-        "ASan ist nur für Open-Source-Projekte lizenziert"
-      ],
-      "korrekt": 0,
-      "erklaerung": "ASan ist ein Werkzeug für Tests und Fuzzing. In der CI sollte ein Job alle Tests mit ASan und UBSan ausführen. Für Härtung in Produktion gibt es andere Mittel, z. B. `-D_GLIBCXX_ASSERTIONS`, `-fstack-protector-strong` oder `-D_FORTIFY_SOURCE=3`.",
-      "begruendungen": [
-        "Richtig.",
-        "ASan-Builds laufen überall, wo die Laufzeitbibliothek vorhanden ist.",
-        "ASan ist Teil von GCC und Clang und frei nutzbar."
+        "Das schliesst Arrays und statische Puffer aus oder erzwingt eine Kopie.",
+        "Ohne Länge kann die Funktion keine Grenzen prüfen."
       ]
     },
     {
       "typ": "code-lesen",
-      "frage": "Was meldet ASan hier?",
+      "frage": "Was gibt dieser Code aus?",
       "code": {
         "sprache": "cpp",
         "zeilen": [
-          "int main() {",
-          "    int werte[4] = {1, 2, 3, 4};",
-          "    int i = 4;",
-          "    return werte[i];",
+          "std::array<uint8_t, 8> rahmen{0xAA, 0x05, 1, 2, 3, 4, 5, 0x3C};",
+          "std::span<const uint8_t> alles{rahmen};",
+          "auto nutzdaten = alles.subspan(2, alles[1]);",
+          "std::cout << nutzdaten.size() << ' ' << int(nutzdaten.front());"
+        ]
+      },
+      "optionen": ["`5 1`", "`8 170`", "`6 1`", "`5 5`"],
+      "korrekt": 0,
+      "fest": true,
+      "erklaerung": "`subspan(offset, anzahl)` liefert eine Sicht ab Index 2 mit der Länge aus Byte 1, also 5. Das erste Element ist `1`. Es wird nichts kopiert. Für Protokollparser ist das ideal: Header, Nutzdaten und Prüfsumme als Teilsichten auf denselben Puffer.",
+      "begruendungen": [
+        "Richtig.",
+        "Das wäre der ganze Rahmen.",
+        "Die Länge steht in `alles[1]` und ist 5.",
+        "`front()` ist das erste Element der Teilsicht, nicht ihre Länge."
+      ]
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Dieser Parser vertraut dem Längenfeld aus dem empfangenen Rahmen. Welche Zeile muss vorher abgesichert werden?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "std::optional<Nachricht> parse(std::span<const uint8_t> rahmen) {",
+          "    if (rahmen.size() < 3) return std::nullopt;",
+          "    const std::size_t laenge = rahmen[1];",
+          "    auto nutzdaten = rahmen.subspan(2, laenge);",
+          "    return Nachricht{nutzdaten};",
           "}"
         ]
       },
+      "fehlerZeile": 4,
+      "erklaerung": "Ist das Längenfeld grösser als der Rest des Rahmens, ist `subspan` undefiniertes Verhalten. `std::span` prüft keine Grenzen (ausser mit `.at()` ab C++26 oder einer Debug-Bibliothek). Richtig: zuerst `if (laenge > rahmen.size() - 2) return std::nullopt;`. Längenfelder aus empfangenen Daten sind die klassische Quelle von Sicherheitslücken (Modul 12.3)."
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "string_view",
+      "text": "**`std::string_view`** ist dasselbe Prinzip für Text: Zeiger plus Länge, ohne Besitz. Als Parametertyp nimmt er `std::string`, String-Literale und `char`-Puffer ohne Kopie entgegen.\n\nDie Regeln:\n\n- Ein `string_view` darf nie länger leben als die Zeichen, auf die er zeigt.\n- Er ist nicht unbedingt nullterminiert. Wer eine C-Funktion aufruft, die `const char*` erwartet, darf `sv.data()` nicht einfach übergeben.\n- Als Parameter ist er ideal, als Rückgabewert oder Member nur, wenn die Lebensdauer klar ist.\n\n`std::span` hat zusätzlich eine Form mit fester Grösse: `std::span<const uint8_t, 4>` wird zur Übersetzungszeit geprüft und speichert keine Länge."
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Welche Zeile erzeugt hier eine hängende Sicht?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "std::string geraeteName();",
+          "",
+          "void zeige() {",
+          "    std::string_view name = geraeteName();",
+          "    std::cout << name << '\\n';",
+          "}"
+        ]
+      },
+      "fehlerZeile": 4,
+      "erklaerung": "`geraeteName()` liefert ein temporäres `std::string`, das am Ende der Zeile 4 zerstört wird. `name` zeigt danach auf freigegebenen Speicher. Häufig funktioniert das zufällig, wenn der kurze String im Objekt selbst lag (Small String Optimization), und stürzt bei längeren Namen ab. Abhilfe: `std::string name = ...` oder `const auto& name = ...`, was die Lebensdauer des temporären Objekts verlängert. Clang warnt mit `-Wdangling`."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Warum ist `std::span<uint8_t, 4>` als Parameter für eine CAN-Nutzlast von genau 4 Byte besser als `std::span<uint8_t>`?",
       "optionen": [
-        "`stack-buffer-overflow`",
-        "`heap-buffer-overflow`",
-        "Nichts, Zugriffe auf den Stack prüft ASan nicht"
+        "Der Compiler prüft die Grösse beim Aufruf mit einem Array fester Länge, und die Funktion kennt sie zur Übersetzungszeit",
+        "Er ist schneller zu kopieren",
+        "Er besitzt die Daten"
       ],
       "korrekt": 0,
-      "erklaerung": "`werte` ist ein lokales Array, liegt also auf dem Stack. ASan legt auch um lokale Arrays Schutzzonen, deshalb fällt der Zugriff auf `werte[4]` auf. Ohne ASan würde das Programm meist einfach einen zufälligen Wert zurückgeben.",
+      "erklaerung": "Wer ein `std::array<uint8_t, 8>` übergeben will, bekommt einen Übersetzungsfehler. Die Grösse gehört zum Typ. Ein `span` mit fester Ausdehnung ist zudem nur ein Zeiger gross. Aus einem dynamischen `span` erhält man einen festen mit `first<4>()` oder `subspan<0, 4>()`.",
       "begruendungen": [
         "Richtig.",
-        "Das Array liegt nicht auf dem Heap.",
-        "ASan prüft Stack, Heap und globale Variablen."
+        "Er ist tatsächlich etwas kleiner, aber das ist nicht der Hauptgrund.",
+        "Kein `span` besitzt Daten."
       ]
     }
   ],
-  "praxis": "Viele Teams entdecken beim ersten ASan-Lauf über die bestehenden Tests sofort mehrere echte Fehler, die seit Jahren unbemerkt waren. Ein ASan/UBSan-Job in der CI ist eine der wirksamsten Massnahmen für die Codequalität. Wenn du in ein Projekt kommst, das das nicht hat, ist das ein guter Vorschlag für deine ersten Wochen.",
+  "praxis": "In Schnittstellen sind `span` und `string_view` heute Standard für „ich lese diese Daten nur“. In Embedded-Treibern ersetzen sie das Paar `(uint8_t* puffer, size_t laenge)`. Die Gefahr liegt in der Lebensdauer. Darum gilt die Faustregel: Als Parameter immer gern, als Member oder Rückgabewert nur mit dokumentierter Lebensdauer. Die C++ Core Guidelines empfehlen `span` ausdrücklich (I.13, F.24).",
   "labor": {
-    "titel": "ASan in ein Projekt einbauen",
-    "anleitung": "Nimm ein eigenes Projekt mit Tests, ergänze die `SANITIZE`-Option aus der Lektion und lass die Tests laufen.",
+    "titel": "Ein Protokollparser mit span",
+    "anleitung": "Schreibe einen Parser für Rahmen der Form Start (0xAA), Länge, Nutzdaten, Prüfsumme. Teste ihn mit gültigen, zu kurzen und manipulierten Rahmen (Länge zu gross) und übersetze mit Sanitizern.",
     "befehle": [
-      "cmake -S . -B build-asan -DSANITIZE=ON -DCMAKE_BUILD_TYPE=Debug && cmake --build build-asan",
-      "ASAN_OPTIONS=detect_leaks=1:halt_on_error=1 ctest --test-dir build-asan --output-on-failure"
+      "g++ -std=c++20 -g -fsanitize=address,undefined -D_GLIBCXX_ASSERTIONS parser.cpp -o parser",
+      "./parser"
     ],
-    "beobachtung": "Findet ASan nichts, baue absichtlich einen Fehler ein, z. B. `v[v.size()]`. Bei `std::vector` meldet ASan das nur, wenn der Zugriff über den reservierten Speicher hinausgeht. Mit `-D_GLIBCXX_ASSERTIONS` prüft die Standardbibliothek zusätzlich jeden Index."
+    "beobachtung": "Mit `_GLIBCXX_ASSERTIONS` prüft libstdc++ auch Zugriffe über `operator[]` von `span`. Lass die Längenprüfung weg und beobachte die Meldung."
   },
   "begriffe": [
-    { "begriff": "AddressSanitizer", "englisch": "AddressSanitizer, ASan", "erklaerung": "Laufzeitprüfung für Speicherfehler wie Überläufe und use after free." },
-    { "begriff": "UndefinedBehaviorSanitizer", "englisch": "UndefinedBehaviorSanitizer, UBSan", "erklaerung": "Laufzeitprüfung für Undefined Behavior wie Überläufe, ungültige Shifts oder Nullzeiger." },
-    { "begriff": "Schattenspeicher", "englisch": "shadow memory", "erklaerung": "Von ASan verwalteter Speicher, der für jedes Byte vermerkt, ob ein Zugriff erlaubt ist." }
+    { "begriff": "std::span", "englisch": "span", "erklaerung": "Nicht besitzende Sicht auf eine zusammenhängende Folge von Elementen." },
+    { "begriff": "std::string_view", "englisch": "string view", "erklaerung": "Nicht besitzende Sicht auf eine Zeichenfolge, nicht unbedingt nullterminiert." },
+    { "begriff": "Hängende Referenz", "englisch": "dangling reference", "erklaerung": "Verweis auf ein Objekt, das nicht mehr existiert." }
   ],
   "weiterlesen": [
-    { "titel": "Clang: AddressSanitizer", "url": "https://clang.llvm.org/docs/AddressSanitizer.html" },
-    { "titel": "google/sanitizers Wiki", "url": "https://github.com/google/sanitizers/wiki" }
+    { "titel": "cppreference: std::span", "url": "https://en.cppreference.com/w/cpp/container/span" },
+    { "titel": "cppreference: std::basic_string_view", "url": "https://en.cppreference.com/w/cpp/string/basic_string_view" }
   ]
 }

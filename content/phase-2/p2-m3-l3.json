@@ -63,19 +63,45 @@
           "};"
         ]
       },
-      "luecken": [{ "loesungen": ["vector"] }],
-      "auswahl": ["vector", "unique_ptr", "shared_ptr", "array"],
+      "luecken": [
+        {
+          "loesungen": [
+            "vector"
+          ]
+        }
+      ],
+      "auswahl": [
+        "vector",
+        "unique_ptr",
+        "shared_ptr",
+        "array"
+      ],
       "erklaerung": "`std::vector` kopiert tief, verschiebt effizient und gibt im Destruktor frei. `Puffer` erbt dieses Verhalten automatisch. `std::unique_ptr<int[]>` wäre nicht kopierbar, `std::shared_ptr` würde beim Kopieren die Daten teilen statt sie zu kopieren, und `std::array` braucht die Grösse schon beim Kompilieren."
     },
     {
       "typ": "zuordnen",
       "frage": "Ordne zu.",
       "paare": [
-        { "links": "Rule of Zero", "rechts": "Keine eigenen Spezialfunktionen, die Member verwalten sich selbst" },
-        { "links": "Rule of Three", "rechts": "Destruktor, Kopierkonstruktor und Kopierzuweisung gehören zusammen" },
-        { "links": "Rule of Five", "rechts": "Zusätzlich Move-Konstruktor und Move-Zuweisung" },
-        { "links": "`= delete`", "rechts": "Eine Spezialfunktion ausdrücklich verbieten" },
-        { "links": "`= default`", "rechts": "Die vom Compiler erzeugte Version ausdrücklich anfordern" }
+        {
+          "links": "Rule of Zero",
+          "rechts": "Keine eigenen Spezialfunktionen, die Member verwalten sich selbst"
+        },
+        {
+          "links": "Rule of Three",
+          "rechts": "Destruktor, Kopierkonstruktor und Kopierzuweisung gehören zusammen"
+        },
+        {
+          "links": "Rule of Five",
+          "rechts": "Zusätzlich Move-Konstruktor und Move-Zuweisung"
+        },
+        {
+          "links": "`= delete`",
+          "rechts": "Eine Spezialfunktion ausdrücklich verbieten"
+        },
+        {
+          "links": "`= default`",
+          "rechts": "Die vom Compiler erzeugte Version ausdrücklich anfordern"
+        }
       ],
       "erklaerung": "`= default` und `= delete` dokumentieren eine Absicht. `X(X&&) noexcept = default;` sagt dem Leser: Verschieben ist gewollt und wirft nicht."
     },
@@ -139,12 +165,30 @@
     "beobachtung": "clang-tidy meldet, dass die Klasse einen Destruktor, aber keine Kopier- und Move-Operationen definiert. Mit `-fsanitize=address` und dem `Puffer` aus der ersten Übung bekommst du die Meldung `attempting double-free`."
   },
   "begriffe": [
-    { "begriff": "Spezielle Memberfunktionen", "englisch": "special member functions", "erklaerung": "Konstruktor ohne Argumente, Destruktor, Kopier- und Move-Konstruktor, Kopier- und Move-Zuweisung. Der Compiler kann sie erzeugen." },
-    { "begriff": "Rule of Zero", "englisch": "rule of zero", "erklaerung": "Klassen so entwerfen, dass keine Spezialfunktion selbst geschrieben werden muss." },
-    { "begriff": "Rule of Five", "englisch": "rule of five", "erklaerung": "Wer eine der fünf Spezialfunktionen selbst schreibt, sollte alle fünf bedenken." }
+    {
+      "begriff": "Spezielle Memberfunktionen",
+      "englisch": "special member functions",
+      "erklaerung": "Konstruktor ohne Argumente, Destruktor, Kopier- und Move-Konstruktor, Kopier- und Move-Zuweisung. Der Compiler kann sie erzeugen."
+    },
+    {
+      "begriff": "Rule of Zero",
+      "englisch": "rule of zero",
+      "erklaerung": "Klassen so entwerfen, dass keine Spezialfunktion selbst geschrieben werden muss."
+    },
+    {
+      "begriff": "Rule of Five",
+      "englisch": "rule of five",
+      "erklaerung": "Wer eine der fünf Spezialfunktionen selbst schreibt, sollte alle fünf bedenken."
+    }
   ],
   "weiterlesen": [
-    { "titel": "cppreference: The rule of three/five/zero", "url": "https://en.cppreference.com/w/cpp/language/rule_of_three" },
-    { "titel": "C++ Core Guidelines: C.20 – If you can avoid defining default operations, do", "url": "https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#Rc-zero" }
+    {
+      "titel": "cppreference: The rule of three/five/zero",
+      "url": "https://en.cppreference.com/w/cpp/language/rule_of_three"
+    },
+    {
+      "titel": "C++ Core Guidelines: C.20 – If you can avoid defining default operations, do",
+      "url": "https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#Rc-zero"
+    }
   ]
 }

@@ -1,131 +1,151 @@
 {
   "id": "p6-m2-l2",
   "phase": 6,
-  "modul": "6.2 Interfaces und Header als Verträge",
-  "titel": "API- und ABI-Stabilität",
+  "modul": "6.2 Register und Bits",
+  "titel": "Register sicher in C++ abbilden",
   "lernziele": [
-    "API und ABI unterscheiden",
-    "Einschätzen, welche Änderungen die ABI brechen",
-    "Wissen, wann ABI-Stabilität wichtig ist und wie man sie prüft"
+    "Register-Strukturen nach dem Muster der Hersteller-Header lesen",
+    "Das Layout von Registern mit `static_assert` absichern",
+    "Typsichere Registerzugriffe ohne Laufzeitkosten bauen"
   ],
-  "dauerMinuten": 6,
+  "dauerMinuten": 7,
   "schritte": [
     {
       "typ": "multiple-choice",
-      "frage": "In Version 1.3 einer Shared Library bekommt die Klasse `Sensor` ein zusätzliches privates Member. An der öffentlichen Schnittstelle ändert sich nichts. Ein Programm, das gegen 1.2 gebaut wurde, läuft nun mit der 1.3-Bibliothek und stürzt ab. Warum?",
+      "frage": "Viele ältere Treiber benutzen Makros wie `#define GPIOA_ODR (*(volatile uint32_t*)0x40020014)`. Was ist das Hauptproblem?",
       "optionen": [
-        "Das Programm hat beim Kompilieren die alte Grösse und das alte Layout von `Sensor` eingebaut. Die Bibliothek arbeitet mit dem neuen. Die ABI ist gebrochen",
-        "Private Member dürfen in Shared Libraries nicht vorkommen",
-        "Die Bibliothek ist fehlerhaft gebaut"
+        "Es gibt keine Typprüfung: Jeder Wert lässt sich in jedes Register schreiben, und ein Bit eines anderen Registers fällt nicht auf",
+        "Makros sind auf Mikrocontrollern langsamer als Funktionen",
+        "Der Code kompiliert nur mit C, nicht mit C++"
       ],
       "korrekt": 0,
-      "erklaerung": "Die **API**, also der Quelltext-Vertrag, ist gleich geblieben, neu kompilieren würde funktionieren. Die **ABI**, also der binäre Vertrag, hat sich geändert: Das Programm reserviert für `Sensor` zu wenig Speicher, und die Bibliothek schreibt über das Ende hinaus.",
+      "erklaerung": "Für den Compiler ist alles ein `uint32_t`. `GPIOA_ODR = USART_SR_TXE;` kompiliert ohne Warnung, obwohl die Konstante zu einem ganz anderen Register gehört. C++ bietet Mittel, um solche Fehler zu Compilerfehlern zu machen, ohne zusätzlichen Maschinencode.",
       "begruendungen": [
         "Richtig.",
-        "Private Member sind normal, sie gehören aber trotzdem zum Objektlayout.",
-        "Beide Teile sind korrekt gebaut, sie passen nur nicht mehr zusammen."
+        "Der erzeugte Code ist gleich schnell.",
+        "Solche Makros funktionieren auch in C++."
       ]
     },
     {
       "typ": "erklaerung",
-      "titel": "API und ABI",
-      "text": "- Die **API** (application programming interface) ist der Vertrag auf Quelltext-Ebene: Kompiliert mein Code noch?\n- Die **ABI** (application binary interface) ist der Vertrag auf Maschinenebene: Läuft mein **bereits kompiliertes** Programm noch mit der neuen Bibliothek?\n\nZur ABI gehören u. a. Grösse und Layout von Klassen, Reihenfolge der vtable-Einträge, gemangelte Symbolnamen, Aufrufkonventionen und der Code von `inline`-Funktionen und Templates, der beim Nutzer einkompiliert wurde."
+      "titel": "Struktur-Overlay",
+      "text": "Hersteller-Header (CMSIS) beschreiben eine Peripherie als Struktur, deren Member genau auf den Registern liegen. Ein Zeiger auf die Basisadresse macht daraus lesbaren Code: `gpioA().BSRR = …`.",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "struct GpioRegs {",
+          "    volatile std::uint32_t MODER;    // 0x00",
+          "    volatile std::uint32_t OTYPER;   // 0x04",
+          "    volatile std::uint32_t OSPEEDR;  // 0x08",
+          "    volatile std::uint32_t PUPDR;    // 0x0C",
+          "    volatile std::uint32_t IDR;      // 0x10",
+          "    volatile std::uint32_t ODR;      // 0x14",
+          "    volatile std::uint32_t BSRR;     // 0x18",
+          "};",
+          "static_assert(offsetof(GpioRegs, BSRR) == 0x18);",
+          "",
+          "inline GpioRegs& gpioA() { return *reinterpret_cast<GpioRegs*>(0x40020000); }"
+        ],
+        "anmerkungen": [
+          { "zeile": 2, "text": "Jedes Member ist `volatile`, damit jeder Zugriff wirklich auf die Hardware geht." },
+          { "zeile": 10, "text": "Prüft beim Kompilieren, dass das Layout zum Referenzhandbuch passt." },
+          { "zeile": 12, "text": "Eine Funktion statt einer Variable, dazu gleich mehr." }
+        ]
+      }
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Jemand fügt versehentlich ein Member zwischen `ODR` und `BSRR` ein. Was passiert?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": ["static_assert(offsetof(GpioRegs, BSRR) == 0x18);"]
+      },
+      "optionen": [
+        "Der Build bricht ab, weil `BSRR` jetzt bei `0x1C` liegt",
+        "Das Programm läuft, schreibt aber in das falsche Register",
+        "Der Compiler verschiebt das Member automatisch an die richtige Stelle"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Ohne die Prüfung würde jeder Zugriff auf `BSRR` das Register an `0x1C` treffen, `LCKR` beim STM32. Der Fehler wäre auf dem Gerät nur sehr schwer zu finden. Ein einzeiliges `static_assert` pro Struktur macht daraus einen Compilerfehler.",
+      "begruendungen": [
+        "Richtig.",
+        "Genau das verhindert die Prüfung.",
+        "Der Compiler ordnet Member immer in Deklarationsreihenfolge an."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Typsichere Felder",
+      "text": "Noch einen Schritt weiter gehen Register-Bibliotheken, die jedes **Feld** als eigenen Typ beschreiben: Adresse, Position und Breite als Template-Parameter, erlaubte Werte als `enum class`. Schreiben eines unpassenden Werts ist dann ein Compilerfehler. Weil alle Parameter zur Kompilierzeit feststehen, erzeugt der Compiler denselben Code wie bei den Makros. Das ist eine **Zero-Cost-Abstraktion** (Modul 7.4)."
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze das Feld-Template.",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "template <std::uintptr_t Adresse, unsigned Pos, unsigned Breite>",
+          "struct Feld {",
+          "    static_assert(Breite > 0 && Pos + Breite <= {{?}}, \"Feld passt nicht ins Register\");",
+          "    static constexpr std::uint32_t maske = ((1u << Breite) - 1u) << Pos;",
+          "",
+          "    static void schreibe(std::uint32_t wert) {",
+          "        auto& reg = *reinterpret_cast<volatile std::uint32_t*>(Adresse);",
+          "        reg = (reg & ~maske) | ((wert << Pos) & {{?}});",
+          "    }",
+          "};",
+          "",
+          "using Pa5Modus = Feld<0x40020000, 10, 2>;   // MODER, Pin 5"
+        ]
+      },
+      "luecken": [{ "loesungen": ["32"] }, { "loesungen": ["maske"] }],
+      "auswahl": ["32", "maske", "16", "Pos"],
+      "erklaerung": "Die erste Prüfung verhindert Felder, die über das 32-Bit-Register hinausragen. Für ein Feld mit voller Breite 32 müsste `maske` übrigens anders berechnet werden, weil `1u << 32` Undefined Behavior ist. Die Maske beim Schreiben stellt sicher, dass ein zu grosser Wert keine Nachbarbits verändert."
     },
     {
       "typ": "zuordnen",
-      "frage": "Was bricht welche Änderung?",
+      "frage": "Ordne die Ansätze zu.",
       "paare": [
-        { "links": "Eine neue freie Funktion hinzufügen", "rechts": "Weder API noch ABI" },
-        { "links": "Ein privates Member in eine Klasse einfügen", "rechts": "Die ABI, aber nicht die API" },
-        { "links": "Einen Parameter von `int` auf `long` ändern", "rechts": "Die ABI (neuer Symbolname) und eventuell die API" },
-        { "links": "Eine virtuelle Funktion in der Mitte der Klasse einfügen", "rechts": "Die ABI: Die vtable-Einträge dahinter verschieben sich" }
+        { "links": "Makros mit festen Adressen", "rechts": "Einfach, aber ohne jede Typprüfung" },
+        { "links": "Struktur-Overlay wie in CMSIS", "rechts": "Lesbare Namen, Layout mit `static_assert` prüfbar" },
+        { "links": "Typisierte Feld-Templates", "rechts": "Falsches Feld oder falscher Wert fällt schon beim Kompilieren auf" },
+        { "links": "C-Bitfelder", "rechts": "Anordnung implementierungsabhängig, für Register ungeeignet" }
       ],
-      "erklaerung": "Die Faustregel: Alles, was Grösse, Layout, Reihenfolge oder Namen von etwas Sichtbarem ändert, bricht die ABI. Hinzufügen neuer, unabhängiger Dinge ist meist sicher."
+      "erklaerung": "In der Praxis nimmt man meist die CMSIS-Strukturen des Herstellers und baut darüber eine dünne, typsichere Schicht für die Funktionen, die man wirklich braucht, z. B. eine Klasse `Ausgang<Port, Pin>`."
     },
     {
       "typ": "multiple-choice",
-      "frage": "Wie kann eine Bibliothek neue Member hinzufügen, ohne die ABI zu brechen?",
+      "frage": "Warum steht `gpioA()` als Funktion da und nicht als `constexpr GpioRegs* gpioA = reinterpret_cast<GpioRegs*>(0x40020000);`?",
       "optionen": [
-        "Mit dem **PIMPL**-Idiom: Die Klasse enthält nur einen Zeiger auf eine private Implementierung, deren Layout niemand sieht",
-        "Indem man die neuen Member `static` macht",
-        "Gar nicht, neue Member brechen immer die ABI"
+        "`reinterpret_cast` ist in konstanten Ausdrücken nicht erlaubt, die `constexpr`-Variable würde nicht kompilieren",
+        "Funktionen sind schneller als Variablen",
+        "Damit jeder Aufruf eine neue Kopie der Register erzeugt"
       ],
       "korrekt": 0,
-      "erklaerung": "Mit PIMPL (*pointer to implementation*) bleibt die öffentliche Klasse immer genau einen Zeiger gross. Neue Daten kommen in die private Implementierungsklasse in der `.cpp`-Datei. Das kostet eine Heap-Allokation und eine Indirektion pro Zugriff, schützt aber die ABI. Details folgen in Phase 7.",
+      "erklaerung": "Eine Ganzzahl in einen Zeiger umzuwandeln, ist kein konstanter Ausdruck. Übliche Auswege sind eine `inline`-Funktion, eine nicht-`constexpr` `inline`-Variable oder die Adresse als Template-Parameter vom Typ `std::uintptr_t`. Mit `-O1` und höher erzeugen alle drei denselben Maschinencode.",
       "begruendungen": [
         "Richtig.",
-        "`static`-Member ändern das Objektlayout nicht, sind aber für alle Objekte gemeinsam. Das ist meist nicht gewollt.",
-        "Mit PIMPL geht es."
-      ]
-    },
-    {
-      "typ": "erklaerung",
-      "titel": "Wann ABI zählt",
-      "text": "ABI-Stabilität ist wichtig, wenn Bibliothek und Nutzer **getrennt** gebaut und ausgeliefert werden: Systembibliotheken, SDKs für Kunden, Plugin-Schnittstellen, Shared Libraries, die per Update getauscht werden. Wird alles zusammen aus einem Repository gebaut und statisch gelinkt, spielt die ABI kaum eine Rolle, die API schon.\n\nWerkzeuge wie **libabigail** (`abidiff`) oder der *abi-compliance-checker* vergleichen zwei Versionen einer Bibliothek und melden ABI-Brüche. Ein Bruch ist erlaubt, muss aber bewusst sein: Dann steigt der soname (Modul 1.3), und alle Nutzer müssen neu gebaut werden."
-    },
-    {
-      "typ": "terminal-deuten",
-      "frage": "Was bedeutet dieser Bericht für das Release?",
-      "terminal": {
-        "befehl": "abidiff libsensor.so.1.2 libsensor.so.1.3",
-        "ausgabe": [
-          "Functions changes summary: 0 Removed, 1 Changed, 0 Added function",
-          "",
-          "1 function with some indirect sub-type change:",
-          "  [C] 'method void Sensor::lies()' has some indirect sub-type changes:",
-          "    implicit parameter 0 of type 'Sensor*' has sub-type changes:",
-          "      in pointed to type 'class Sensor':",
-          "        type size changed from 64 to 96 (in bits)"
-        ]
-      },
-      "optionen": [
-        "Die ABI ist gebrochen, weil `Sensor` grösser wurde. Entweder die Änderung ABI-neutral umsetzen oder den soname erhöhen, sodass alle Nutzer neu bauen",
-        "Nur eine Warnung, die man ignorieren kann",
-        "Die API ist gebrochen, Nutzer müssen ihren Code ändern"
-      ],
-      "korrekt": 0,
-      "erklaerung": "Eine Version 1.3 verspricht nach Semantic Versioning Kompatibilität zu 1.2. Dieser Bericht zeigt, dass das nicht stimmt. Viele Projekte lassen `abidiff` deshalb als Quality Gate in der Release-Pipeline laufen.",
-      "begruendungen": [
-        "Richtig.",
-        "Ein Grössenwechsel führt bei alten Programmen zu Speicherfehlern.",
-        "Am Quelltext der Nutzer muss nichts geändert werden, nur neu kompiliert."
-      ]
-    },
-    {
-      "typ": "multiple-choice",
-      "frage": "Eine `inline`-Funktion im öffentlichen Header einer Shared Library wird in Version 1.3 korrigiert. Was passiert bei Programmen, die gegen 1.2 gebaut wurden und jetzt mit 1.3 laufen?",
-      "optionen": [
-        "Sie benutzen weiterhin die alte, fehlerhafte Version, denn der Code der `inline`-Funktion wurde in sie hineinkompiliert",
-        "Sie benutzen automatisch die korrigierte Version aus der Bibliothek",
-        "Sie stürzen beim Start ab"
-      ],
-      "korrekt": 0,
-      "erklaerung": "Code aus Headern, also `inline`-Funktionen und Templates, landet im Binary des Nutzers. Ein Update der Bibliothek erreicht ihn nicht. Schlimmer: Ruft die neue Bibliothek dieselbe Funktion intern auf, laufen alte und neue Version nebeneinander. Für stabile Schnittstellen hält man deshalb so wenig Logik wie möglich im Header.",
-      "begruendungen": [
-        "Richtig.",
-        "Nur nicht-inline Funktionen werden aus der Bibliothek aufgerufen.",
-        "Das Programm startet, verhält sich aber womöglich inkonsistent."
+        "Der Compiler inlined die Funktion, es gibt keinen Unterschied.",
+        "Es wird nichts kopiert, die Funktion liefert eine Referenz auf die Hardware."
       ]
     }
   ],
-  "praxis": "Wenn du an einer Bibliothek arbeitest, die andere getrennt einsetzen, z. B. ein SDK, eine Plugin-Schnittstelle oder eine Systembibliothek, ist ABI-Stabilität Teil deiner Verantwortung. Im Review fragst du bei jeder Änderung an einer öffentlichen Klasse: Ändert sich Grösse, Layout oder vtable? Ist das bei dieser Versionsnummer erlaubt? Ein `abidiff`-Lauf in der CI nimmt dir das Prüfen ab.",
+  "praxis": "In Treiber-Reviews achtest du auf: Sind alle Register `volatile`? Ist das Layout abgesichert? Werden Felder mit Maske geschrieben, sodass Nachbarbits erhalten bleiben? Gibt es eine dünne Schicht über den rohen Registern, damit Fehler wie „falscher Pin“ beim Kompilieren statt auf dem Gerät auffallen? Gute Treiber machen falsche Verwendung möglichst unmöglich.",
   "labor": {
-    "titel": "Einen ABI-Bruch sichtbar machen",
-    "anleitung": "Baue eine kleine Shared Library mit einer Klasse, linke ein Programm dagegen, füge dann ein Member hinzu, baue nur die Bibliothek neu und starte das alte Programm.",
+    "titel": "Zero Cost überprüfen",
+    "anleitung": "Schreibe einen Pin-Zugriff einmal mit Makro und einmal mit einem `Feld`-Template und vergleiche den Maschinencode für Cortex-M4.",
     "befehle": [
-      "g++ -g -fPIC -shared sensor_v1.cpp -o libsensor.so && g++ main.cpp -L. -lsensor -o app && LD_LIBRARY_PATH=. ./app",
-      "g++ -g -fPIC -shared sensor_v2.cpp -o libsensor.so && LD_LIBRARY_PATH=. ./app",
-      "abidiff libsensor_v1.so libsensor_v2.so"
+      "arm-none-eabi-g++ -std=c++20 -mcpu=cortex-m4 -mthumb -O2 -S register.cpp -o register.s",
+      "grep -A6 'makro_variante\\|template_variante' register.s"
     ],
-    "beobachtung": "Das alte Programm liefert falsche Werte oder stürzt ab, je nachdem, wie die Bibliothek das neue Member benutzt. Mit AddressSanitizer im Programm zeigt sich ein `stack-buffer-overflow`, weil das Objekt im Programm zu klein angelegt ist."
+    "beobachtung": "Beide Funktionen bestehen aus denselben wenigen Befehlen: Adresse laden, lesen, maskieren, schreiben. Die Typsicherheit kostet zur Laufzeit nichts."
   },
   "begriffe": [
-    { "begriff": "API", "englisch": "application programming interface", "erklaerung": "Vertrag auf Quelltext-Ebene: welche Funktionen und Typen es gibt und wie man sie aufruft." },
-    { "begriff": "ABI-Bruch", "englisch": "ABI break", "erklaerung": "Änderung, nach der bereits kompilierte Programme nicht mehr korrekt mit der neuen Bibliothek zusammenarbeiten." },
-    { "begriff": "libabigail", "englisch": "libabigail", "erklaerung": "Werkzeugsammlung zum Vergleich der ABI zweier Bibliotheksversionen (`abidiff`)." }
+    { "begriff": "CMSIS", "englisch": "Common Microcontroller Software Interface Standard", "erklaerung": "ARM-Standard für Register-Definitionen, Startcode und Hilfsfunktionen von Cortex-M-Mikrocontrollern." },
+    { "begriff": "Struktur-Overlay", "englisch": "struct overlay", "erklaerung": "Eine Struktur, deren Member genau auf den Registern einer Peripherie liegen." },
+    { "begriff": "Zero-Cost-Abstraktion", "englisch": "zero-cost abstraction", "erklaerung": "Abstraktion, die zur Laufzeit nichts gegenüber handgeschriebenem Code kostet." }
   ],
   "weiterlesen": [
-    { "titel": "KDE: Policies/Binary Compatibility Issues With C++", "url": "https://community.kde.org/Policies/Binary_Compatibility_Issues_With_C%2B%2B" },
-    { "titel": "libabigail: abidiff", "url": "https://sourceware.org/libabigail/manual/abidiff.html" }
+    { "titel": "ARM: CMSIS", "url": "https://arm-software.github.io/CMSIS_6/latest/General/index.html" }
   ]
 }

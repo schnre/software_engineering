@@ -1,137 +1,191 @@
 {
   "id": "p4-m3-l2",
   "phase": 4,
-  "modul": "4.3 Atomics und Speichermodell",
-  "titel": "Memory Ordering",
+  "modul": "4.3 Debugging",
+  "titel": "Core Dumps und Backtraces",
   "lernziele": [
-    "Erklären, warum Compiler und CPU Speicherzugriffe umordnen dürfen",
-    "Daten mit release/acquire sicher an einen anderen Thread übergeben",
-    "Einschätzen, wann `memory_order_relaxed` genügt"
+    "Core Dumps aktivieren und mit gdb analysieren",
+    "Einen Backtrace lesen und die relevante Stelle finden",
+    "Erklären, warum Binary und Debug-Symbole exakt passen müssen"
   ],
-  "dauerMinuten": 7,
+  "dauerMinuten": 6,
   "schritte": [
     {
-      "typ": "code-lesen",
-      "frage": "Thread A setzt Daten und ein Flag, Thread B wartet auf das Flag und liest die Daten. Ist die Ausgabe `42` garantiert?",
-      "code": {
-        "sprache": "cpp",
-        "zeilen": [
-          "int daten = 0;",
-          "std::atomic<bool> bereit{false};",
-          "",
-          "// Thread A",
-          "daten = 42;",
-          "bereit.store(true, std::memory_order_relaxed);",
-          "",
-          "// Thread B",
-          "while (!bereit.load(std::memory_order_relaxed)) {}",
-          "std::cout << daten;"
-        ]
-      },
+      "typ": "multiple-choice",
+      "frage": "Ein Programm ist beim Kunden abgestürzt. Bei dir lässt sich der Fehler nicht reproduzieren. Was hilft am meisten?",
       "optionen": [
-        "Ja, `daten` wird ja vor `bereit` geschrieben",
-        "Nein: `relaxed` legt keine Reihenfolge zu anderen Zugriffen fest. Der Zugriff auf `daten` ist damit sogar ein Data Race",
-        "Nein, die Schleife in Thread B endet nie"
+        "Ein Core Dump vom Kunden plus das exakt ausgelieferte Binary und dessen Debug-Symbole",
+        "Eine Beschreibung des Kunden, was er vorher gemacht hat",
+        "Das Programm bei dir so lange laufen lassen, bis es auch abstürzt"
       ],
-      "korrekt": 1,
-      "fest": true,
-      "erklaerung": "Compiler und CPU dürfen Speicherzugriffe umordnen, solange es für **einen** Thread keinen Unterschied macht. `relaxed` garantiert nur, dass das Flag selbst atomar ist. Dass B nach dem Flag auch die 42 sieht, ist nicht garantiert. Formal fehlt eine *happens-before*-Beziehung, und der Zugriff auf `daten` ist ein Data Race.",
+      "korrekt": 0,
+      "erklaerung": "Ein **Core Dump** ist eine Momentaufnahme des Prozessspeichers zum Zeitpunkt des Absturzes. Damit kannst du nachträglich im Debugger untersuchen, wo das Programm stand und welche Werte die Variablen hatten, als wärst du dabei gewesen.",
       "begruendungen": [
-        "Im Quelltext ja. Compiler und CPU dürfen die Zugriffe aber umordnen.",
         "Richtig.",
-        "B sieht das Flag irgendwann. Die Frage ist, ob dann auch `daten` schon sichtbar ist."
+        "Hilfreich als Ergänzung, aber oft ungenau.",
+        "Vielleicht fehlen bei dir gerade die Bedingungen, unter denen der Fehler auftritt."
       ]
     },
     {
       "typ": "erklaerung",
-      "titel": "Das Speichermodell",
-      "text": "Das C++-**Speichermodell** legt fest, wann ein Schreibzugriff eines Threads für einen anderen sichtbar ist. Der Schlüssel ist ein Paar:\n\n- Ein **release**-Store veröffentlicht: Alle Speicherzugriffe davor werden nicht hinter ihn verschoben.\n- Ein **acquire**-Load, der diesen Wert liest, übernimmt: Alle Zugriffe danach werden nicht vor ihn verschoben.\n\nLiest B per acquire den Wert, den A per release geschrieben hat, sieht B **alles**, was A vor dem release geschrieben hat. Mutexe funktionieren intern genauso: `lock` ist ein acquire, `unlock` ein release. Der Standard für alle Atomics ist das noch strengere `memory_order_seq_cst`."
+      "titel": "Core Dumps unter Linux",
+      "text": "Ob ein Core Dump geschrieben wird, steuern das Limit `ulimit -c` (oft standardmässig 0) und die Kernel-Einstellung `/proc/sys/kernel/core_pattern`. Viele Distributionen leiten Abstürze an **systemd-coredump** weiter. Dann listet `coredumpctl list` die Abstürze, und `coredumpctl gdb` öffnet den letzten direkt im Debugger.\n\nOhne systemd: `ulimit -c unlimited`, Programm abstürzen lassen, dann `gdb ./app core`. Im Debugger funktionieren `bt`, `frame`, `print` wie gewohnt. Nur weiterlaufen lassen kann man das Programm nicht."
+    },
+    {
+      "typ": "reihenfolge",
+      "frage": "Bringe die Schritte in die richtige Reihenfolge.",
+      "elemente": [
+        "Core Dumps auf dem System erlauben (`ulimit -c` bzw. systemd-coredump)",
+        "Der Absturz tritt auf, eine Core-Datei entsteht",
+        "Core-Datei, exakt passendes Binary und Debug-Symbole zusammenbringen",
+        "Mit `gdb ./app core` öffnen und mit `bt` die Absturzstelle suchen"
+      ],
+      "erklaerung": "In Embedded-Systemen und Containern muss man das Schreiben von Core Dumps oft bewusst einrichten, inklusive Platz auf dem Datenträger. Für Kundensysteme muss man ausserdem den Datenschutz bedenken: Ein Core Dump enthält den gesamten Speicher, also möglicherweise auch Passwörter und persönliche Daten."
+    },
+    {
+      "typ": "terminal-deuten",
+      "frage": "Wo fängst du mit der Analyse an?",
+      "terminal": {
+        "befehl": "gdb ./app core.4711 -ex bt",
+        "ausgabe": [
+          "#0  __pthread_kill_implementation (...) at ./nptl/pthread_kill.c:44",
+          "#1  0x00007f3a8e45a26e in __GI_raise (sig=6) at ../sysdeps/posix/raise.c:26",
+          "#2  0x00007f3a8e43d8ff in __GI_abort () at ./stdlib/abort.c:79",
+          "#3  0x00007f3a8e43d81b in __assert_fail_base (...) at ./assert/assert.c:94",
+          "#4  0x000055c1b0a2f2d4 in Puffer::lies (this=0x55c1b1e4a2c0, index=17) at puffer.cpp:31",
+          "#5  0x000055c1b0a2f6a1 in Protokoll::verarbeite (this=0x55c1b1e4a2a0) at protokoll.cpp:88",
+          "#6  0x000055c1b0a2e9b3 in main () at main.cpp:20"
+        ]
+      },
+      "optionen": [
+        "Bei Frame #4: Ein `assert` in `Puffer::lies` ist mit `index=17` fehlgeschlagen. Frames 0 bis 3 gehören zur C-Bibliothek",
+        "Bei Frame #0: Dort ist das Programm abgestürzt, also liegt dort der Fehler",
+        "Bei Frame #6: `main` ist immer schuld"
+      ],
+      "korrekt": 0,
+      "erklaerung": "`abort` und `__assert_fail` zeigen: Ein `assert` hat das Programm absichtlich beendet (Signal 6, `SIGABRT`). Spannend ist der erste Frame in deinem Code. Mit `frame 4` und `print groesse_` siehst du, ob `index` zu gross war. Dann fragst du in Frame 5, woher der Index kam.",
+      "begruendungen": [
+        "Richtig. Der erste eigene Frame ist fast immer der Startpunkt.",
+        "Frame 0 ist die Stelle, an der das Signal ausgelöst wurde. Das ist hier die C-Bibliothek, die korrekt arbeitet.",
+        "`main` steht nur ganz unten, weil dort alles beginnt."
+      ]
+    },
+    {
+      "typ": "terminal-deuten",
+      "frage": "Warum ist dieser Backtrace unbrauchbar?",
+      "terminal": {
+        "befehl": "gdb ./app core -ex bt",
+        "ausgabe": [
+          "#0  0x000055d3c4a0b1e9 in ?? ()",
+          "#1  0x000055d3c4a0b3f2 in ?? ()",
+          "#2  0x00007f2b1c829d90 in __libc_start_call_main (...) at ../sysdeps/nptl/libc_start_call_main.h:58",
+          "#3  0x00007f2b1c829e40 in __libc_start_main_impl (...) at ../csu/libc-start.c:392"
+        ]
+      },
+      "optionen": [
+        "Das Binary ist gestrippt oder passt nicht zur Core-Datei, deshalb fehlen Funktionsnamen",
+        "Das Programm hat gar nicht angefangen zu laufen",
+        "Die Core-Datei ist leer"
+      ],
+      "korrekt": 0,
+      "erklaerung": "`??` heisst: gdb findet zu dieser Adresse kein Symbol. Für die C-Bibliothek gibt es Debug-Symbole aus der Distribution, für das eigene Programm nicht. Abhilfe: die aufbewahrten Debug-Informationen dazuladen (`symbol-file app.debug`) oder einen debuginfod-Server nutzen.",
+      "begruendungen": [
+        "Richtig.",
+        "Die Frames 2 und 3 zeigen, dass `main` bereits lief.",
+        "Dann gäbe es gar keinen Backtrace."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Build-ID und Symbolverwaltung",
+      "text": "Jedes Binary bekommt beim Linken eine **Build-ID**, einen Hash, den `file app` oder `readelf -n app` anzeigt. Die Core-Datei enthält dieselbe ID. Damit lässt sich prüfen, ob Binary, Debug-Datei und Core zusammenpassen. Schon ein neu kompiliertes Binary aus demselben Quellcode kann andere Adressen haben, wenn der Build nicht reproduzierbar ist.\n\nProfessionelle Pipelines archivieren pro Release die Debug-Symbole, oft auf einem **debuginfod**-Server, von dem gdb sie automatisch per Build-ID lädt. Steht in einem Log nur eine Adresse, übersetzt `addr2line` sie in Datei und Zeile."
     },
     {
       "typ": "lueckentext",
-      "frage": "Ergänze die Speicherordnungen, damit Thread B garantiert `42` sieht.",
+      "frage": "Ergänze die Befehle.",
       "code": {
-        "sprache": "cpp",
+        "sprache": "bash",
         "zeilen": [
-          "// Thread A",
-          "daten = 42;",
-          "bereit.store(true, std::memory_order_{{?}});",
-          "",
-          "// Thread B",
-          "while (!bereit.load(std::memory_order_{{?}})) {}",
-          "std::cout << daten;"
+          "# Adresse aus einem Log in Funktion und Zeile übersetzen",
+          "{{?}} -e app -f -C 0x11e9",
+          "# Core-Datei im Debugger öffnen",
+          "gdb ./app {{?}}"
         ]
       },
-      "luecken": [{ "loesungen": ["release"] }, { "loesungen": ["acquire"] }],
-      "auswahl": ["release", "acquire", "relaxed", "consume"],
-      "erklaerung": "Schreiben veröffentlicht mit `release`, Lesen übernimmt mit `acquire`. Ganz ohne Angabe (also `seq_cst`) wäre es ebenfalls korrekt. `consume` ist im Standard so problematisch spezifiziert, dass alle Compiler es als `acquire` behandeln. Man sollte es nicht verwenden."
-    },
-    {
-      "typ": "zuordnen",
-      "frage": "Ordne die Speicherordnungen zu.",
-      "paare": [
-        { "links": "`memory_order_seq_cst`", "rechts": "Standard: eine globale Reihenfolge aller solchen Operationen, am leichtesten zu verstehen" },
-        { "links": "`memory_order_acquire`", "rechts": "Beim Lesen: Spätere Zugriffe werden nicht davor verschoben" },
-        { "links": "`memory_order_release`", "rechts": "Beim Schreiben: Frühere Zugriffe werden nicht dahinter verschoben" },
-        { "links": "`memory_order_relaxed`", "rechts": "Nur Unteilbarkeit, keine Ordnung zu anderen Zugriffen" }
+      "luecken": [
+        {
+          "loesungen": [
+            "addr2line"
+          ]
+        },
+        {
+          "loesungen": [
+            "core"
+          ]
+        }
       ],
-      "erklaerung": "`seq_cst` kostet auf x86 nur bei Stores etwas mehr. Auf ARM sind geordnete Loads und Stores etwas teurer als `relaxed`. In den allermeisten Programmen ist der Unterschied nicht messbar. Deshalb ist `seq_cst` der richtige Standard."
+      "auswahl": [
+        "addr2line",
+        "core",
+        "objdump",
+        "c++filt"
+      ],
+      "erklaerung": "`addr2line` braucht ein Binary mit Debug-Informationen. Bei positionsunabhängigen Programmen (PIE) muss man die Ladeadresse abziehen, also den Offset innerhalb der Datei angeben. Viele Absturz-Handler schreiben deshalb gleich den Offset ins Log."
     },
     {
       "typ": "multiple-choice",
-      "frage": "Wo ist `memory_order_relaxed` angemessen?",
+      "frage": "Warum funktioniert die Analyse nur mit **exakt** dem Binary, das abgestürzt ist?",
       "optionen": [
-        "Bei einem Statistikzähler, der erst nach `join()` aller Threads ausgelesen wird",
-        "Bei einem Flag, das anzeigt, dass Daten bereitliegen",
-        "Bei einem Zeiger auf ein neu erzeugtes Objekt, das andere Threads danach benutzen"
+        "Die Core-Datei enthält Adressen. Schon eine kleine Änderung am Code verschiebt Funktionen und Daten im Binary",
+        "Weil gdb das Binary neu startet",
+        "Weil der Core Dump verschlüsselt ist"
       ],
       "korrekt": 0,
-      "erklaerung": "Beim Zähler interessiert nur, dass keine Erhöhung verloren geht. Die Reihenfolge zu anderen Daten ist egal, und `join()` synchronisiert am Ende ohnehin. In den beiden anderen Fällen veröffentlicht das Atomic andere Daten (das Objekt, auf das der Zeiger zeigt). Dafür braucht es release/acquire.",
+      "erklaerung": "gdb übersetzt Adressen anhand der Symboltabelle und der Debug-Informationen des Binarys. Passen sie nicht, zeigt gdb falsche Funktionen oder Zeilen an. Das ist schlimmer als `??`, weil es plausibel aussieht. Deshalb gehören reproduzierbare Builds und archivierte Symbole zusammen.",
       "begruendungen": [
         "Richtig.",
-        "Das ist genau das Beispiel vom Anfang. Hier braucht es release/acquire.",
-        "Ohne release/acquire sieht der andere Thread womöglich ein halb konstruiertes Objekt."
-      ]
-    },
-    {
-      "typ": "erklaerung",
-      "titel": "Warum es „bei mir funktioniert“",
-      "text": "x86-Prozessoren ordnen Speicherzugriffe sehr streng (*Total Store Order*): Fast alles verhält sich, als wäre es acquire/release. Fehler mit zu schwacher Ordnung bleiben dort oft unsichtbar. ARM, RISC-V und POWER ordnen deutlich freier, und genau dort zeigen sich die Fehler, typischerweise erst auf dem Zielgerät.\n\nDie Empfehlung für den Alltag: Mutexe oder `seq_cst`-Atomics verwenden. Schwächere Ordnungen nur nach Messung, mit Kommentar und Review durch jemanden, der sich auskennt."
-    },
-    {
-      "typ": "multiple-choice",
-      "frage": "Code mit `memory_order_relaxed` läuft auf dem x86-Testrechner seit Monaten fehlerfrei, auf dem ARM-Gerät gehen sporadisch Daten verloren. Was ist die wahrscheinlichste Erklärung?",
-      "optionen": [
-        "x86 ordnet Speicherzugriffe strenger. ARM darf mehr umordnen, deshalb zeigt sich der Fehler erst dort",
-        "Der ARM-Compiler ist fehlerhaft",
-        "ARM-Prozessoren unterstützen keine Atomics"
-      ],
-      "korrekt": 0,
-      "erklaerung": "Der Fehler war von Anfang an da. x86 hat ihn nur verdeckt. Deshalb gehören nebenläufige Tests auch auf die Zielarchitektur, und ThreadSanitizer, der solche Fehler unabhängig von der CPU erkennt, in die CI.",
-      "begruendungen": [
-        "Richtig.",
-        "Der Compiler darf genau das tun, was `relaxed` erlaubt.",
-        "ARM hat vollständige Unterstützung für Atomics."
+        "Mit einer Core-Datei startet gdb nichts. Der Prozess ist ja schon beendet.",
+        "Core-Dateien sind nicht verschlüsselt."
       ]
     }
   ],
-  "praxis": "Die meisten Entwickler brauchen schwache Speicherordnungen nie selbst. Erkennen musst du sie trotzdem: Im Review fragst du bei jedem `memory_order_relaxed`, ob das Atomic andere Daten veröffentlicht. Wenn ja, ist es fast sicher ein Fehler. Und bei Code, der für ARM gebaut wird, gehören nebenläufige Tests auf echte Hardware oder in QEMU mit mehreren Kernen.",
+  "praxis": "In Produktion ist der Core Dump oft das einzige Beweisstück. Teams, die Debug-Symbole pro Release archivieren und Core Dumps automatisch einsammeln, finden seltene Abstürze in Stunden statt in Wochen. Wenn du ein neues Produkt aufsetzt, plane das von Anfang an mit ein: Wo landen Core Dumps? Wie kommen sie zum Team? Wo liegen die Symbole?",
   "labor": {
-    "titel": "Umordnung sichtbar machen",
-    "anleitung": "Schau dir im Compiler Explorer (godbolt.org) an, welchen Code `store` mit `relaxed`, `release` und `seq_cst` auf x86-64 und auf ARM64 erzeugt.",
+    "titel": "Einen Core Dump analysieren",
+    "anleitung": "Lass ein Programm mit einem fehlgeschlagenen `assert` abstürzen und analysiere den Core Dump.",
     "befehle": [
-      "g++ -O2 -S -o - ordnung.cpp | grep -E 'mov|xchg|mfence'",
-      "aarch64-linux-gnu-g++ -O2 -S -o - ordnung.cpp | grep -E 'str|stlr|dmb'"
+      "ulimit -c unlimited && g++ -g absturz.cpp -o absturz && ./absturz",
+      "coredumpctl list 2>/dev/null | tail -3 || ls core*",
+      "coredumpctl gdb absturz  # oder: gdb ./absturz core",
+      "file absturz | grep -o 'BuildID[^,]*'"
     ],
-    "beobachtung": "Auf x86 erzeugen `relaxed` und `release` denselben einfachen `mov`, nur `seq_cst` braucht `xchg`. Auf ARM64 wird `relaxed` zu einem einfachen `str`, `release` und `seq_cst` zu `stlr`, einem Store mit eingebauter Ordnung. Auf x86 sieht man den Unterschied zwischen `relaxed` und `release` also gar nicht, auf ARM schon. Darum fallen Fehler erst auf ARM auf."
+    "beobachtung": "In gdb zeigt `bt` die Kette bis zum `assert`. Mit `frame N` und `print` untersuchst du die Variablen zum Absturzzeitpunkt."
   },
   "begriffe": [
-    { "begriff": "Speichermodell", "englisch": "memory model", "erklaerung": "Regeln, wann Schreibzugriffe eines Threads für andere Threads sichtbar sind." },
-    { "begriff": "Acquire/Release", "englisch": "acquire/release semantics", "erklaerung": "Paar von Operationen, das alle Schreibzugriffe vor dem release für den Leser nach dem acquire sichtbar macht." },
-    { "begriff": "Happens-before", "englisch": "happens-before", "erklaerung": "Ordnungsbeziehung zwischen Operationen verschiedener Threads. Ohne sie ist ein Zugriff auf gemeinsame Daten ein Data Race." }
+    {
+      "begriff": "Core Dump",
+      "englisch": "core dump",
+      "erklaerung": "Abbild des Prozessspeichers beim Absturz. Lässt sich nachträglich im Debugger untersuchen."
+    },
+    {
+      "begriff": "Build-ID",
+      "englisch": "build ID",
+      "erklaerung": "Eindeutiger Hash eines Binarys, mit dem sich passende Debug-Symbole und Core Dumps zuordnen lassen."
+    },
+    {
+      "begriff": "debuginfod",
+      "englisch": "debuginfod",
+      "erklaerung": "Server, der Debug-Informationen per Build-ID ausliefert. gdb kann ihn automatisch nutzen."
+    }
   ],
   "weiterlesen": [
-    { "titel": "cppreference: std::memory_order", "url": "https://en.cppreference.com/w/cpp/atomic/memory_order" },
-    { "titel": "Preshing on Programming: Acquire and Release Semantics", "url": "https://preshing.com/20120913/acquire-and-release-semantics/" }
+    {
+      "titel": "man core(5)",
+      "url": "https://man7.org/linux/man-pages/man5/core.5.html"
+    },
+    {
+      "titel": "man coredumpctl(1)",
+      "url": "https://man7.org/linux/man-pages/man1/coredumpctl.1.html"
+    }
   ]
 }

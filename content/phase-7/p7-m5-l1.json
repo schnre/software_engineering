@@ -1,156 +1,133 @@
 {
   "id": "p7-m5-l1",
   "phase": 7,
-  "modul": "7.5 Statische vs. dynamische Polymorphie",
-  "titel": "Virtuelle Funktionen, Templates und std::variant",
+  "modul": "7.5 Embedded Linux",
+  "titel": "Aufbau eines Embedded-Linux-Systems",
   "lernziele": [
-    "Dynamische und statische Polymorphie vergleichen",
-    "Für eine Anforderung die passende Form wählen",
-    "Anforderungen an Template-Parameter mit Concepts ausdrücken"
+    "Den Startablauf von Boot-ROM bis Userspace beschreiben",
+    "Die Rolle des Device Tree verstehen",
+    "Yocto und Buildroot einordnen"
   ],
   "dauerMinuten": 7,
   "schritte": [
     {
       "typ": "multiple-choice",
-      "frage": "Ein `Regler` soll mit verschiedenen Sensoren arbeiten. Variante A: Er bekommt ein `ISensor&` mit virtueller Funktion `lies()`. Variante B: `template <typename Sensor> class Regler`. Was ist der grundlegende Unterschied?",
+      "frage": "Wann setzt man eher **Embedded Linux** auf einem Anwendungsprozessor ein als einen Mikrocontroller mit RTOS?",
       "optionen": [
-        "In A wird der Sensortyp zur Laufzeit gewählt, in B beim Kompilieren",
-        "A ist korrekt, B ist Undefined Behavior",
-        "B funktioniert nur mit Sensoren aus der Standardbibliothek"
+        "Wenn Netzwerkstacks, Dateisysteme, Grafik, viel Speicher oder fertige Software wie Datenbanken und Webserver gebraucht werden",
+        "Wenn harte Echtzeit im Mikrosekundenbereich nötig ist",
+        "Wenn das Gerät jahrelang mit einer Knopfzelle laufen soll"
       ],
       "korrekt": 0,
-      "erklaerung": "**Dynamische Polymorphie** (virtuelle Funktionen) entscheidet über die vtable zur Laufzeit. **Statische Polymorphie** (Templates) erzeugt für jeden Sensortyp eigenen Code, und der Compiler weiss genau, welche Funktion aufgerufen wird. Beide lösen dasselbe Problem mit unterschiedlichen Kosten.",
+      "erklaerung": "Linux bringt ein riesiges Ökosystem mit, braucht aber einen Prozessor mit MMU, typischerweise mindestens 64 MB RAM, und startet in Sekunden statt Millisekunden. Viele Produkte kombinieren beides: Ein Linux-Prozessor für Bedienung und Kommunikation, ein Mikrocontroller für die harte Echtzeit, oft auf demselben Chip (z. B. STM32MP1, i.MX 8M).",
       "begruendungen": [
         "Richtig.",
-        "Beide Varianten sind korrekt.",
-        "Jeder Typ mit passender Funktion `lies()` funktioniert."
+        "Dafür ist ein Mikrocontroller oder ein Echtzeitkern besser geeignet.",
+        "Linux-Systeme brauchen dafür viel zu viel Energie."
       ]
     },
     {
-      "typ": "erklaerung",
-      "titel": "Drei Formen der Polymorphie",
-      "tabelle": {
-        "kopf": ["", "virtuell", "Template", "`std::variant`"],
-        "zeilen": [
-          ["entschieden", "zur Laufzeit", "beim Kompilieren", "zur Laufzeit, aus fester Liste"],
-          ["Kosten pro Aufruf", "indirekt, kein Inlining", "keine, Inlining möglich", "Verzweigung, Inlining möglich"],
-          ["neue Typen", "jederzeit, auch in Plugins", "jederzeit", "nur durch Ändern der Liste"],
-          ["verschiedene Typen in einem Container", "ja, über Zeiger", "nein", "ja, als Werte"],
-          ["Code im Header", "nein", "ja", "ja"],
-          ["Code-Grösse", "klein", "pro Typ eigener Code", "mittel"]
-        ]
-      },
-      "text": "Es gibt keinen Sieger. Die Anforderung entscheidet."
+      "typ": "reihenfolge",
+      "frage": "Bringe den Startablauf eines typischen ARM-Linux-Boards in die richtige Reihenfolge.",
+      "elemente": [
+        "Boot-ROM im Chip lädt die erste Stufe von SD-Karte, eMMC oder Flash",
+        "Erste Stufe (z. B. U-Boot SPL) initialisiert das DRAM",
+        "U-Boot lädt Kernel, Device Tree und ggf. initramfs",
+        "Der Linux-Kernel startet, bindet Treiber und mountet das Root-Dateisystem",
+        "Der init-Prozess (z. B. systemd) startet die Dienste und die Anwendung"
+      ],
+      "erklaerung": "Das DRAM muss erst eingerichtet werden, bevor grössere Programme geladen werden können, darum die zweistufige Lösung. Auf vielen ARM-Systemen läuft zusätzlich vorher eine **Trusted Firmware** (TF-A) für Secure Boot und Energieverwaltung."
     },
     {
-      "typ": "zuordnen",
-      "frage": "Welche Form passt zu welcher Anforderung?",
-      "paare": [
-        { "links": "Plugins werden zur Laufzeit aus Shared Libraries geladen", "rechts": "Virtuelle Funktionen" },
-        { "links": "Innere Schleife eines Signalfilters, der Typ steht beim Kompilieren fest", "rechts": "Templates" },
-        { "links": "Eine feste Auswahl von Nachrichtentypen soll als Werte in einem Vektor liegen", "rechts": "`std::variant`" },
-        { "links": "Ein Unit-Test soll eine Abhängigkeit zur Laufzeit gegen einen Mock tauschen", "rechts": "Virtuelle Funktionen (oder ein Template-Parameter im Test-Build)" }
-      ],
-      "erklaerung": "Ein häufiger Mittelweg: virtuelle Schnittstellen an Modulgrenzen, wo Austauschbarkeit wichtig ist, und Templates im Inneren von performancekritischen Algorithmen."
+      "typ": "erklaerung",
+      "titel": "Der Device Tree",
+      "text": "Auf einem PC findet Linux die Hardware selbst (PCI, ACPI). Auf einem ARM-Board gibt es das meist nicht. Stattdessen beschreibt der **Device Tree** die Hardware: welche Peripherie es gibt, an welcher Adresse, welcher Interrupt, welche Pins.\n\nDer Device Tree wird als Text (`.dts`) geschrieben und zu einem Binary (`.dtb`) übersetzt. **Overlays** (`.dtbo`) ergänzen ihn, etwa für ein Erweiterungsboard. Ein Treiber meldet über das Feld `compatible`, welche Geräte er bedienen kann. So läuft derselbe Kernel auf vielen Boards."
     },
     {
       "typ": "code-lesen",
-      "frage": "Welche Anforderung stellt diese Funktion an `Sensor`?",
+      "frage": "Was beschreibt dieser Ausschnitt?",
       "code": {
-        "sprache": "cpp",
+        "sprache": "text",
+        "datei": "board.dts",
         "zeilen": [
-          "template <typename Sensor>",
-          "double mittel(Sensor& s, int n) {",
-          "    double summe = 0;",
-          "    for (int i = 0; i < n; ++i) summe += s.lies();",
-          "    return summe / n;",
-          "}"
-        ]
-      },
-      "optionen": [
-        "Eine Memberfunktion `lies()`, deren Ergebnis sich zu `double` addieren lässt. Geprüft wird erst beim Instanziieren",
-        "`Sensor` muss von einer Basisklasse `ISensor` erben",
-        "`Sensor` muss ein eingebauter Typ wie `double` sein"
-      ],
-      "korrekt": 0,
-      "erklaerung": "Templates prüfen nach dem Prinzip „passt es, dann geht es“ (*duck typing*). Die Anforderung steht nirgends ausdrücklich. Wer einen falschen Typ übergibt, bekommt einen Fehler tief im Inneren der Funktion. Genau das lösen Concepts.",
-      "begruendungen": [
-        "Richtig.",
-        "Eine gemeinsame Basisklasse ist für Templates nicht nötig.",
-        "Eingebaute Typen haben keine Memberfunktionen."
-      ]
-    },
-    {
-      "typ": "erklaerung",
-      "titel": "Concepts als Schnittstelle",
-      "text": "Ein **Concept** (C++20) beschreibt die Anforderungen ausdrücklich. Es übernimmt für Templates die Rolle, die bei virtuellen Funktionen die abstrakte Basisklasse spielt: eine dokumentierte, vom Compiler geprüfte Schnittstelle.",
-      "code": {
-        "sprache": "cpp",
-        "zeilen": [
-          "template <typename T>",
-          "concept Sensor = requires(T s) {",
-          "    { s.lies() } -> std::convertible_to<double>;",
-          "};",
+          "&i2c1 {",
+          "    status = \"okay\";",
+          "    clock-frequency = <400000>;",
           "",
-          "template <Sensor S>",
-          "double mittel(S& s, int n);"
-        ],
-        "anmerkungen": [
-          { "zeile": 3, "text": "Anforderung: `s.lies()` muss gültig sein und etwas liefern, das sich in `double` umwandeln lässt." },
-          { "zeile": 6, "text": "Statt `typename` steht das Concept. Ein falscher Typ wird direkt beim Aufruf abgelehnt." }
-        ]
-      }
-    },
-    {
-      "typ": "lueckentext",
-      "frage": "Ergänze das Concept.",
-      "code": {
-        "sprache": "cpp",
-        "zeilen": [
-          "template <typename T>",
-          "concept Sensor = {{?}}(T s) {",
-          "    { s.lies() } -> std::{{?}}<double>;",
+          "    temperatur@48 {",
+          "        compatible = \"ti,tmp102\";",
+          "        reg = <0x48>;",
+          "    };",
           "};"
         ]
       },
-      "luecken": [{ "loesungen": ["requires"] }, { "loesungen": ["convertible_to"] }],
-      "auswahl": ["requires", "convertible_to", "same_as", "concept"],
-      "erklaerung": "`std::same_as<double>` wäre strenger: `lies()` müsste genau `double` liefern, ein `float` würde abgelehnt. Welche Variante richtig ist, hängt davon ab, was die Funktion wirklich braucht."
-    },
-    {
-      "typ": "multiple-choice",
-      "frage": "Wann passt `std::variant<CanNachricht, LinNachricht, EthNachricht>` besser als eine Klassenhierarchie?",
       "optionen": [
-        "Wenn die Menge der Typen fest und bekannt ist und man die Nachrichten als Werte ohne Heap-Allokation in Containern halten will",
-        "Wenn Dritte später eigene Nachrichtentypen hinzufügen sollen",
-        "Nie, `std::variant` ist nur für Zahlen gedacht"
+        "Der I²C-Bus 1 wird mit 400 kHz aktiviert. An Adresse `0x48` hängt ein TMP102, für den der passende Kernel-Treiber geladen wird",
+        "Ein Programm, das den Sensor jede Sekunde ausliest",
+        "Eine Konfiguration für U-Boot"
       ],
       "korrekt": 0,
-      "erklaerung": "Ein `std::variant` ist so gross wie sein grösster Typ plus eine Kennung und liegt direkt im Vektor, ohne Zeiger, ohne Heap, cache-freundlich. Mit `std::visit` behandelt man alle Typen, und der Compiler meldet, wenn einer fehlt. Der Preis: Ein neuer Typ erfordert eine Änderung an der Liste und an allen Besuchern. Für Plugins und offene Erweiterung sind virtuelle Funktionen besser.",
+      "erklaerung": "Der Kernel findet über `compatible` den Treiber `tmp102`. Dieser stellt die Temperatur danach im Dateisystem bereit, etwa unter `/sys/class/hwmon/hwmon0/temp1_input`. Die Anwendung muss kein I²C-Protokoll mehr kennen. Die Adresse `0x48` kennst du aus Lektion 6.5.",
       "begruendungen": [
         "Richtig.",
-        "Für offene Erweiterung sind virtuelle Funktionen besser.",
-        "Ein `std::variant` kann beliebige Typen enthalten."
+        "Der Device Tree beschreibt nur Hardware, er führt nichts aus.",
+        "Der Device Tree wird vom Kernel gelesen, nicht nur vom Bootloader."
+      ]
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Ordne die Werkzeuge zu.",
+      "paare": [
+        { "links": "Yocto Project", "rechts": "Baut eigene Linux-Distributionen aus Rezepten und Layern, Industriestandard für Produkte" },
+        { "links": "Buildroot", "rechts": "Einfacher, schneller Build eines kompletten, kleinen Systems mit Make und Kconfig" },
+        { "links": "U-Boot", "rechts": "Bootloader, lädt Kernel und Device Tree" },
+        { "links": "BusyBox", "rechts": "Viele Unix-Werkzeuge in einem kleinen Programm" }
+      ],
+      "erklaerung": "Yocto ist mächtig und komplex: Eine Layer-Struktur mit Board-Support von Herstellern, eigene Rezepte (`.bb`) für die eigene Software, reproduzierbare Builds, SDKs für das Team. Buildroot ist ein guter Einstieg und für kleinere Produkte oft völlig ausreichend."
+    },
+    {
+      "typ": "terminal-deuten",
+      "frage": "Auf dem Gerät prüfst du die Kernel-Meldungen. Was ist passiert?",
+      "terminal": {
+        "befehl": "dmesg | grep -i tmp102",
+        "ausgabe": [
+          "[    2.418311] tmp102 1-0048: error reading config register",
+          "[    2.418402] tmp102: probe of 1-0048 failed with error -121"
+        ]
+      },
+      "optionen": [
+        "Der Treiber wurde geladen, aber der Sensor antwortet auf Adresse `0x48` nicht (Fehler -121 bedeutet Remote I/O, also NACK)",
+        "Der Treiber fehlt im Kernel",
+        "Alles ist in Ordnung"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Device Tree und Treiber passen zusammen, der Treiber hat das Gerät gesucht (*probe*). Die Kommunikation scheitert aber. Mögliche Ursachen: falsche Adresse, Verdrahtung, fehlende Pull-ups oder Versorgung. `i2cdetect` (Lektion 6.5) wäre der nächste Schritt.",
+      "begruendungen": [
+        "Richtig.",
+        "Ohne Treiber gäbe es keine Meldung von `tmp102`.",
+        "Die Probe ist fehlgeschlagen."
       ]
     }
   ],
-  "praxis": "Die Wahl der Polymorphie-Form ist eine der häufigsten Design-Entscheidungen in C++-Projekten und eine typische Diskussion im Review. Ein Senior begründet sie mit den Anforderungen: Muss zur Laufzeit gewechselt werden? Gibt es Plugins? Liegt der Code in einer heissen Schleife? Wie wichtig ist Kompilierzeit? Im Zweifel ist die einfachste lesbare Variante richtig, bis eine Messung etwas anderes zeigt.",
+  "praxis": "In Embedded-Linux-Projekten verbringt man viel Zeit mit dem Board Support Package (BSP): Device Tree, Kernel-Konfiguration, Bootloader, Yocto-Layer. Für Anwendungsentwickler ist wichtig: Die Toolchain kommt aus dem Yocto-SDK (`source environment-setup-...`), Abhängigkeiten werden als Rezepte gebaut, nicht von Hand installiert. Updates laufen über Werkzeuge wie RAUC, SWUpdate oder Mender, meist mit A/B-Partitionen wie in Lektion 6.7.",
   "labor": {
-    "titel": "Virtuell gegen Template messen",
-    "anleitung": "Schreibe einen Filter, der eine Million Werte von einem Sensor liest, einmal über `ISensor&` und einmal als Template. Vergleiche Laufzeit und erzeugten Code.",
+    "titel": "Ein Linux mit Buildroot für QEMU",
+    "anleitung": "Baue mit Buildroot ein minimales ARM-Linux und starte es in QEMU. Das dauert beim ersten Mal 20 bis 60 Minuten.",
     "befehle": [
-      "g++ -std=c++20 -O2 polymorphie.cpp -o polymorphie && ./polymorphie",
-      "g++ -std=c++20 -O2 -S polymorphie.cpp -o - | grep -c 'call.*\\*'"
+      "git clone https://gitlab.com/buildroot.org/buildroot.git && cd buildroot",
+      "make qemu_aarch64_virt_defconfig && make -j$(nproc)",
+      "qemu-system-aarch64 -M virt -cpu cortex-a53 -nographic -kernel output/images/Image -append \"rootfs=/dev/vda console=ttyAMA0\" -drive file=output/images/rootfs.ext4,if=virtio,format=raw"
     ],
-    "beobachtung": "Die Template-Variante ist bei trivialen `lies()`-Funktionen deutlich schneller, weil der Compiler die Schleife vollständig optimiert. Der zweite Befehl zählt indirekte Aufrufe im Assembler: Bei der virtuellen Variante bleibt einer pro Schleifendurchlauf."
+    "beobachtung": "In `output/images` liegen Kernel und Root-Dateisystem. Mit `make menuconfig` fügst du Pakete hinzu. Die Startmeldungen zeigen genau die Stufen aus der Reihenfolge-Übung."
   },
   "begriffe": [
-    { "begriff": "Dynamische Polymorphie", "englisch": "dynamic polymorphism", "erklaerung": "Die aufgerufene Funktion wird zur Laufzeit über die vtable bestimmt." },
-    { "begriff": "Statische Polymorphie", "englisch": "static polymorphism", "erklaerung": "Die aufgerufene Funktion steht beim Kompilieren fest, z. B. über Templates." },
-    { "begriff": "Duck Typing", "englisch": "duck typing", "erklaerung": "Ein Typ ist geeignet, wenn er die benutzten Operationen hat, ohne dass das ausdrücklich erklärt wird." }
+    { "begriff": "Device Tree", "englisch": "device tree", "erklaerung": "Datenstruktur, die dem Kernel die Hardware eines Boards beschreibt." },
+    { "begriff": "BSP", "englisch": "board support package", "erklaerung": "Bootloader, Kernel-Konfiguration, Device Tree und Treiber für ein bestimmtes Board." },
+    { "begriff": "Yocto Project", "englisch": "Yocto Project", "erklaerung": "Werkzeugsammlung zum Bau eigener Linux-Distributionen für Embedded-Geräte." },
+    { "begriff": "U-Boot", "englisch": "Das U-Boot", "erklaerung": "Verbreiteter Bootloader für Embedded-Linux-Systeme." }
   ],
   "weiterlesen": [
-    { "titel": "cppreference: std::visit", "url": "https://en.cppreference.com/w/cpp/utility/variant/visit" },
-    { "titel": "cppreference: Requires expression", "url": "https://en.cppreference.com/w/cpp/language/requires" }
+    { "titel": "Bootlin: Embedded Linux system development (freie Kursunterlagen)", "url": "https://bootlin.com/training/embedded-linux/" },
+    { "titel": "Yocto Project Documentation", "url": "https://docs.yoctoproject.org/" }
   ]
 }

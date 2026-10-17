@@ -1,0 +1,184 @@
+{
+  "id": "p10-m1-l2",
+  "phase": 10,
+  "modul": "10.1 Prinzipien",
+  "titel": "Law of Demeter und Tell, don't ask",
+  "lernziele": [
+    "Lange Zugriffsketten als Kopplung erkennen",
+    "Code nach dem Prinzip „Tell, don't ask“ umbauen",
+    "Fluent Interfaces von Verstössen unterscheiden"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "code-lesen",
+      "frage": "Was ist das Problem an dieser Zeile?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "double t = fahrzeug.antrieb().motor().sensor(3).temperatur();"
+        ]
+      },
+      "optionen": [
+        "Der Aufrufer hängt von der gesamten inneren Struktur des Fahrzeugs ab. Jede Umgestaltung dort bricht diese Zeile",
+        "Vier Funktionsaufrufe sind zu langsam",
+        "Nichts, so greift man auf verschachtelte Objekte zu"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Der Aufrufer weiss: Ein Fahrzeug hat einen Antrieb, der einen Motor, der nummerierte Sensoren, von denen Nummer 3 die Temperatur misst. Das sind vier Annahmen über fremde Interna. Bekommt das Fahrzeug einen Elektroantrieb ohne `motor()`, bricht der Code hier und an jeder ähnlichen Stelle.",
+      "begruendungen": [
+        "Richtig. Starke Kopplung über eine Kette.",
+        "Die Laufzeit ist vernachlässigbar.",
+        "Es funktioniert, ist aber eng gekoppelt."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Das Gesetz von Demeter",
+      "text": "Das **Law of Demeter** (Prinzip des geringsten Wissens) empfiehlt: Eine Methode spricht nur mit ihren „direkten Freunden“:\n\n- mit dem eigenen Objekt (`this`) und seinen Membern\n- mit ihren Parametern\n- mit Objekten, die sie selbst erzeugt\n\nNicht aber mit Objekten, die sie erst über andere Objekte erreicht. Kurz: **ein Punkt, nicht vier**. Statt sich durchzuhangeln, fragt man das direkte Gegenüber nach dem, was man eigentlich wissen will."
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Welche Zeile verletzt das Law of Demeter?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "void Werkstatt::pruefe(Fahrzeug& f) {",
+          "    if (f.antrieb().motor().oeltemperatur() > 120.0) {",
+          "        alarm_.ausloesen(f.kennzeichen());",
+          "    }",
+          "}"
+        ]
+      },
+      "fehlerZeile": 2,
+      "erklaerung": "Die Werkstatt navigiert durch Antrieb und Motor und kennt sogar den Grenzwert von 120 °C. Diese Regel gehört ins Fahrzeug: `if (f.motorUeberhitzt())`. Zeile 3 ist in Ordnung, `kennzeichen()` ist eine direkte Eigenschaft des Parameters."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Welche Alternative zur Zeile oben folgt dem Law of Demeter?",
+      "optionen": [
+        "`if (f.motorUeberhitzt())`",
+        "`auto& m = f.antrieb().motor(); if (m.oeltemperatur() > 120.0)`",
+        "`Fahrzeug` als globale Variable, damit man die Kette nicht übergeben muss"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Das Fahrzeug kennt seine Struktur und den Grenzwert, also beantwortet es die Frage selbst. Die zweite Variante verschiebt die Kette nur in eine Hilfsvariable, die Kopplung bleibt dieselbe.",
+      "begruendungen": [
+        "Richtig.",
+        "Dieselbe Kopplung, nur auf zwei Zeilen verteilt.",
+        "Das fügt eine versteckte globale Abhängigkeit hinzu."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Tell, don't ask",
+      "text": "Verwandt ist das Prinzip **Tell, don't ask**: Statt ein Objekt nach seinen Daten zu fragen und dann selbst zu entscheiden, sagt man ihm, was es tun soll. Die Entscheidung und die Regeln bleiben beim Objekt, das die Daten besitzt.",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "// fragen und selbst entscheiden",
+          "if (konto.saldo() >= betrag) konto.setzeSaldo(konto.saldo() - betrag);",
+          "",
+          "// sagen, was zu tun ist",
+          "konto.abheben(betrag);   // prüft und bucht selbst, wirft oder liefert false"
+        ]
+      }
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Was ist das Problem an diesem Code, ausser dem Stil?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "if (konto.saldo() >= betrag) {",
+          "    konto.setzeSaldo(konto.saldo() - betrag);",
+          "}"
+        ]
+      },
+      "optionen": [
+        "Die Regel „nicht überziehen“ steht beim Aufrufer statt im Konto. Mit mehreren Threads kann sich der Saldo zwischen Prüfung und Buchung ändern",
+        "`saldo()` wird zweimal aufgerufen, das ist zu langsam",
+        "Kein Problem, der Code ist korrekt"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Jeder Aufrufer muss die Regel kennen und richtig umsetzen, einer vergisst es. Ausserdem ist es ein check-then-act-Muster (Modul 5.1): Selbst wenn beide Aufrufe gesperrt sind, sind sie zusammen nicht atomar. `konto.abheben(betrag)` löst beides: Die Regel steht an einer Stelle, und das Konto kann Prüfen und Buchen unter einer Sperre erledigen.",
+      "begruendungen": [
+        "Richtig.",
+        "Die Laufzeit ist nicht das Problem.",
+        "Für einen Thread und einen sorgfältigen Aufrufer ja, sonst nicht."
+      ]
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Verletzt ein Builder wie `Anfrage().url(u).timeout(5s).header(h).sende()` das Law of Demeter?",
+      "optionen": [
+        "Nein. Jeder Aufruf liefert dasselbe Objekt zurück (Fluent Interface), man navigiert nicht in eine fremde Struktur",
+        "Ja, mehr als ein Punkt ist immer ein Verstoss",
+        "Ja, Builder sind in C++ grundsätzlich schlechter Stil"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Das Prinzip zielt auf Wissen über fremde Strukturen, nicht auf das Zählen von Punkten. Ein Fluent Interface spricht immer mit demselben Gegenüber. Auch Werttypen wie `std::string` (`s.substr(2).size()`) sind unbedenklich, weil keine Struktur offengelegt wird.",
+      "begruendungen": [
+        "Richtig.",
+        "„Ein Punkt“ ist eine Faustregel, kein Gesetz.",
+        "Builder sind ein etabliertes Muster für Objekte mit vielen optionalen Einstellungen."
+      ]
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze den Namen des Prinzips.",
+      "text": "Statt nach Daten zu fragen und selbst zu entscheiden, gilt: {{?}}, don't {{?}}.",
+      "luecken": [
+        {
+          "loesungen": [
+            "Tell"
+          ]
+        },
+        {
+          "loesungen": [
+            "ask"
+          ]
+        }
+      ],
+      "auswahl": [
+        "Tell",
+        "ask",
+        "Show",
+        "call"
+      ],
+      "erklaerung": "Beide Prinzipien führen zum selben Ergebnis: Verhalten wandert zu den Daten. Klassen bekommen dadurch aussagekräftige Methoden wie `abheben`, `motorUeberhitzt` oder `istAbgelaufen` statt nur Getter und Setter."
+    }
+  ],
+  "praxis": "Lange Ketten von Gettern und Klassen, die nur aus Gettern und Settern bestehen, sind im Review ein Hinweis auf verstreute Logik. Die Frage lautet dann: Welche Entscheidung trifft der Aufrufer hier, die eigentlich dem Objekt gehört? Oft entsteht daraus eine neue Methode mit einem fachlichen Namen, und mehrere Stellen im Code werden dadurch einfacher.",
+  "labor": {
+    "titel": "Ketten aufspüren",
+    "anleitung": "Suche in einem Projekt nach langen Zugriffsketten über Getter.",
+    "befehle": [
+      "rg -n '\\w+\\(\\)\\.\\w+\\(\\)\\.\\w+\\(\\)\\.\\w+\\(' src/ | head -20"
+    ],
+    "beobachtung": "Nicht jeder Treffer ist ein Problem, z. B. bei Werttypen oder Buildern. Wiederholt sich aber dieselbe Kette an mehreren Stellen, fehlt meist eine Methode am Anfang der Kette."
+  },
+  "begriffe": [
+    {
+      "begriff": "Law of Demeter",
+      "englisch": "law of Demeter, principle of least knowledge",
+      "erklaerung": "Eine Methode spricht nur mit direkten Bekannten, nicht mit Objekten, die sie über andere erreicht."
+    },
+    {
+      "begriff": "Tell, don't ask",
+      "englisch": "tell, don't ask",
+      "erklaerung": "Einem Objekt sagen, was es tun soll, statt nach seinen Daten zu fragen und selbst zu entscheiden."
+    },
+    {
+      "begriff": "Fluent Interface",
+      "englisch": "fluent interface",
+      "erklaerung": "Methoden geben das Objekt selbst zurück, sodass sich Aufrufe verketten lassen."
+    }
+  ],
+  "weiterlesen": [
+    {
+      "titel": "Martin Fowler: TellDontAsk",
+      "url": "https://martinfowler.com/bliki/TellDontAsk.html"
+    }
+  ]
+}

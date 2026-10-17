@@ -1,0 +1,140 @@
+{
+  "id": "p12-m3-l3",
+  "phase": 12,
+  "modul": "12.3 Security für Embedded-Systeme",
+  "titel": "Speichersicherheit, Härtung und Fuzzing",
+  "lernziele": [
+    "Typische Speicherfehler als Sicherheitslücken erkennen",
+    "Härtungsmassnahmen in Compiler, Bibliothek und Hardware einsetzen",
+    "Parser und Schnittstellen mit Fuzzing testen"
+  ],
+  "dauerMinuten": 7,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Laut Microsoft und Google sind etwa 70 % der schweren Sicherheitslücken in ihren C- und C++-Codebasen von einer Art. Von welcher?",
+      "optionen": [
+        "Speicherfehler: Pufferüberläufe, Use-after-free, Lesen nicht initialisierten Speichers",
+        "Falsche Passwörter",
+        "Fehler in Kryptografie-Algorithmen"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Darum fordern Behörden wie CISA und NSA einen Fahrplan zu **speichersicheren** Sprachen und Techniken. Für C++-Entwickler heisst das: moderne Sprachmittel nutzen (`span`, Container, RAII, Smart Pointer), Bibliotheken härten, Werkzeuge einsetzen und neue Komponenten an Vertrauensgrenzen eventuell in Rust schreiben. C++26 bringt mit Profilen, gehärteter Standardbibliothek und `std::span::at` weitere Bausteine.",
+      "begruendungen": [
+        "Richtig.",
+        "Passwörter sind ein eigenes Problem, aber nicht die Mehrheit dieser Lücken.",
+        "Die Algorithmen selbst sind selten das Problem."
+      ]
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Dieser Code verarbeitet einen Bluetooth-Befehl. Welche Zeile ermöglicht einem Angreifer, Code einzuschleusen?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "void verarbeiteBefehl(const uint8_t* daten, std::size_t laenge) {",
+          "    if (laenge < 2) return;",
+          "    char name[16];",
+          "    const uint8_t nameLaenge = daten[1];",
+          "    std::memcpy(name, daten + 2, nameLaenge);",
+          "    name[nameLaenge] = '\\0';",
+          "    setzeGeraetename(name);",
+          "}"
+        ]
+      },
+      "fehlerZeile": 5,
+      "erklaerung": "Die Länge kommt vom Angreifer und wird weder gegen `sizeof(name)` noch gegen `laenge - 2` geprüft. Mit `nameLaenge = 200` überschreibt `memcpy` den Stack inklusive der Rücksprungadresse. Genau so funktionierten reale Angriffe wie BlueBorne oder SweynTooth. Die Prüfung `if (nameLaenge >= sizeof(name) || nameLaenge > laenge - 2) return;` schliesst die Lücke. Besser noch: `std::span` und ein Längenvergleich als erster Schritt jedes Parsers."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Ordne die Härtungsmassnahmen zu.",
+      "paare": [
+        { "links": "`-fstack-protector-strong`", "rechts": "Kanarienwert vor der Rücksprungadresse erkennt Stacküberläufe" },
+        { "links": "`-D_FORTIFY_SOURCE=3`", "rechts": "Prüft `memcpy`, `strcpy` und Co. mit bekannter Puffergrösse" },
+        { "links": "`-D_GLIBCXX_ASSERTIONS` / gehärtete libc++", "rechts": "Grenzprüfungen in `operator[]` von Containern und `span`" },
+        { "links": "MPU mit XN (execute never)", "rechts": "RAM und Stack auf dem Mikrocontroller nicht ausführbar" },
+        { "links": "PAC/BTI bzw. CET", "rechts": "Hardware-Schutz für Rücksprungadressen und Sprungziele" }
+      ],
+      "erklaerung": "Auf Linux kommen ASLR, PIE und RELRO hinzu, auf Mikrocontrollern MPU-Regionen, Stack-Guards und eine getrennte privilegierte und unprivilegierte Ausführung. Keine Massnahme verhindert Fehler. Sie machen deren Ausnutzung schwerer und erkennen Fehler oft frühzeitig."
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Fuzzing",
+      "text": "**Fuzzing** testet Code mit Millionen automatisch erzeugter, oft absurder Eingaben. Moderne Fuzzer wie **libFuzzer** und **AFL++** sind *coverage-guided*: Sie merken sich, welche Eingaben neue Codepfade erreichen, und verändern diese weiter. Zusammen mit AddressSanitizer findet das Speicherfehler, die kein Mensch als Testfall aufschreiben würde.\n\nIdeale Ziele sind alle Parser an Vertrauensgrenzen: Protokolle, Dateiformate, Konfiguration, Befehle über Bluetooth oder UART. Der Parser muss dafür auf dem PC übersetzbar sein. Das ist ein weiterer Grund für eine saubere Trennung von Hardware und Logik (Modul 10.3)."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Was macht dieser Code?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "extern \"C\" int LLVMFuzzerTestOneInput(const uint8_t* daten, std::size_t groesse) {",
+          "    Befehlsparser parser;",
+          "    parser.verarbeite(std::span{daten, groesse});",
+          "    return 0;",
+          "}"
+        ]
+      },
+      "optionen": [
+        "Ein Fuzz-Ziel für libFuzzer: Der Fuzzer ruft die Funktion millionenfach mit erzeugten Eingaben auf und meldet Abstürze und Sanitizer-Befunde",
+        "Ein Unit-Test mit festen Daten",
+        "Der Einstiegspunkt der Firmware"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Übersetzt mit `clang++ -fsanitize=fuzzer,address` entsteht ein Programm, das sofort mit dem Fuzzing beginnt. Gefundene Eingaben werden als Dateien gespeichert und dienen danach als Regressionstests. In der CI laufen Fuzzer oft einige Minuten pro Build, über Nacht länger, oder dauerhaft in Diensten wie OSS-Fuzz.",
+      "begruendungen": [
+        "Richtig.",
+        "Die Daten werden vom Fuzzer erzeugt, nicht fest vorgegeben.",
+        "Das ist ein Testeinstieg auf dem PC."
+      ]
+    },
+    {
+      "typ": "terminal-deuten",
+      "frage": "Nach 40 Sekunden meldet der Fuzzer Folgendes. Was ist passiert?",
+      "terminal": {
+        "befehl": "./befehl_fuzzer -max_total_time=600 korpus/",
+        "ausgabe": [
+          "#183442 NEW    cov: 412 ft: 1203 corp: 88/2741b exec/s: 4588",
+          "==4711==ERROR: AddressSanitizer: stack-buffer-overflow on address 0x7ffd1c2a3f50",
+          "WRITE of size 200 at 0x7ffd1c2a3f50 thread T0",
+          "    #0 __asan_memcpy",
+          "    #1 verarbeiteBefehl(unsigned char const*, unsigned long) befehl.cpp:5",
+          "artifact_prefix='./'; Test unit written to ./crash-3f1a9c0e"
+        ]
+      },
+      "optionen": [
+        "Der Fuzzer hat eine Eingabe gefunden, die in `befehl.cpp` Zeile 5 einen Stack-Pufferüberlauf von 200 Byte auslöst, und sie als Datei gespeichert",
+        "Der Fuzzer selbst ist abgestürzt",
+        "Der Test war erfolgreich, es gibt keine Fehler"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Das ist genau der Fehler aus der Übung oben, in 40 Sekunden gefunden. Mit `./befehl_fuzzer crash-3f1a9c0e` lässt er sich reproduzieren und im Debugger untersuchen. Nach dem Fix gehört die Datei in den Korpus und in die Regressionstests.",
+      "begruendungen": [
+        "Richtig.",
+        "Der Absturz liegt im getesteten Code, ASan hat ihn erkannt.",
+        "Ein Befund von ASan ist ein echter Fehler."
+      ]
+    }
+  ],
+  "praxis": "Ein wirksames Security-Programm für Embedded-C++ besteht aus wenigen, konsequent umgesetzten Bausteinen: Bedrohungsanalyse, Codierrichtlinie mit Werkzeugprüfung, Härtungsoptionen im Build, Sanitizer in den Tests, Fuzzing aller Parser an Vertrauensgrenzen, SBOM und ein Prozess für Schwachstellenmeldungen und Updates. Als Senior-Entwickler sorgst du dafür, dass diese Bausteine Teil der normalen Pipeline sind, nicht ein Projekt am Ende.",
+  "labor": {
+    "titel": "Den eigenen Parser fuzzen",
+    "anleitung": "Schreibe für den Parser aus der Übung ein Fuzz-Ziel, übersetze es mit libFuzzer und AddressSanitizer und lass es laufen, bis es den Fehler findet. Behebe den Fehler und lass den Fuzzer erneut zehn Minuten laufen.",
+    "befehle": [
+      "clang++ -std=c++20 -g -O1 -fsanitize=fuzzer,address,undefined befehl.cpp befehl_fuzzer.cpp -o befehl_fuzzer",
+      "mkdir -p korpus && ./befehl_fuzzer -max_total_time=600 korpus/",
+      "./befehl_fuzzer crash-*"
+    ],
+    "beobachtung": "Der Fuzzer findet den Überlauf meist in Sekunden bis Minuten. Nach dem Fix wächst die Abdeckung (`cov`) weiter, ohne neue Fehler. Ein guter Startkorpus mit gültigen Beispielnachrichten beschleunigt die Suche erheblich."
+  },
+  "begriffe": [
+    { "begriff": "Speichersicherheit", "englisch": "memory safety", "erklaerung": "Freiheit von Fehlern wie Pufferüberläufen und Zugriffen auf freigegebenen Speicher." },
+    { "begriff": "Härtung", "englisch": "hardening", "erklaerung": "Massnahmen, die das Ausnutzen von Fehlern erschweren oder Fehler früh erkennen." },
+    { "begriff": "Fuzzing", "englisch": "fuzzing", "erklaerung": "Automatisiertes Testen mit massenhaft erzeugten, oft ungültigen Eingaben." },
+    { "begriff": "Stack Canary", "englisch": "stack canary", "erklaerung": "Prüfwert auf dem Stack, dessen Veränderung einen Überlauf anzeigt." }
+  ],
+  "weiterlesen": [
+    { "titel": "OpenSSF: Compiler Options Hardening Guide for C and C++", "url": "https://best.openssf.org/Compiler-Hardening-Guides/Compiler-Options-Hardening-Guide-for-C-and-C++.html" },
+    { "titel": "LLVM: libFuzzer", "url": "https://llvm.org/docs/LibFuzzer.html" }
+  ]
+}

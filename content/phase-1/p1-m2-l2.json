@@ -46,11 +46,26 @@
       "typ": "zuordnen",
       "frage": "Welche Linkage hat `x` jeweils? Alle Zeilen stehen auf Namespace-Ebene in einer `.cpp`-Datei.",
       "paare": [
-        { "links": "`int x = 1;`", "rechts": "Extern: im ganzen Programm sichtbar" },
-        { "links": "`static int x = 1;`", "rechts": "Intern, klassischer Stil aus C" },
-        { "links": "`namespace { int x = 1; }`", "rechts": "Intern, bevorzugter C++-Stil" },
-        { "links": "`const int x = 1;`", "rechts": "Intern, weil `const` das in C++ so festlegt" },
-        { "links": "`extern int x;`", "rechts": "Nur eine Deklaration, die Definition liegt anderswo" }
+        {
+          "links": "`int x = 1;`",
+          "rechts": "Extern: im ganzen Programm sichtbar"
+        },
+        {
+          "links": "`static int x = 1;`",
+          "rechts": "Intern, klassischer Stil aus C"
+        },
+        {
+          "links": "`namespace { int x = 1; }`",
+          "rechts": "Intern, bevorzugter C++-Stil"
+        },
+        {
+          "links": "`const int x = 1;`",
+          "rechts": "Intern, weil `const` das in C++ so festlegt"
+        },
+        {
+          "links": "`extern int x;`",
+          "rechts": "Nur eine Deklaration, die Definition liegt anderswo"
+        }
       ],
       "erklaerung": "Der anonyme Namespace hat einen Vorteil gegenüber `static`: Er wirkt auch auf Klassen und Typen, nicht nur auf Funktionen und Variablen. Dass `const` auf Namespace-Ebene intern ist, erklärt, warum `const int maxWert = 10;` problemlos in einem Header stehen kann."
     },
@@ -84,9 +99,18 @@
           "constexpr int maxVersuche = 3;    // ok: konstant, Kopien stören nicht"
         ],
         "anmerkungen": [
-          { "zeile": 2, "text": "Alle Dateien, die `konfig.h` einbinden, sehen dieselbe Variable." },
-          { "zeile": 3, "text": "Jede Übersetzungseinheit zählt für sich. Die Summe sieht niemand." },
-          { "zeile": 4, "text": "`constexpr` impliziert `const`, also interne Linkage. Bei Konstanten ist das unproblematisch." }
+          {
+            "zeile": 2,
+            "text": "Alle Dateien, die `konfig.h` einbinden, sehen dieselbe Variable."
+          },
+          {
+            "zeile": 3,
+            "text": "Jede Übersetzungseinheit zählt für sich. Die Summe sieht niemand."
+          },
+          {
+            "zeile": 4,
+            "text": "`constexpr` impliziert `const`, also interne Linkage. Bei Konstanten ist das unproblematisch."
+          }
         ]
       }
     },
@@ -110,7 +134,11 @@
           "int main() { zaehle(); std::printf(\"%d\\n\", aufrufe); }"
         ]
       },
-      "optionen": ["0", "2", "Linkerfehler `multiple definition`"],
+      "optionen": [
+        "0",
+        "2",
+        "Linkerfehler `multiple definition`"
+      ],
       "korrekt": 0,
       "fest": true,
       "erklaerung": "Wegen `static` hat `a.cpp` ein eigenes `aufrufe` und `main.cpp` ebenfalls. `zaehle()` erhöht die Kopie in `a.cpp`, ausgegeben wird die unveränderte Kopie in `main.cpp`. Mit `inline int aufrufe = 0;` wäre die Ausgabe `2`.",
@@ -124,8 +152,24 @@
       "typ": "lueckentext",
       "frage": "Ergänze die Fachbegriffe.",
       "text": "Ein Name mit {{?}} Linkage ist nur innerhalb seiner Übersetzungseinheit sichtbar, ein Name mit {{?}} Linkage im ganzen Programm.",
-      "luecken": [{ "loesungen": ["interner"] }, { "loesungen": ["externer"] }],
-      "auswahl": ["interner", "externer", "dynamischer", "virtueller"],
+      "luecken": [
+        {
+          "loesungen": [
+            "interner"
+          ]
+        },
+        {
+          "loesungen": [
+            "externer"
+          ]
+        }
+      ],
+      "auswahl": [
+        "interner",
+        "externer",
+        "dynamischer",
+        "virtueller"
+      ],
       "erklaerung": "„Dynamisch“ gehört zu Bibliotheken (dynamisches Linken), „virtuell“ zu Polymorphie. Mit Linkage haben beide nichts zu tun."
     }
   ],
@@ -140,12 +184,30 @@
     "beobachtung": "Die normale Funktion erscheint mit grossem `T` (global). Die beiden anderen erscheinen mit kleinem `t` (lokal), die aus dem anonymen Namespace als `(anonymous namespace)::name`. Mit `-O2` verschwinden die lokalen Funktionen oft ganz, weil der Compiler sie inlinet."
   },
   "begriffe": [
-    { "begriff": "Linkage", "englisch": "linkage", "erklaerung": "Legt fest, ob ein Name nur in der eigenen Übersetzungseinheit (intern) oder im ganzen Programm (extern) sichtbar ist." },
-    { "begriff": "Anonymer Namespace", "englisch": "unnamed namespace", "erklaerung": "`namespace { ... }`: Alles darin hat interne Linkage. Bevorzugt gegenüber `static` für Hilfsfunktionen und -typen." },
-    { "begriff": "Inline-Variable", "englisch": "inline variable", "erklaerung": "Seit C++17: Variable, die in einem Header definiert werden darf und programmweit genau ein Objekt ist." }
+    {
+      "begriff": "Linkage",
+      "englisch": "linkage",
+      "erklaerung": "Legt fest, ob ein Name nur in der eigenen Übersetzungseinheit (intern) oder im ganzen Programm (extern) sichtbar ist."
+    },
+    {
+      "begriff": "Anonymer Namespace",
+      "englisch": "unnamed namespace",
+      "erklaerung": "`namespace { ... }`: Alles darin hat interne Linkage. Bevorzugt gegenüber `static` für Hilfsfunktionen und -typen."
+    },
+    {
+      "begriff": "Inline-Variable",
+      "englisch": "inline variable",
+      "erklaerung": "Seit C++17: Variable, die in einem Header definiert werden darf und programmweit genau ein Objekt ist."
+    }
   ],
   "weiterlesen": [
-    { "titel": "cppreference: Storage class specifiers (Linkage)", "url": "https://en.cppreference.com/w/cpp/language/storage_duration" },
-    { "titel": "C++ Core Guidelines: SF.22 – Use an unnamed namespace for all internal entities", "url": "https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#Rs-unnamed2" }
+    {
+      "titel": "cppreference: Storage class specifiers (Linkage)",
+      "url": "https://en.cppreference.com/w/cpp/language/storage_duration"
+    },
+    {
+      "titel": "C++ Core Guidelines: SF.22 – Use an unnamed namespace for all internal entities",
+      "url": "https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#Rs-unnamed2"
+    }
   ]
 }

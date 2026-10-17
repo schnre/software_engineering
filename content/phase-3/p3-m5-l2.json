@@ -1,151 +1,129 @@
 {
   "id": "p3-m5-l2",
   "phase": 3,
-  "modul": "3.5 Statische Analyse",
-  "titel": "clang-tidy und clang-format",
+  "modul": "3.5 Speicher für Fortgeschrittene",
+  "titel": "Alignment, Objektlebensdauer und bit_cast",
   "lernziele": [
-    "Die Aufgaben von clang-format und clang-tidy unterscheiden",
-    "clang-tidy-Meldungen deuten und beheben",
-    "Beide Werkzeuge im Team verbindlich machen"
+    "Ausrichtung und Padding von Strukturen vorhersagen",
+    "Rohe Bytes regelkonform als Objekte interpretieren",
+    "Die Strict-Aliasing-Regel verstehen und einhalten"
   ],
-  "dauerMinuten": 6,
+  "dauerMinuten": 7,
   "schritte": [
     {
-      "typ": "multiple-choice",
-      "frage": "Was macht `clang-format`?",
-      "optionen": [
-        "Es formatiert Code einheitlich (Einrückung, Umbrüche, Leerzeichen), ohne seine Bedeutung zu ändern",
-        "Es findet Fehler wie Speicherlecks",
-        "Es übersetzt Code in einen neueren C++-Standard"
-      ],
+      "typ": "code-lesen",
+      "frage": "Wie gross ist diese Struktur auf einem typischen 32- oder 64-Bit-System?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "struct Kopf {",
+          "    uint8_t  typ;",
+          "    uint32_t laenge;",
+          "    uint8_t  flags;",
+          "};"
+        ]
+      },
+      "optionen": ["12 Byte", "6 Byte", "8 Byte", "16 Byte"],
       "korrekt": 0,
-      "erklaerung": "`clang-format` kümmert sich nur ums Aussehen. Fehler sucht `clang-tidy`: ein Werkzeug für statische Analyse, das den Code wie ein Compiler versteht und hunderte Prüfungen kennt. Einige davon können Code auch modernisieren.",
+      "fest": true,
+      "erklaerung": "`uint32_t` muss an einer durch 4 teilbaren Adresse liegen. Nach `typ` kommen 3 Byte **Padding**, dann `laenge`, dann `flags` und 3 Byte Padding am Ende, damit auch das nächste Element in einem Array richtig ausgerichtet ist. Ordnet man die Member nach Grösse (`laenge`, `typ`, `flags`), sind es nur 8 Byte.",
       "begruendungen": [
         "Richtig.",
-        "Das ist Aufgabe von statischer Analyse oder Sanitizern.",
-        "Modernisieren kann `clang-tidy` mit den `modernize-*`-Checks."
+        "Das wäre ohne Padding.",
+        "So gross wird sie erst mit umsortierten Membern.",
+        "Dafür bräuchte es einen 8-Byte-Member."
       ]
     },
     {
       "typ": "erklaerung",
-      "titel": "clang-tidy",
-      "text": "`clang-tidy` braucht dieselben Compiler-Optionen wie der Build. Es liest sie aus `compile_commands.json` (`-DCMAKE_EXPORT_COMPILE_COMMANDS=ON`). Die Prüfungen sind in Gruppen sortiert:\n\n- `bugprone-*`: wahrscheinliche Fehler\n- `cppcoreguidelines-*`: Regeln der C++ Core Guidelines\n- `modernize-*`: moderne Sprachmittel statt alter Muster\n- `performance-*`: unnötige Kopien und ähnliches\n- `readability-*`: Lesbarkeit und Namen\n\nKonfiguriert wird in einer Datei `.clang-tidy` im Projekt. Mit `--fix` behebt das Werkzeug viele Funde selbst. Alternativen und Ergänzungen sind cppcheck und kommerzielle Werkzeuge wie Coverity, PVS-Studio oder Polyspace, die oft auch MISRA-Regeln prüfen."
+      "titel": "Ausrichtung",
+      "text": "Jeder Typ hat eine **Ausrichtung** (`alignof(T)`): Seine Adresse muss ein Vielfaches davon sein. Der Compiler fügt Padding ein, um das sicherzustellen. Werkzeuge:\n\n- `alignas(32)` erzwingt eine grössere Ausrichtung, z. B. für Cache-Zeilen und DMA-Puffer (Modul 6.6)\n- `offsetof(Kopf, laenge)` liefert den Abstand eines Members\n- `-Wpadded` warnt bei eingefügtem Padding\n- `__attribute__((packed))` entfernt Padding. Dann sind unausgerichtete Zugriffe möglich, die auf manchen CPUs langsam sind oder einen Fault auslösen. Ausserdem darf man keine Referenzen auf solche Member bilden.\n\nFür Datenformate auf Leitungen und in Dateien ist ein explizites Serialisieren Byte für Byte fast immer robuster als eine gepackte Struktur."
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Dieser Code liest einen `float` aus einem empfangenen Puffer. Er funktioniert mit `-O0`, liefert mit `-O2` aber manchmal falsche Werte oder stürzt auf einem Cortex-M0 ab. Welche Zeile ist falsch?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "float leseFloat(const uint8_t* puffer, std::size_t offset) {",
+          "    const float* p = reinterpret_cast<const float*>(puffer + offset);",
+          "    return *p;",
+          "}"
+        ]
+      },
+      "fehlerZeile": 3,
+      "erklaerung": "Zwei Probleme beim Dereferenzieren: Erstens ist `puffer + offset` vielleicht nicht auf 4 ausgerichtet, was der Cortex-M0 mit einem HardFault quittiert. Zweitens verletzt es die **Strict-Aliasing-Regel**: An dieser Adresse existiert kein `float`-Objekt, der Optimierer darf annehmen, dass ein `float*` nicht auf `uint8_t`-Daten zeigt. Richtig: `float f; std::memcpy(&f, puffer + offset, sizeof f); return f;`. Der Compiler optimiert das zu einem einzigen Ladebefehl, wo es erlaubt ist."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Was macht `std::bit_cast` (C++20) hier?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "constexpr float f = 1.0f;",
+          "constexpr auto bits = std::bit_cast<uint32_t>(f);",
+          "static_assert(bits == 0x3F800000);"
+        ]
+      },
+      "optionen": [
+        "Es kopiert die Bitdarstellung des `float` in einen `uint32_t`, regelkonform und sogar zur Übersetzungszeit",
+        "Es rundet den `float` auf eine Ganzzahl",
+        "Es ist dasselbe wie `reinterpret_cast`"
+      ],
+      "korrekt": 0,
+      "erklaerung": "`bit_cast` verlangt gleich grosse, trivial kopierbare Typen und erzeugt ein neues Objekt mit denselben Bits. Es ist die moderne, sichere Alternative zu `memcpy` und zum verbotenen Union-Trick. `0x3F800000` ist die IEEE-754-Darstellung von 1,0: Vorzeichen 0, Exponent 127, Mantisse 0.",
+      "begruendungen": [
+        "Richtig.",
+        "Das wäre `static_cast<uint32_t>(f)` und ergäbe 1.",
+        "`reinterpret_cast` auf Zeiger verletzt das Aliasing, `bit_cast` nicht."
+      ]
     },
     {
       "typ": "zuordnen",
-      "frage": "Was meldet welcher Check?",
+      "frage": "Was ist erlaubt?",
       "paare": [
-        { "links": "`bugprone-use-after-move`", "rechts": "Ein Objekt wird nach `std::move` weiterbenutzt" },
-        { "links": "`modernize-use-nullptr`", "rechts": "`NULL` oder `0` statt `nullptr`" },
-        { "links": "`performance-unnecessary-value-param`", "rechts": "Ein teurer Parameter wird kopiert statt per `const&` übergeben" },
-        { "links": "`readability-identifier-naming`", "rechts": "Namen folgen nicht der Konvention des Projekts" }
+        { "links": "Beliebiges Objekt über `unsigned char*` oder `std::byte*` lesen", "rechts": "Erlaubt, Bytezugriff ist immer zulässig" },
+        { "links": "`uint8_t`-Puffer über `uint32_t*` lesen", "rechts": "Undefiniertes Verhalten (Aliasing)" },
+        { "links": "Bytes mit `memcpy` in ein Objekt kopieren", "rechts": "Erlaubt für trivial kopierbare Typen" },
+        { "links": "In einer `union` einen Member schreiben, einen anderen lesen", "rechts": "In C erlaubt, in C++ undefiniertes Verhalten" }
       ],
-      "erklaerung": "Welche Checks sinnvoll sind, entscheidet das Team. Ein guter Start: alle `bugprone-*` und ausgewählte `performance-*` und `modernize-*`. Viele `readability-*`-Checks sind Geschmackssache."
-    },
-    {
-      "typ": "terminal-deuten",
-      "frage": "Wie behebst du den Fund?",
-      "terminal": {
-        "befehl": "clang-tidy -p build src/sitzung.cpp",
-        "ausgabe": [
-          "src/sitzung.cpp:42:9: warning: 'name' used after it was moved [bugprone-use-after-move]",
-          "    log(name);",
-          "        ^",
-          "src/sitzung.cpp:41:15: note: move occurred here",
-          "    nutzer_ = std::move(name);",
-          "              ^"
-        ]
-      },
-      "optionen": [
-        "Die Reihenfolge tauschen (erst loggen, dann verschieben) oder `nutzer_` statt `name` loggen",
-        "Die Meldung mit `// NOLINT` abschalten",
-        "`std::move` durch `std::forward` ersetzen"
-      ],
-      "korrekt": 0,
-      "erklaerung": "Nach dem Verschieben ist `name` gültig, aber in unbestimmtem Zustand, wahrscheinlich leer. Das Log würde dann einen leeren Namen zeigen. Kein Absturz, aber ein echter Fehler. `NOLINT` gehört nur an Stellen, an denen der Fund nachweislich falsch ist, und mit Begründung.",
-      "begruendungen": [
-        "Richtig.",
-        "Das versteckt einen echten Fehler.",
-        "`std::forward` ist für Templates gedacht und würde hier genauso verschieben."
-      ]
-    },
-    {
-      "typ": "lueckentext",
-      "frage": "Ergänze die Konfiguration: Fehler-verdächtige Funde sollen den Build scheitern lassen, die anderen nur warnen.",
-      "code": {
-        "sprache": "yaml",
-        "datei": ".clang-tidy",
-        "zeilen": [
-          "Checks: >",
-          "  -*,",
-          "  bugprone-*,",
-          "  modernize-*,",
-          "  performance-*",
-          "WarningsAsErrors: '{{?}}'",
-          "HeaderFilterRegex: 'src/.*'"
-        ]
-      },
-      "luecken": [{ "loesungen": ["bugprone-*"] }],
-      "auswahl": ["bugprone-*", "-*", "*", "readability-*"],
-      "erklaerung": "`-*` schaltet zuerst alles ab, dann werden Gruppen gezielt eingeschaltet. So bleibt die Auswahl nachvollziehbar. `WarningsAsErrors` legt fest, welche Funde als Fehler zählen. `HeaderFilterRegex` sorgt dafür, dass nur eigene Header geprüft werden."
-    },
-    {
-      "typ": "erklaerung",
-      "titel": "clang-format",
-      "text": "Die Datei `.clang-format` legt den Stil fest, z. B. `BasedOnStyle: Google` mit `ColumnLimit: 100`. Editoren formatieren beim Speichern, ein **pre-commit-Hook** prüft vor jedem Commit, und die CI kontrolliert mit `clang-format --dry-run --Werror`.\n\nDer eigentliche Gewinn ist sozial: Über Einrückung und Klammern muss niemand mehr diskutieren, das Werkzeug entscheidet. Reviews konzentrieren sich auf Inhalt, und Diffs enthalten keine reinen Formatänderungen mehr."
+      "erklaerung": "Die Union-Regel ist ein häufiger Stolperstein beim Wechsel von C nach C++. GCC und Clang dulden den Trick in der Praxis, der Standard tut es nicht. Mit `bit_cast` gibt es keinen Grund mehr dafür."
     },
     {
       "typ": "multiple-choice",
-      "frage": "Warum gehört die Formatprüfung in die CI und nicht in die Code-Reviews?",
+      "frage": "Wozu dient `std::start_lifetime_as<T>` (C++23)?",
       "optionen": [
-        "Reviews sollen sich auf Logik und Design konzentrieren. Format prüft eine Maschine schneller, vollständiger und ohne Diskussion",
-        "Weil Reviewer Formatfehler nicht erkennen können",
-        "Weil Formatierung keine Rolle spielt"
+        "Es erklärt, dass in einem Speicherbereich, etwa einem empfangenen Puffer, ab jetzt ein Objekt vom Typ `T` lebt, ohne die Bytes zu kopieren",
+        "Es ruft den Konstruktor von `T` auf",
+        "Es reserviert Speicher für `T`"
       ],
       "korrekt": 0,
-      "erklaerung": "Kommentare zu Leerzeichen kosten Zeit und Nerven und lenken vom Wesentlichen ab. Einheitliches Format ist trotzdem wichtig: Es macht Code leichter lesbar und Diffs kleiner.",
+      "erklaerung": "Für Netzwerk- und Shared-Memory-Code, der grosse Strukturen nicht kopieren will, war das bisher eine Grauzone. `start_lifetime_as` macht es regelkonform, sofern `T` ein *implicit-lifetime*-Typ ist und die Ausrichtung stimmt. Die Compiler-Unterstützung kommt erst nach und nach. Bis dahin bleibt `memcpy` der sichere Weg.",
       "begruendungen": [
         "Richtig.",
-        "Können sie schon, es ist nur Verschwendung ihrer Zeit.",
-        "Einheitliches Format hilft beim Lesen sehr, genau deshalb automatisiert man es."
-      ]
-    },
-    {
-      "typ": "multiple-choice",
-      "frage": "clang-tidy meldet an einer Stelle einen Fund, der nach gründlicher Prüfung falsch ist (false positive). Wie gehst du vor?",
-      "optionen": [
-        "Gezielt mit `// NOLINT(check-name)` und einem kurzen Kommentar zur Begründung unterdrücken",
-        "Den ganzen Check projektweit abschalten",
-        "Den Code so lange umschreiben, bis die Meldung verschwindet, egal wie"
-      ],
-      "korrekt": 0,
-      "erklaerung": "Gezieltes Unterdrücken mit Namen des Checks und Begründung hält die Ausnahme sichtbar und überprüfbar. Ein ganzer Check gehört nur dann abgeschaltet, wenn er im Projekt überwiegend Fehlalarme erzeugt, und auch das sollte begründet in der `.clang-tidy` stehen.",
-      "begruendungen": [
-        "Richtig.",
-        "Dann verliert man den Check auch dort, wo er echte Fehler findet.",
-        "Lesbarkeit sollte nicht einem Werkzeug geopfert werden."
+        "Es wird kein Konstruktor ausgeführt.",
+        "Der Speicher muss bereits existieren."
       ]
     }
   ],
-  "praxis": "Ein typischer Senior-Beitrag in einem neuen Team: `.clang-format` und `.clang-tidy` einführen, mit einer einmaligen Formatierung aller Dateien in einem eigenen Commit (den man in `.git-blame-ignore-revs` einträgt, damit `git blame` nützlich bleibt) und einer CI-Prüfung, die neue Funde verhindert. So verbessert sich die Codebasis jeden Tag ein wenig, ohne grosse Umbaumassnahmen.",
+  "praxis": "Im Embedded- und Protokollbereich begegnen dir ständig Puffer, die als Strukturen gelesen werden. Der Review-Blick: Gibt es `reinterpret_cast` auf Datenpuffer? Werden gepackte Strukturen über Referenzen angesprochen? Wird Endianness berücksichtigt (Modul 11.4)? `memcpy` oder `bit_cast` sind korrekt, kosten in optimiertem Code nichts und verhindern Fehler, die nur mit bestimmten Compilerversionen auftauchen.",
   "labor": {
-    "titel": "Beide Werkzeuge einrichten",
-    "anleitung": "Lege in einem eigenen Projekt `.clang-format` und `.clang-tidy` an und lass beide über alle Quelldateien laufen.",
+    "titel": "Layout sichtbar machen",
+    "anleitung": "Gib für mehrere Strukturen `sizeof`, `alignof` und `offsetof` aller Member aus. Übersetze mit `-Wpadded` und ordne die Member so um, dass das Padding minimal wird. Nutze zusätzlich `pahole` (aus dem Paket dwarves) auf dem Objektfile.",
     "befehle": [
-      "clang-format --style=Google --dump-config > .clang-format",
-      "find src -name '*.cpp' -o -name '*.h' | xargs clang-format --dry-run --Werror",
-      "run-clang-tidy -p build -quiet 2>/dev/null | grep -E 'warning:' | sed -E 's/.*\\[(.*)\\]/\\1/' | sort | uniq -c | sort -rn"
+      "g++ -std=c++20 -g -Wpadded -c layout.cpp -o layout.o",
+      "pahole layout.o"
     ],
-    "beobachtung": "Der letzte Befehl zählt die Funde pro Check. So siehst du, wo die grössten Baustellen sind und welche Checks vielleicht nicht zum Projekt passen."
+    "beobachtung": "`pahole` zeigt für jede Struktur die Löcher (*holes*) und die Grösse. Viele Projekte gewinnen durch Umordnen messbar RAM, ohne eine Zeile Logik zu ändern."
   },
   "begriffe": [
-    { "begriff": "Statische Analyse", "englisch": "static analysis", "erklaerung": "Untersuchung von Quellcode auf Fehler, ohne ihn auszuführen." },
-    { "begriff": "clang-tidy", "englisch": "clang-tidy", "erklaerung": "Werkzeug für statische Analyse und Modernisierung von C++-Code auf Basis von Clang." },
-    { "begriff": "clang-format", "englisch": "clang-format", "erklaerung": "Werkzeug, das Code nach einem festgelegten Stil formatiert." },
-    { "begriff": "False Positive", "englisch": "false positive", "erklaerung": "Meldung eines Werkzeugs, die sich bei genauer Prüfung als kein Fehler herausstellt." }
+    { "begriff": "Ausrichtung", "englisch": "alignment", "erklaerung": "Anforderung, dass die Adresse eines Objekts ein Vielfaches eines Werts ist." },
+    { "begriff": "Padding", "englisch": "padding", "erklaerung": "Füllbytes, die der Compiler zur Einhaltung der Ausrichtung einfügt." },
+    { "begriff": "Strict Aliasing", "englisch": "strict aliasing", "erklaerung": "Regel, dass auf ein Objekt nur über Zeiger kompatibler Typen oder Bytezeiger zugegriffen werden darf." },
+    { "begriff": "std::bit_cast", "englisch": "bit_cast", "erklaerung": "Regelkonforme Neuinterpretation der Bits eines Objekts als anderen Typ gleicher Grösse." }
   ],
   "weiterlesen": [
-    { "titel": "clang-tidy: List of Checks", "url": "https://clang.llvm.org/extra/clang-tidy/checks/list.html" },
-    { "titel": "ClangFormat Style Options", "url": "https://clang.llvm.org/docs/ClangFormatStyleOptions.html" }
+    { "titel": "cppreference: std::bit_cast", "url": "https://en.cppreference.com/w/cpp/numeric/bit_cast" },
+    { "titel": "cppreference: Type aliasing (reinterpret_cast)", "url": "https://en.cppreference.com/w/cpp/language/reinterpret_cast#Type_aliasing" }
   ]
 }

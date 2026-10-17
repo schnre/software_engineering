@@ -1,0 +1,185 @@
+{
+  "id": "p8-m3-l3",
+  "phase": 8,
+  "modul": "8.3 Jenkins",
+  "titel": "Declarative vs. Scripted Pipeline",
+  "lernziele": [
+    "Declarative und Scripted Pipelines unterscheiden",
+    "Groovy-Code in einer Declarative Pipeline korrekt einbetten",
+    "Erklären, wo Pipeline-Code tatsächlich ausgeführt wird"
+  ],
+  "dauerMinuten": 5,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Was unterscheidet eine **Scripted** von einer **Declarative** Pipeline?",
+      "optionen": [
+        "Scripted ist freier Groovy-Code in `node { }`. Declarative hat eine feste Struktur in `pipeline { }`, die Jenkins prüfen und darstellen kann",
+        "Declarative ist schneller, weil sie kompiliert wird",
+        "Scripted ist die neuere Variante und ersetzt Declarative"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Scripted Pipelines gab es zuerst. Sie sind sehr flexibel, aber schwer zu lesen und zu prüfen. Declarative kam später als einfachere, strukturierte Variante und ist heute die Empfehlung für neue Pipelines.",
+      "begruendungen": [
+        "Richtig.",
+        "Beide laufen auf derselben Technik, ein Geschwindigkeitsunterschied besteht nicht.",
+        "Umgekehrt: Declarative ist die neuere Variante."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Eine Scripted Pipeline",
+      "text": "In älteren Projekten begegnet dir oft dieser Stil. Er ist normales Groovy mit Pipeline-Schritten.",
+      "code": {
+        "sprache": "groovy",
+        "zeilen": [
+          "node('linux') {",
+          "    stage('Build') {",
+          "        checkout scm",
+          "        sh 'cmake -S . -B build && cmake --build build'",
+          "    }",
+          "    stage('Test') {",
+          "        try {",
+          "            sh 'ctest --test-dir build --output-junit test-results.xml'",
+          "        } finally {",
+          "            junit 'build/test-results.xml'",
+          "        }",
+          "    }",
+          "}"
+        ],
+        "anmerkungen": [
+          {
+            "zeile": 1,
+            "text": "`node` belegt einen Executor auf einem Agent mit dem Label `linux`."
+          },
+          {
+            "zeile": 3,
+            "text": "Das Auschecken muss man selbst aufrufen. Declarative macht es automatisch."
+          },
+          {
+            "zeile": 9,
+            "text": "`finally` übernimmt die Rolle von `post { always }`."
+          }
+        ]
+      }
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Ordne zu.",
+      "paare": [
+        {
+          "links": "`pipeline { … }`",
+          "rechts": "Einstieg einer Declarative Pipeline"
+        },
+        {
+          "links": "`node('label') { … }`",
+          "rechts": "Einstieg einer Scripted Pipeline, belegt einen Executor"
+        },
+        {
+          "links": "`script { … }`",
+          "rechts": "Freier Groovy-Code innerhalb einer Declarative Pipeline"
+        },
+        {
+          "links": "`post { always { … } }`",
+          "rechts": "Aufräumen in Declarative, entspricht `try`/`finally` in Scripted"
+        }
+      ],
+      "erklaerung": "Wer Scripted versteht, kann auch Declarative-Pipelines mit `script`-Blöcken lesen. Darin steckt dieselbe Technik."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Was passiert mit dieser Stage in einer Declarative Pipeline?",
+      "code": {
+        "sprache": "groovy",
+        "zeilen": [
+          "stage('Version') {",
+          "    steps {",
+          "        def version = sh(script: 'git describe --tags', returnStdout: true).trim()",
+          "        echo \"Version ${version}\"",
+          "    }",
+          "}"
+        ]
+      },
+      "optionen": [
+        "Jenkins lehnt die Pipeline schon vor dem Start ab: In `steps` sind keine Groovy-Deklarationen wie `def` erlaubt, dafür braucht es `script { }`",
+        "Die Version wird korrekt ausgegeben",
+        "`sh` gibt nur den Exit-Code zurück, deshalb steht `0` im Log"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Declarative erlaubt in `steps` nur Schritte, keine beliebigen Anweisungen. Mit `script { def version = …; echo … }` funktioniert es. Alternativ setzt man die Version in einer `environment`-Variable. `returnStdout: true` sorgt übrigens dafür, dass `sh` die Ausgabe statt des Exit-Codes liefert.",
+      "begruendungen": [
+        "Richtig.",
+        "Nur innerhalb von `script { }` oder in einer Scripted Pipeline.",
+        "Mit `returnStdout: true` liefert `sh` die Ausgabe."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Wo der Code läuft",
+      "text": "Ein überraschendes Detail: Der Groovy-Code einer Pipeline läuft auf dem **Controller**, nicht auf dem Agent. Nur Schritte wie `sh`, `bat` oder `checkout` werden auf dem Agent ausgeführt. Jenkins wandelt den Groovy-Code ausserdem in eine spezielle Form (*CPS*) um, damit eine Pipeline einen Neustart des Controllers überleben kann. Deshalb funktionieren manche Groovy-Konstrukte nicht wie gewohnt.\n\nDaraus folgt: Rechenintensive oder komplizierte Logik gehört nicht in Groovy, sondern in Skripte (Shell, Python, CMake), die per `sh` auf dem Agent laufen. Die lassen sich zudem lokal testen."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Eine Pipeline liest in Groovy eine 200 MB grosse Logdatei ein und durchsucht sie mit regulären Ausdrücken. Was ist das Problem?",
+      "optionen": [
+        "Die Arbeit läuft auf dem Controller und belastet ihn für alle anderen Pipelines. Besser: ein `sh`-Schritt mit `grep` oder einem Skript auf dem Agent",
+        "Groovy kann keine grossen Dateien lesen",
+        "Kein Problem, Groovy-Code läuft immer auf dem Agent"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Schwere Groovy-Logik ist eine der häufigsten Ursachen für langsame oder abstürzende Jenkins-Controller. Eine gute Pipeline ist eine dünne Schicht, die Werkzeuge aufruft und ihre Ergebnisse auswertet.",
+      "begruendungen": [
+        "Richtig.",
+        "Lesen kann Groovy sie, aber eben auf dem Controller.",
+        "Gerade nicht: Nur Schritte wie `sh` laufen auf dem Agent."
+      ]
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Welche Empfehlung gilt für eine neue Pipeline?",
+      "optionen": [
+        "Declarative verwenden, Logik in Skripte oder eine Shared Library auslagern, `script { }` sparsam einsetzen",
+        "Scripted verwenden, weil man damit alles machen kann",
+        "Freestyle-Jobs verwenden, weil sie keine Programmierung brauchen"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Die Struktur von Declarative macht Pipelines einheitlich und leicht verständlich. Wiederkehrende Bausteine landen in einer Shared Library. Darum geht es im nächsten Modul.",
+      "begruendungen": [
+        "Richtig.",
+        "Flexibilität ist bei Pipelines selten das Problem, Lesbarkeit und Wartbarkeit schon.",
+        "Freestyle-Jobs sind nicht versioniert und nicht reviewbar."
+      ]
+    }
+  ],
+  "praxis": "In gewachsenen Jenkins-Landschaften findest du alle drei Arten: Freestyle, Scripted und Declarative. Bei einer Migration geht man Schritt für Schritt vor: erst die Logik in Skripte im Repository ziehen, dann eine schlanke Declarative-Pipeline darum legen. So kann man jeden Schritt lokal prüfen, und die Pipeline wird fast trivial.",
+  "labor": {
+    "titel": "Eine Scripted Pipeline umschreiben",
+    "anleitung": "Nimm die Scripted Pipeline aus dieser Lektion und schreibe sie als Declarative Pipeline mit `post { always }` und einem Timeout. Validiere sie mit dem Jenkins-Validator aus der letzten Lektion.",
+    "befehle": [
+      "curl -X POST -u benutzer:apitoken -F \"jenkinsfile=<Jenkinsfile\" http://localhost:8080/pipeline-model-converter/validate"
+    ],
+    "beobachtung": "Die Declarative-Version braucht kein `checkout scm` und kein `try`/`finally`, ist aber kaum länger. In der Oberfläche erscheinen die Stages als eigene Spalten mit Laufzeiten."
+  },
+  "begriffe": [
+    {
+      "begriff": "Scripted Pipeline",
+      "englisch": "scripted pipeline",
+      "erklaerung": "Pipeline als freier Groovy-Code, beginnend mit `node { }`."
+    },
+    {
+      "begriff": "CPS",
+      "englisch": "continuation-passing style",
+      "erklaerung": "Umwandlung des Pipeline-Codes durch Jenkins, damit Pipelines einen Neustart überleben. Schränkt manche Groovy-Konstrukte ein."
+    }
+  ],
+  "weiterlesen": [
+    {
+      "titel": "Jenkins: Pipeline Syntax – Scripted Pipeline",
+      "url": "https://www.jenkins.io/doc/book/pipeline/syntax/#scripted-pipeline"
+    },
+    {
+      "titel": "Jenkins: Pipeline Best Practices",
+      "url": "https://www.jenkins.io/doc/book/pipeline/pipeline-best-practices/"
+    }
+  ]
+}

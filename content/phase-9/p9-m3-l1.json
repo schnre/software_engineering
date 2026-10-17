@@ -1,0 +1,171 @@
+{
+  "id": "p9-m3-l1",
+  "phase": 9,
+  "modul": "9.3 Abhängigkeiten managen",
+  "titel": "Dependency Injection",
+  "lernziele": [
+    "Erklären, was Dependency Injection ist und welches Problem sie löst",
+    "Konstruktor-, Setter- und Template-Injektion unterscheiden",
+    "Versteckte Abhängigkeiten durch globale Zugriffe erkennen"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Was bedeutet **Dependency Injection**?",
+      "optionen": [
+        "Ein Objekt erzeugt seine Abhängigkeiten nicht selbst, sondern bekommt sie von aussen übergeben",
+        "Ein Framework fügt zur Laufzeit automatisch Code in Klassen ein",
+        "Abhängigkeiten werden per `#include` in jede Datei eingefügt"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Statt `I2cSensor sensor(0x48);` im Inneren bekommt der `Regler` im Konstruktor eine Referenz auf irgendein `ITemperaturSensor`. Wer was benutzt, entscheidet dann eine Stelle ausserhalb. Das macht Klassen austauschbar und testbar. In C++ braucht man dafür kein Framework, ein Konstruktor genügt.",
+      "begruendungen": [
+        "Richtig.",
+        "Es gibt solche Frameworks, sie sind für die Idee aber nicht nötig.",
+        "Includes machen Deklarationen bekannt, sie verdrahten keine Objekte."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Formen der Injektion",
+      "text": "- **Konstruktor-Injektion**: Abhängigkeiten als Konstruktorparameter. Das Objekt ist nach dem Erzeugen vollständig. Erste Wahl.\n- **Setter-Injektion**: nachträglich setzen. Nur für optionale Abhängigkeiten, weil das Objekt zwischendurch unvollständig ist.\n- **Template-Parameter**: Die Abhängigkeit wird zur Kompilierzeit festgelegt, ohne virtuelle Aufrufe. Beliebt in Embedded-Code.\n\nVerdrahtet wird an einer zentralen Stelle, der **Composition Root**, meist in `main()`. Dort entstehen die konkreten Objekte und werden zusammengesteckt. Alle anderen Klassen kennen nur Schnittstellen."
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze die Composition Root: Hier werden die konkreten Objekte erzeugt und an den Regler übergeben.",
+      "code": {
+        "sprache": "cpp",
+        "datei": "main.cpp",
+        "zeilen": [
+          "int main() {",
+          "    I2cTemperaturSensor sensor(0x48);",
+          "    RelaisHeizung heizung(17);",
+          "    Regler regler({{?}}, {{?}}, 21.0);",
+          "    regler.laufe();",
+          "}"
+        ]
+      },
+      "luecken": [
+        {
+          "loesungen": [
+            "sensor"
+          ]
+        },
+        {
+          "loesungen": [
+            "heizung"
+          ]
+        }
+      ],
+      "auswahl": [
+        "sensor",
+        "heizung",
+        "nullptr",
+        "Regler"
+      ],
+      "erklaerung": "Der Regler bekommt Referenzen auf Objekte, die in `main` leben und ihn überleben. Im Test steht an derselben Stelle ein `MockSensor` und eine `FakeHeizung`. Der Regler merkt keinen Unterschied."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Ordne zu.",
+      "paare": [
+        {
+          "links": "Konstruktor-Injektion",
+          "rechts": "Abhängigkeiten beim Erzeugen übergeben, das Objekt ist danach vollständig"
+        },
+        {
+          "links": "Setter-Injektion",
+          "rechts": "Abhängigkeit nachträglich setzen, das Objekt kann zwischendurch unvollständig sein"
+        },
+        {
+          "links": "Template-Parameter",
+          "rechts": "Abhängigkeit zur Kompilierzeit festlegen, ohne virtuelle Aufrufe"
+        },
+        {
+          "links": "Composition Root",
+          "rechts": "Zentrale Stelle, meist `main`, an der alle Objekte verdrahtet werden"
+        }
+      ],
+      "erklaerung": "Template-Injektion sieht so aus: `template <typename Sensor> class Regler { Sensor& sensor_; … };`. Im Produkt ist `Sensor` der echte Treiber, im Test ein Fake. Der Compiler kann alles inlinen, kostet aber längere Kompilierzeit und den Code im Header."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Was ist das Problem dieses Codes für Tests?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "void Bericht::erstelle() {",
+          "    auto daten = Datenbank::instanz().lade(\"messwerte\");",
+          "    ...",
+          "}"
+        ]
+      },
+      "optionen": [
+        "`Bericht` hängt versteckt von einer globalen Datenbank ab. Ein Test kann sie nicht ersetzen und spricht mit der echten",
+        "`instanz()` ist langsam",
+        "Kein Problem, Singletons sind für Datenbanken gedacht"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Von aussen sieht `Bericht` aus, als bräuchte es nichts. Die Abhängigkeit steckt in der Implementierung. Solche **versteckten Abhängigkeiten** machen Tests langsam, unzuverlässig und abhängig von der Reihenfolge. Mit `Bericht(IMesswertQuelle& quelle)` wäre die Abhängigkeit sichtbar und ersetzbar.",
+      "begruendungen": [
+        "Richtig.",
+        "Die Geschwindigkeit ist nicht das Hauptproblem.",
+        "Gerade bei Datenbanken will man im Test eine Ersatzimplementierung."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Lebenszeit bei DI",
+      "text": "Wer injiziert, muss klären, wem was gehört:\n\n- **Referenz** oder **roher Zeiger**: Die Abhängigkeit lebt woanders länger (typisch: in `main`). Einfach und schnell.\n- **`std::unique_ptr`**: Das Objekt übernimmt den Besitz. Gut, wenn die Abhängigkeit nur für dieses Objekt existiert.\n- **`std::shared_ptr`**: geteilter Besitz. Selten wirklich nötig und macht Lebenszeiten unklar.\n\nIn der Composition Root legt man die Objekte meist in der richtigen Reihenfolge an: erst die Abhängigkeiten, dann die Nutzer. Zerstört wird automatisch in umgekehrter Reihenfolge, wie in Modul 2.2 gesehen."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Ein Konstruktor bekommt mit Dependency Injection neun Parameter. Was sagt dir das?",
+      "optionen": [
+        "Die Klasse hat vermutlich zu viele Aufgaben und sollte aufgeteilt werden",
+        "Dependency Injection ist für diese Klasse ungeeignet",
+        "Nichts, die Parameter sollte man in ein globales Objekt verschieben"
+      ],
+      "korrekt": 0,
+      "erklaerung": "DI macht Abhängigkeiten sichtbar, auch unangenehm viele. Das ist ein Vorteil: Ohne DI wären die neun Abhängigkeiten auch da, nur versteckt. Die Lösung ist, die Klasse nach Belangen aufzuteilen, nicht die Abhängigkeiten wieder zu verstecken.",
+      "begruendungen": [
+        "Richtig.",
+        "DI zeigt nur ein Problem, das schon vorher da war.",
+        "Damit wären die Abhängigkeiten wieder versteckt."
+      ]
+    }
+  ],
+  "praxis": "Dependency Injection ist der wichtigste Hebel für testbaren C++-Code, besonders in Embedded-Projekten mit viel Hardware. Im Review achtest du auf `new` oder lokale Objekte konkreter Klassen mitten in der Logik, auf Singletons und globale Zugriffe sowie auf Klassen, die Zeit (`system_clock::now()`) oder Zufall selbst holen. All das sollte von aussen kommen.",
+  "labor": {
+    "titel": "Eine Klasse testbar machen",
+    "anleitung": "Nimm den `Regler` aus Modul 4.1 mit fest eingebautem Sensor und baue ihn auf Konstruktor-Injektion um. Schreibe danach einen Test mit einem Fake-Sensor, der nacheinander 18, 22 und 25 °C liefert.",
+    "befehle": [
+      "cmake --build build && ctest --test-dir build -R Regler --output-on-failure"
+    ],
+    "beobachtung": "Die Umstellung betrifft nur den Konstruktor und `main`. Die Logik in `schritt()` bleibt unverändert, ist jetzt aber vollständig ohne Hardware testbar."
+  },
+  "begriffe": [
+    {
+      "begriff": "Dependency Injection",
+      "englisch": "dependency injection, DI",
+      "erklaerung": "Abhängigkeiten werden einem Objekt von aussen übergeben, statt dass es sie selbst erzeugt."
+    },
+    {
+      "begriff": "Composition Root",
+      "englisch": "composition root",
+      "erklaerung": "Zentrale Stelle, an der die konkreten Objekte erzeugt und verdrahtet werden."
+    },
+    {
+      "begriff": "Versteckte Abhängigkeit",
+      "englisch": "hidden dependency",
+      "erklaerung": "Abhängigkeit, die nicht in der Schnittstelle sichtbar ist, z. B. über ein Singleton oder eine globale Variable."
+    }
+  ],
+  "weiterlesen": [
+    {
+      "titel": "Martin Fowler: Inversion of Control Containers and the Dependency Injection pattern",
+      "url": "https://martinfowler.com/articles/injection.html"
+    }
+  ]
+}

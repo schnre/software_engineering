@@ -21,7 +21,11 @@
           "}"
         ]
       },
-      "optionen": ["Auf dem Heap", "Auf dem Stack", "In der Sektion `.data`"],
+      "optionen": [
+        "Auf dem Heap",
+        "Auf dem Stack",
+        "In der Sektion `.data`"
+      ],
       "korrekt": 0,
       "erklaerung": "`new` legt ein Objekt auf dem **Heap** an. Der Zeiger `p` selbst ist aber eine lokale Variable und liegt auf dem **Stack**. Am Ende von `f()` verschwindet `p`, das `int` auf dem Heap bleibt bestehen. Ohne `delete` ist das ein Speicherleck.",
       "begruendungen": [
@@ -35,12 +39,37 @@
       "titel": "Die Speicherbereiche eines Prozesses",
       "text": "Ein laufendes Programm teilt seinen Speicher grob in vier Bereiche. Die Sektionen aus Phase 1 tauchen hier wieder auf.",
       "tabelle": {
-        "kopf": ["Bereich", "Inhalt", "Lebenszeit", "verwaltet von"],
+        "kopf": [
+          "Bereich",
+          "Inhalt",
+          "Lebenszeit",
+          "verwaltet von"
+        ],
         "zeilen": [
-          ["Text", "Maschinencode", "ganzes Programm", "Loader"],
-          ["statisch (`.data`, `.bss`)", "globale und `static`-Variablen", "ganzes Programm", "Loader/Startup"],
-          ["Heap", "Objekte aus `new`/`malloc`", "bis `delete`/`free`", "du bzw. Smart Pointer"],
-          ["Stack", "lokale Variablen, Rücksprungadressen", "bis zum Ende des Blocks", "Compiler, automatisch"]
+          [
+            "Text",
+            "Maschinencode",
+            "ganzes Programm",
+            "Loader"
+          ],
+          [
+            "statisch (`.data`, `.bss`)",
+            "globale und `static`-Variablen",
+            "ganzes Programm",
+            "Loader/Startup"
+          ],
+          [
+            "Heap",
+            "Objekte aus `new`/`malloc`",
+            "bis `delete`/`free`",
+            "du bzw. Smart Pointer"
+          ],
+          [
+            "Stack",
+            "lokale Variablen, Rücksprungadressen",
+            "bis zum Ende des Blocks",
+            "Compiler, automatisch"
+          ]
         ]
       }
     },
@@ -48,10 +77,22 @@
       "typ": "zuordnen",
       "frage": "Wo liegt welche Variable?",
       "paare": [
-        { "links": "`int zaehler = 1;` (global)", "rechts": "`.data`: lebt die ganze Programmlaufzeit" },
-        { "links": "`static int aufrufe;` (in einer Funktion)", "rechts": "`.bss`: lebt die ganze Laufzeit, obwohl lokal deklariert" },
-        { "links": "`int summe = 0;` (in einer Funktion)", "rechts": "Stack: lebt bis zum Ende des Blocks" },
-        { "links": "`*new Sensor()`", "rechts": "Heap: lebt bis zum `delete`" }
+        {
+          "links": "`int zaehler = 1;` (global)",
+          "rechts": "`.data`: lebt die ganze Programmlaufzeit"
+        },
+        {
+          "links": "`static int aufrufe;` (in einer Funktion)",
+          "rechts": "`.bss`: lebt die ganze Laufzeit, obwohl lokal deklariert"
+        },
+        {
+          "links": "`int summe = 0;` (in einer Funktion)",
+          "rechts": "Stack: lebt bis zum Ende des Blocks"
+        },
+        {
+          "links": "`*new Sensor()`",
+          "rechts": "Heap: lebt bis zum `delete`"
+        }
       ],
       "erklaerung": "Eine `static`-Variable in einer Funktion ist nur dort *sichtbar*, sie *lebt* aber vom ersten Durchlauf bis zum Programmende. Ohne Startwert ungleich null landet sie in `.bss`."
     },
@@ -105,8 +146,29 @@
       "typ": "lueckentext",
       "frage": "Ergänze die Speicherbereiche.",
       "text": "Lokale Variablen liegen auf dem {{?}}, mit `new` erzeugte Objekte auf dem {{?}} und globale Variablen im {{?}} Speicher.",
-      "luecken": [{ "loesungen": ["Stack"] }, { "loesungen": ["Heap"] }, { "loesungen": ["statischen"] }],
-      "auswahl": ["Stack", "Heap", "statischen", "Register"],
+      "luecken": [
+        {
+          "loesungen": [
+            "Stack"
+          ]
+        },
+        {
+          "loesungen": [
+            "Heap"
+          ]
+        },
+        {
+          "loesungen": [
+            "statischen"
+          ]
+        }
+      ],
+      "auswahl": [
+        "Stack",
+        "Heap",
+        "statischen",
+        "Register"
+      ],
       "erklaerung": "Register sind Speicherplätze in der CPU selbst. Der Compiler hält dort oft lokale Variablen, solange es geht. Für dein Programm verhalten sie sich aber wie Stack-Variablen."
     },
     {
@@ -138,7 +200,7 @@
       ]
     }
   ],
-  "praxis": "Wenn ein Prozess über Stunden immer mehr Speicher belegt, ist fast immer ein Heap-Leck schuld: `new` ohne `delete`, ein Cache, der nie aufräumt, oder ein Zyklus von `shared_ptr`. Valgrind und AddressSanitizer (Phase 3) finden solche Lecks. Auf Mikrocontrollern verbieten viele Coding-Standards den Heap nach der Startphase ganz, weil Fragmentierung dort nicht beherrschbar ist.",
+  "praxis": "Wenn ein Prozess über Stunden immer mehr Speicher belegt, ist fast immer ein Heap-Leck schuld: `new` ohne `delete`, ein Cache, der nie aufräumt, oder ein Zyklus von `shared_ptr`. Valgrind und AddressSanitizer (Phase 4) finden solche Lecks. Auf Mikrocontrollern verbieten viele Coding-Standards den Heap nach der Startphase ganz, weil Fragmentierung dort nicht beherrschbar ist.",
   "labor": {
     "titel": "Adressen vergleichen",
     "anleitung": "Gib die Adressen einer globalen, einer lokalen und einer Heap-Variable aus.",
@@ -149,11 +211,26 @@
     "beobachtung": "Die globale Variable liegt nahe beim Programmcode, die Heap-Variable kurz dahinter, die lokale Variable bei einer sehr hohen Adresse (`0x7ff…`). Vergleiche die Adressen mit den Bereichen in `/proc/<pid>/maps`. Damit `cat` den Prozess noch sieht, sollte das Programm z. B. mit `std::cin.get()` auf eine Eingabe warten."
   },
   "begriffe": [
-    { "begriff": "Stack", "englisch": "stack", "erklaerung": "Speicherbereich für lokale Variablen und Funktionsaufrufe. Wird automatisch verwaltet, ist schnell und klein." },
-    { "begriff": "Heap", "englisch": "heap, free store", "erklaerung": "Speicherbereich für Objekte aus `new` und `malloc`. Lebenszeit frei wählbar, Freigabe nötig." },
-    { "begriff": "Speicherleck", "englisch": "memory leak", "erklaerung": "Heap-Speicher, der nicht mehr erreichbar ist und nie freigegeben wird." }
+    {
+      "begriff": "Stack",
+      "englisch": "stack",
+      "erklaerung": "Speicherbereich für lokale Variablen und Funktionsaufrufe. Wird automatisch verwaltet, ist schnell und klein."
+    },
+    {
+      "begriff": "Heap",
+      "englisch": "heap, free store",
+      "erklaerung": "Speicherbereich für Objekte aus `new` und `malloc`. Lebenszeit frei wählbar, Freigabe nötig."
+    },
+    {
+      "begriff": "Speicherleck",
+      "englisch": "memory leak",
+      "erklaerung": "Heap-Speicher, der nicht mehr erreichbar ist und nie freigegeben wird."
+    }
   ],
   "weiterlesen": [
-    { "titel": "cppreference: Storage duration", "url": "https://en.cppreference.com/w/cpp/language/storage_duration" }
+    {
+      "titel": "cppreference: Storage duration",
+      "url": "https://en.cppreference.com/w/cpp/language/storage_duration"
+    }
   ]
 }

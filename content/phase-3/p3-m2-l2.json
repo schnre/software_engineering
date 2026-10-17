@@ -1,123 +1,135 @@
 {
   "id": "p3-m2-l2",
   "phase": 3,
-  "modul": "3.2 Teststrategie",
-  "titel": "Test-Driven Development",
+  "modul": "3.2 Lambdas und Ranges",
+  "titel": "Ranges und Views",
   "lernziele": [
-    "Den Zyklus Rot, Grün, Refactor anwenden",
-    "Einen Fehler zuerst mit einem Test festhalten",
-    "Legacy-Code mit Charakterisierungstests absichern"
+    "Range-Algorithmen statt Iteratorpaaren verwenden",
+    "Views mit dem Pipe-Operator verketten und ihre Lazy-Auswertung verstehen",
+    "Lebensdauerfallen bei Views vermeiden"
   ],
-  "dauerMinuten": 5,
+  "dauerMinuten": 7,
   "schritte": [
     {
       "typ": "multiple-choice",
-      "frage": "Womit beginnt man bei **Test-Driven Development** (TDD)?",
+      "frage": "Was ist der Unterschied zwischen `std::sort(v.begin(), v.end())` und `std::ranges::sort(v)`?",
       "optionen": [
-        "Mit einem kleinen Test, der fehlschlägt, weil die Funktion noch fehlt",
-        "Mit der vollständigen Implementierung, danach folgen die Tests",
-        "Mit einem Klassendiagramm des ganzen Systems"
+        "Die Ranges-Variante nimmt den ganzen Container, prüft die Anforderungen mit Concepts und unterstützt Projektionen",
+        "Die Ranges-Variante sortiert absteigend",
+        "Es gibt keinen Unterschied, nur einen neuen Namen"
       ],
       "korrekt": 0,
-      "erklaerung": "Bei TDD beschreibt der Test zuerst, was der Code tun soll. Dass er anfangs fehlschlägt, beweist, dass er überhaupt etwas prüft. Ein Test, der nie rot war, könnte auch nichts testen.",
+      "erklaerung": "Mit Ranges kann man keine Iteratoren verschiedener Container mehr verwechseln, und Fehlermeldungen sind dank Concepts besser. **Projektionen** sind ein praktischer Zusatz: `std::ranges::sort(personen, {}, &Person::alter)` sortiert nach dem Alter, ohne eigenes Vergleichs-Lambda.",
       "begruendungen": [
-        "Richtig. Dieser Schritt heisst „Rot“.",
-        "Das ist klassisches Testen nach der Implementierung, kein TDD.",
-        "Bei TDD entsteht das Design in kleinen Schritten aus den Tests."
+        "Richtig.",
+        "Die Standardreihenfolge ist weiterhin aufsteigend.",
+        "Die Unterschiede sind praktisch relevant."
       ]
-    },
-    {
-      "typ": "erklaerung",
-      "titel": "Rot, Grün, Refactor",
-      "text": "TDD läuft in kurzen Zyklen von wenigen Minuten:\n\n1. **Rot**: Einen kleinen Test für das nächste Stück Verhalten schreiben. Er schlägt fehl.\n2. **Grün**: Gerade so viel Code schreiben, dass er besteht, auch wenn es primitiv ist.\n3. **Refactor**: Code und Tests aufräumen. Die Tests sichern, dass sich das Verhalten nicht ändert.\n\nDer Nutzen: Jede Zeile Code ist durch einen Test begründet, und das Design wird automatisch testbar, weil man es aus Sicht des Aufrufers entwirft. TDD passt weniger zu reinem Ausprobieren, etwa bei einem Prototyp, der wieder weggeworfen wird."
-    },
-    {
-      "typ": "reihenfolge",
-      "frage": "Bringe den TDD-Zyklus in die richtige Reihenfolge.",
-      "elemente": [
-        "Einen kleinen Test schreiben, der fehlschlägt",
-        "Gerade so viel Code schreiben, dass der Test besteht",
-        "Code und Test aufräumen, ohne das Verhalten zu ändern",
-        "Mit dem nächsten kleinen Test von vorn beginnen"
-      ],
-      "erklaerung": "Den Refactor-Schritt lässt man am häufigsten weg. Dann entsteht zwar getesteter, aber unordentlicher Code. Gerade dieser Schritt ist mit Tests aber am billigsten."
     },
     {
       "typ": "code-lesen",
-      "frage": "Der erste Test für eine neue Klasse `Stapel` lautet so. Was ist im Sinne von TDD die richtige Implementierung für „Grün“?",
+      "frage": "Was gibt dieser Code aus?",
       "code": {
         "sprache": "cpp",
         "zeilen": [
-          "TEST(StapelTest, NeuerStapelIstLeer) {",
-          "    Stapel s;",
-          "    EXPECT_TRUE(s.leer());",
-          "}"
+          "std::vector<int> werte{1, 2, 3, 4, 5, 6, 7, 8};",
+          "auto ergebnis = werte",
+          "    | std::views::filter([](int x) { return x % 2 == 0; })",
+          "    | std::views::transform([](int x) { return x * x; })",
+          "    | std::views::take(3);",
+          "for (int x : ergebnis) std::cout << x << ' ';"
         ]
       },
-      "optionen": [
-        "`bool leer() const { return true; }`",
-        "Eine vollständige Implementierung mit `std::vector`, `push`, `pop` und `top`",
-        "Keine, es reicht, den Test zu schreiben"
-      ],
+      "optionen": ["`4 16 36`", "`1 4 9`", "`4 16 36 64`", "`2 4 6`"],
       "korrekt": 0,
-      "erklaerung": "Das wirkt albern, ist aber gewollt: Der nächste Test (`NachPushNichtLeer`) zwingt dann zu einer echten Implementierung. So entsteht nur Code, den ein Test verlangt. In der Praxis macht man die Schritte grösser, sobald man sicher ist. Das Prinzip bleibt.",
-      "begruendungen": [
-        "Richtig. Die einfachste Lösung, die den Test grün macht.",
-        "Das wäre Code, den noch kein Test verlangt und prüft.",
-        "Ohne Implementierung kompiliert der Test gar nicht."
-      ]
-    },
-    {
-      "typ": "erklaerung",
-      "titel": "TDD für Bugfixes und Legacy-Code",
-      "text": "Auch ohne striktes TDD ist ein Teil davon Pflicht: **Einen gemeldeten Fehler zuerst mit einem Test reproduzieren.** Der rote Test beweist, dass du den Fehler verstanden hast. Der grüne Test nach dem Fix beweist, dass er weg ist, und verhindert, dass er zurückkommt.\n\nBei **Legacy-Code** ohne Tests schreibt man zuerst **Charakterisierungstests** (characterization tests): Tests, die das *aktuelle* Verhalten festhalten, auch wenn es seltsam ist. Erst dann wird umgebaut. So merkt man, wenn sich versehentlich etwas ändert."
-    },
-    {
-      "typ": "multiple-choice",
-      "frage": "Du sollst eine 800-Zeilen-Funktion ohne Tests ändern. Was ist der sinnvollste erste Schritt?",
-      "optionen": [
-        "Charakterisierungstests schreiben, die das jetzige Verhalten für typische Eingaben festhalten",
-        "Die Funktion sofort sauber neu schreiben",
-        "Die Änderung einbauen und dann manuell testen"
-      ],
-      "korrekt": 0,
-      "erklaerung": "Ohne Sicherheitsnetz weisst du nicht, was du kaputt machst. Charakterisierungstests sind schnell geschrieben: Eingabe rein, aktuelle Ausgabe als Erwartung eintragen. Danach kannst du die Funktion in kleinen, geprüften Schritten zerlegen.",
+      "fest": true,
+      "erklaerung": "Gerade Zahlen (2, 4, 6, 8), quadriert (4, 16, 36, 64), davon die ersten drei. **Views** sind **lazy**: Es wird kein Zwischenvektor angelegt. Die Elemente werden erst beim Durchlaufen berechnet, eines nach dem anderen. Das 8. Element wird nie quadriert.",
       "begruendungen": [
         "Richtig.",
-        "Neuschreiben ohne Tests verliert fast immer Sonderfälle, die über Jahre eingebaut wurden.",
-        "Manuelle Tests sind unvollständig und nicht wiederholbar."
+        "Das wären die Quadrate ohne Filter.",
+        "`take(3)` begrenzt auf drei Elemente.",
+        "Die Werte werden noch quadriert."
       ]
     },
     {
       "typ": "zuordnen",
-      "frage": "Ordne die Begriffe zu.",
+      "frage": "Ordne die Views zu.",
       "paare": [
-        { "links": "Rot", "rechts": "Ein neuer Test schlägt fehl" },
-        { "links": "Grün", "rechts": "Alle Tests bestehen" },
-        { "links": "Refactor", "rechts": "Struktur verbessern, Verhalten bleibt gleich" },
-        { "links": "Charakterisierungstest", "rechts": "Hält das aktuelle Verhalten fest, auch wenn es falsch sein könnte" },
-        { "links": "Regressionstest", "rechts": "Verhindert, dass ein behobener Fehler zurückkehrt" }
+        { "links": "`views::filter`", "rechts": "Nur Elemente, die eine Bedingung erfüllen" },
+        { "links": "`views::transform`", "rechts": "Jedes Element umgewandelt" },
+        { "links": "`views::iota(0, n)`", "rechts": "Die Zahlen von 0 bis n-1, ohne Container" },
+        { "links": "`views::enumerate`", "rechts": "Paare aus Index und Element (C++23)" }
       ],
-      "erklaerung": "Refactoring heisst ausdrücklich: Verhalten unverändert. Wer gleichzeitig Struktur und Verhalten ändert, weiss bei einem roten Test nicht, welche der beiden Änderungen schuld ist."
+      "erklaerung": "Weitere nützliche Views: `reverse`, `drop`, `keys`/`values` für Maps, `split`, `join`, `zip` (C++23) und `chunk` (C++23). Mit `std::ranges::to<std::vector>()` (C++23) sammelt man das Ergebnis in einen Container."
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Dieser Code ist undefiniertes Verhalten. Welche Zeile ist die Ursache?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "std::vector<int> ladeWerte();",
+          "",
+          "auto geradeWerte() {",
+          "    auto v = ladeWerte();",
+          "    return v | std::views::filter([](int x) { return x % 2 == 0; });",
+          "}",
+          "",
+          "for (int x : geradeWerte()) std::cout << x;"
+        ]
+      },
+      "fehlerZeile": 5,
+      "erklaerung": "Ein View besitzt seine Daten nicht, er verweist nur auf `v`. Mit dem Ende der Funktion wird `v` zerstört, der zurückgegebene View hängt. Abhilfe: das Ergebnis als Container zurückgeben (`| std::ranges::to<std::vector>()`), oder `std::move(v) | views::filter(...)`, dann übernimmt ein `owning_view` den Vektor. Views gehören wie `string_view` zu den nicht besitzenden Typen."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Ein `filter`-View wird zweimal hintereinander durchlaufen, und die Bedingung ist teuer. Was solltest du wissen?",
+      "optionen": [
+        "Die Bedingung wird bei jedem Durchlauf erneut ausgewertet. Bei mehrfacher Nutzung lohnt es sich, das Ergebnis einmal in einen Container zu sammeln",
+        "Das Ergebnis wird beim ersten Durchlauf zwischengespeichert",
+        "Ein View kann nur einmal durchlaufen werden"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Views rechnen bei jedem Durchlauf neu. Ein kleines Detail: `filter_view` speichert sich den Anfang nach dem ersten `begin()`. Deshalb ist er nicht `const`-iterierbar, was manchmal überrascht. Für Performance-kritischen Code lohnt sich ein Blick, ob Views oder eine einfache Schleife schneller sind. Meist sind sie gleichauf.",
+      "begruendungen": [
+        "Richtig.",
+        "Views speichern keine Ergebnisse.",
+        "Die meisten Views lassen sich mehrfach durchlaufen, nur Input-Views wie `istream_view` nicht."
+      ]
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze die Funktion, die die Namen aller aktiven Sensoren in einen Vektor sammelt (C++23).",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "auto namen = sensoren",
+          "    | std::views::{{?}}(&Sensor::aktiv)",
+          "    | std::views::{{?}}(&Sensor::name)",
+          "    | std::ranges::to<std::vector>();"
+        ]
+      },
+      "luecken": [{ "loesungen": ["filter"] }, { "loesungen": ["transform"] }],
+      "auswahl": ["filter", "transform", "take", "reverse"],
+      "erklaerung": "Member-Zeiger sind aufrufbar, darum kann man sie direkt an Views übergeben. `&Sensor::aktiv` funktioniert, wenn `aktiv` ein `bool`-Member oder eine Methode ohne Parameter ist."
     }
   ],
-  "praxis": "Im Team zeigt sich das so: Ein Bugfix-Pull-Request ohne Test, der den Fehler reproduziert, ist unvollständig. Darauf achten gute Reviewer. In Legacy-Projekten ist die Frage nie „Tests oder nicht“, sondern „Welchen kleinsten Test brauche ich, um diese eine Änderung sicher zu machen?“.",
+  "praxis": "Ranges machen Datenverarbeitung deklarativ und lesbar: Was passiert, statt wie iteriert wird. In bestehenden Codebasen ist der einfachste Einstieg, `std::` durch `std::ranges::` bei Algorithmen zu ersetzen. Bei Views achte im Review auf zwei Dinge: Lebensdauer der zugrunde liegenden Daten und Lesbarkeit langer Pipelines. Fünf verkettete Views mit verschachtelten Lambdas sind nicht immer klarer als eine Schleife.",
   "labor": {
-    "titel": "Eine Kata im TDD-Stil",
-    "anleitung": "Löse die Aufgabe „römische Zahlen“ (1 → I, 4 → IV, 1994 → MCMXCIV) strikt im TDD-Zyklus. Committe nach jedem grünen Schritt.",
+    "titel": "Logdatei auswerten",
+    "anleitung": "Lies eine Logdatei zeilenweise, filtere mit Views die Zeilen mit „ERROR“, extrahiere den Zeitstempel und zähle die Fehler pro Stunde in einer `std::map`.",
     "befehle": [
-      "git init roemisch && cd roemisch",
-      "cmake -S . -B build && cmake --build build && ctest --test-dir build",
-      "git log --oneline"
+      "g++ -std=c++23 -O2 logauswertung.cpp -o logauswertung",
+      "./logauswertung app.log"
     ],
-    "beobachtung": "Die Git-Historie zeigt Dutzende kleine Schritte. Achte darauf, wann du von „Fake it“ (`return \"I\";`) zu einer echten Regel übergehst. Meist ist es der dritte oder vierte Test."
+    "beobachtung": "Vergleiche die Lesbarkeit mit einer Version mit klassischen Schleifen. Achte darauf, dass die Zeilen-Strings lange genug leben, wenn du `string_view`s darauf bildest."
   },
   "begriffe": [
-    { "begriff": "Test-Driven Development", "englisch": "test-driven development, TDD", "erklaerung": "Entwicklung in kurzen Zyklen: erst ein fehlschlagender Test, dann Code, dann Aufräumen." },
-    { "begriff": "Refactoring", "englisch": "refactoring", "erklaerung": "Die Struktur von Code verbessern, ohne sein Verhalten zu ändern." },
-    { "begriff": "Charakterisierungstest", "englisch": "characterization test", "erklaerung": "Test, der das bestehende Verhalten von Legacy-Code festhält, bevor man ihn ändert." }
+    { "begriff": "Range", "englisch": "range", "erklaerung": "Alles, was `begin` und `end` hat, z. B. Container und Views." },
+    { "begriff": "View", "englisch": "view", "erklaerung": "Leichtgewichtige, meist nicht besitzende Sicht auf eine Range, lazy ausgewertet." },
+    { "begriff": "Projektion", "englisch": "projection", "erklaerung": "Funktion, die vor dem Vergleich auf jedes Element angewendet wird." }
   ],
   "weiterlesen": [
-    { "titel": "Martin Fowler: Test Driven Development", "url": "https://martinfowler.com/bliki/TestDrivenDevelopment.html" }
+    { "titel": "cppreference: Ranges library", "url": "https://en.cppreference.com/w/cpp/ranges" }
   ]
 }

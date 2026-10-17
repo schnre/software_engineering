@@ -1,120 +1,201 @@
 {
   "id": "p8-m2-l2",
   "phase": 8,
-  "modul": "8.2 Entscheidungen und Trade-offs",
-  "titel": "Umkehrbare und unumkehrbare Entscheidungen",
+  "modul": "8.2 Pipeline-Stufen und Quality Gates",
+  "titel": "Quality Gates",
   "lernziele": [
-    "Entscheidungen nach ihrer Umkehrbarkeit einordnen",
-    "Den Aufwand für eine Entscheidung passend wählen",
-    "Entscheidungen bewusst umkehrbar gestalten"
+    "Erklären, was ein Quality Gate ist",
+    "Sinnvolle Bedingungen für Gates auswählen",
+    "Gates mit Abhängigkeiten zwischen Jobs und Branch Protection umsetzen"
   ],
-  "dauerMinuten": 5,
+  "dauerMinuten": 6,
   "schritte": [
     {
       "typ": "multiple-choice",
-      "frage": "Welche dieser Entscheidungen lässt sich am schwersten rückgängig machen?",
+      "frage": "Was ist ein **Quality Gate**?",
       "optionen": [
-        "Das Datenformat, in dem 100 000 ausgelieferte Geräte ihre Einstellungen speichern",
-        "Der Name einer internen Hilfsfunktion",
-        "Die Logging-Bibliothek hinter einer eigenen `ILogger`-Schnittstelle"
+        "Eine automatisch geprüfte Bedingung, die erfüllt sein muss, bevor eine Änderung die nächste Stufe erreicht",
+        "Ein Meeting, in dem das Team über die Qualität eines Releases spricht",
+        "Ein Tool, das die Code-Qualität in Prozent angibt"
       ],
       "korrekt": 0,
-      "erklaerung": "Sind die Geräte beim Kunden, muss jede künftige Firmware dieses Format lesen können, für Jahre. Eine solche Entscheidung ist praktisch **unumkehrbar** und verdient sorgfältige Prüfung. Die beiden anderen lassen sich in Stunden ändern.",
+      "erklaerung": "Ein Gate ist eine Schranke mit klarer, objektiver Bedingung: alle Tests grün, keine neuen Warnungen, mindestens ein Review. Ist sie nicht erfüllt, geht es nicht weiter, weder zum Merge noch zur Auslieferung.",
       "begruendungen": [
         "Richtig.",
-        "Eine Umbenennung ist eine Sache von Minuten.",
-        "Dank Adapter (Modul 7.4) ist das in einem Modul austauschbar."
+        "Ein Meeting kann eine Freigabe sein, ist aber kein automatisches Gate.",
+        "Kennzahlen können Teil eines Gates sein, das Gate ist aber die Regel, die darauf aufbaut."
       ]
     },
     {
       "typ": "erklaerung",
-      "titel": "Einbahnstrassen und Drehtüren",
-      "text": "Jeff Bezos unterscheidet zwei Arten von Entscheidungen: **Einbahnstrassen** (one-way doors), die sich kaum umkehren lassen, und **Drehtüren** (two-way doors), durch die man jederzeit zurückgehen kann.\n\nDaraus folgt eine einfache Regel: Drehtüren schnell entscheiden, von der Person, die am nächsten dran ist. Einbahnstrassen sorgfältig prüfen, mit Daten, Prototyp und mehreren Meinungen. Ein häufiger Fehler ist, alle Entscheidungen gleich zu behandeln: entweder alles ewig diskutieren oder alles im Vorbeigehen entscheiden."
+      "titel": "Wo Gates stehen",
+      "text": "- **Vor dem Merge**: Der Pull Request braucht grüne Pflichtprüfungen (*required status checks*) und ein Review. Umgesetzt mit **Branch Protection** auf `main`, oft zusätzlich mit einer Merge Queue.\n- **Vor dem Release**: Systemtests bestanden, keine offenen kritischen Fehler, keine Abhängigkeit mit bekannter kritischer Sicherheitslücke, bei regulierten Produkten zusätzlich eine dokumentierte Freigabe.\n\nGute Gates sind **objektiv**, **automatisch** und **zuverlässig**. Ein Gate, das oft ohne Grund rot ist, wird umgangen, und dann schützt es nichts mehr."
     },
     {
       "typ": "zuordnen",
-      "frage": "Wie gehst du mit diesen Entscheidungen um?",
+      "frage": "Wovor schützt welches Gate?",
       "paare": [
-        { "links": "Protokollformat zu Kundengeräten", "rechts": "Schwer umkehrbar: sorgfältig prüfen und ein Versionsfeld einbauen" },
-        { "links": "Name einer internen Hilfsfunktion", "rechts": "Leicht umkehrbar: schnell entscheiden" },
-        { "links": "Programmiersprache für ein neues Produkt", "rechts": "Schwer umkehrbar: Prototyp und bewusste Bewertung" },
-        { "links": "Implementierung hinter einer stabilen Schnittstelle", "rechts": "Leicht umkehrbar, solange die Schnittstelle bleibt" }
+        {
+          "links": "Alle Tests grün",
+          "rechts": "Regressionen in bestehendem Verhalten"
+        },
+        {
+          "links": "Keine neuen Warnungen oder clang-tidy-Funde",
+          "rechts": "Schleichende Verschlechterung der Codequalität"
+        },
+        {
+          "links": "Mindestens ein Review-Approval",
+          "rechts": "Design-Fehler und Wissen, das nur eine Person hat"
+        },
+        {
+          "links": "Keine Abhängigkeit mit bekannter kritischer Sicherheitslücke",
+          "rechts": "Ausnutzbare Schwachstellen in Drittbibliotheken"
+        }
       ],
-      "erklaerung": "Gute Architektur macht viele Entscheidungen zu Drehtüren: Wer eine Bibliothek hinter einem Adapter, eine Hardware hinter einer HAL und ein Format hinter einer Version verbirgt, kann diese Entscheidungen später korrigieren."
-    },
-    {
-      "typ": "lueckentext",
-      "frage": "Ergänze den Kopf eines Datenformats so, dass spätere Änderungen möglich bleiben.",
-      "code": {
-        "sprache": "cpp",
-        "zeilen": [
-          "struct EinstellungenKopf {",
-          "    std::uint32_t magie;        // erkennt die Datei",
-          "    std::uint16_t {{?}};        // erlaubt spätere Formatänderungen",
-          "    std::uint16_t laenge;",
-          "};",
-          "static_assert(sizeof(EinstellungenKopf) == 8);"
-        ]
-      },
-      "luecken": [{ "loesungen": ["version"] }],
-      "auswahl": ["version", "padding", "zeiger", "debug"],
-      "erklaerung": "Mit einem Versionsfeld kann künftige Firmware alte Dateien erkennen und umwandeln. Ohne Versionsfeld bleibt nur Raten. Das `static_assert` (Modul 2.5) stellt sicher, dass niemand das Layout versehentlich verändert."
+      "erklaerung": "Das Review-Gate hat einen Nebeneffekt, der oft wichtiger ist als die gefundenen Fehler: Mindestens zwei Personen kennen jede Änderung. Das reduziert den *Bus-Faktor*."
     },
     {
       "typ": "multiple-choice",
-      "frage": "Wann sollte man eine schwer umkehrbare Entscheidung treffen?",
+      "frage": "Ein Legacy-Projekt hat 30 % Testabdeckung. Das Management will ein Gate „Abdeckung mindestens 80 %“. Was ist sinnvoller?",
       "optionen": [
-        "So spät wie verantwortbar: wenn man genug weiss, aber bevor das Warten selbst teurer wird",
-        "So früh wie möglich, damit sie vom Tisch ist",
-        "Erst, wenn es gar nicht mehr anders geht"
+        "Das Gate auf **neuen und geänderten** Code anwenden: Neuer Code braucht Tests, die alte Abdeckung darf nicht sinken",
+        "Das Gate sofort für das ganze Projekt einschalten",
+        "Ganz auf Abdeckung als Kriterium verzichten"
       ],
       "korrekt": 0,
-      "erklaerung": "Das Prinzip heisst *last responsible moment*. Bis dahin sammelt man Informationen, etwa mit einem Prototyp, und hält die Optionen offen. Zu frühe Entscheidungen beruhen auf Vermutungen, zu späte blockieren das Team oder werden vom Termin erzwungen.",
+      "erklaerung": "Ein Gate für das Gesamtprojekt würde jeden Pull Request blockieren, bis jemand monatelang Tests nachgerüstet hat, oft wertlose. Das Prinzip „neuer Code ist sauber“ (*clean as you code*) verbessert die Codebasis stetig dort, wo gearbeitet wird. Werkzeuge wie SonarQube unterstützen das direkt.",
       "begruendungen": [
         "Richtig.",
-        "Dann entscheidet man mit dem geringsten Wissen.",
-        "Dann entscheidet der Zeitdruck statt der Überlegung."
+        "Das blockiert alle und fördert Tests, die nur Zeilen ausführen, ohne etwas zu prüfen.",
+        "Als Signal für ungetesteten neuen Code ist Abdeckung nützlich."
       ]
     },
     {
       "typ": "erklaerung",
-      "titel": "Entscheidungen zu Ende bringen",
-      "text": "Manche Diskussionen enden nie, weil niemand entscheidet. Hilfreich ist:\n\n- **Wer entscheidet?** Das vorher klären. Eine Person entscheidet nach Anhörung aller.\n- **Bis wann?** Eine Frist setzen (*time-box*), besonders bei Drehtüren.\n- **Disagree and commit**: Wer anderer Meinung war, sagt das, trägt die Entscheidung danach aber mit.\n- **Festhalten**: das Ergebnis und die Gründe, z. B. in einem ADR."
+      "titel": "Gates in der Pipeline",
+      "text": "In einer Pipeline entsteht ein Gate durch **Abhängigkeiten**: Ein Job startet nur, wenn die Jobs, von denen er abhängt, erfolgreich waren.",
+      "code": {
+        "sprache": "yaml",
+        "zeilen": [
+          "jobs:",
+          "  build:",
+          "    runs-on: ubuntu-latest",
+          "  test:",
+          "    needs: build",
+          "    runs-on: ubuntu-latest",
+          "  deploy:",
+          "    needs: [build, test]",
+          "    if: github.ref == 'refs/heads/main'",
+          "    runs-on: ubuntu-latest"
+        ],
+        "anmerkungen": [
+          {
+            "zeile": 5,
+            "text": "`test` wartet auf `build` und läuft nur, wenn `build` erfolgreich war."
+          },
+          {
+            "zeile": 9,
+            "text": "Ausgeliefert wird nur von `main`."
+          }
+        ]
+      }
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Auf `main` schlägt der Job `test` fehl. Läuft `deploy`?",
+      "code": {
+        "sprache": "yaml",
+        "zeilen": [
+          "deploy:",
+          "  needs: [build, test]",
+          "  if: github.ref == 'refs/heads/main'"
+        ]
+      },
+      "optionen": [
+        "Nein. Ohne besondere Angabe läuft ein Job nur, wenn alle Jobs unter `needs` erfolgreich waren",
+        "Ja, die Bedingung `if` ist ja erfüllt",
+        "Ja, aber mit einer Warnung"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Eine `if`-Bedingung ohne Statusfunktion wird implizit mit `success()` verknüpft. Nur mit `always()` oder `failure()` in der Bedingung würde der Job trotzdem laufen. Genau so entsteht das Gate: Ohne grüne Tests keine Auslieferung.",
+      "begruendungen": [
+        "Richtig.",
+        "Die Bedingung wird implizit mit „alle Abhängigkeiten erfolgreich“ verknüpft.",
+        "Der Job wird übersprungen, nicht mit Warnung ausgeführt."
+      ]
     },
     {
       "typ": "multiple-choice",
-      "frage": "Das Team diskutiert seit drei Wochen über die Logging-Bibliothek. Sie steckt hinter einer eigenen Schnittstelle `ILogger`. Was schlägst du vor?",
+      "frage": "Ein Gate ist oft ohne echten Grund rot, deshalb mergen Admins regelmässig an ihm vorbei. Was tust du?",
       "optionen": [
-        "Eine Frist bis Freitag setzen, dann eine Wahl treffen. Die Entscheidung ist dank Adapter leicht umkehrbar",
-        "Weiter diskutieren, bis alle einverstanden sind",
-        "Alle infrage kommenden Bibliotheken gleichzeitig einbauen"
+        "Das Gate zuverlässig machen, z. B. flaky Tests beheben. Ein Gate, das man umgeht, schützt nicht",
+        "Allen Entwicklern Admin-Rechte geben, damit niemand warten muss",
+        "Das Gate behalten und das Umgehen dulden"
       ],
       "korrekt": 0,
-      "erklaerung": "Bei einer Drehtür kostet die Diskussion mehr als eine spätere Korrektur. Drei Wochen Diskussion für eine Entscheidung, die sich in einem Tag umkehren lässt, sind ein typisches Zeichen für fehlende Entscheidungsregeln.",
+      "erklaerung": "Jedes Umgehen trainiert das Team, rote Signale zu ignorieren. Irgendwann geht ein echter Fehler durch. Entweder wird das Gate zuverlässig, oder man schafft es bewusst ab. Ein dauerhaft umgangenes Gate ist schlechter als keines, weil es falsche Sicherheit vortäuscht.",
       "begruendungen": [
         "Richtig.",
-        "Einstimmigkeit ist bei Geschmacksfragen selten zu erreichen und hier nicht nötig.",
-        "Das erhöht Komplexität und Abhängigkeiten ohne Nutzen."
+        "Damit gäbe es faktisch kein Gate mehr.",
+        "Das ist der schlechteste Zustand: Aufwand ohne Schutz."
       ]
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze die Begriffe.",
+      "text": "Ein {{?}} ist eine automatisch geprüfte Bedingung, die erfüllt sein muss, bevor eine Änderung weitergeht. Auf GitHub legt man mit {{?}} fest, dass ohne grüne Pflichtprüfungen nicht nach `main` gemergt werden kann.",
+      "luecken": [
+        {
+          "loesungen": [
+            "Quality Gate"
+          ]
+        },
+        {
+          "loesungen": [
+            "Branch Protection"
+          ]
+        }
+      ],
+      "auswahl": [
+        "Quality Gate",
+        "Branch Protection",
+        "Runner",
+        "Artefakt"
+      ],
+      "erklaerung": "Neuere GitHub-Projekte nutzen dafür auch *Rulesets*, die mehrere Branches auf einmal abdecken. Das Prinzip ist dasselbe."
     }
   ],
-  "praxis": "Eine der wertvollsten Fähigkeiten eines Seniors ist, Entscheidungen richtig einzuordnen: bei Kleinigkeiten das Team zügig weiterbringen, bei Einbahnstrassen bremsen und gründlich prüfen. In Embedded-Projekten sind Einbahnstrassen besonders häufig: Speicherformate, Protokolle, Bootloader, Pinbelegungen. Alles, was im Feld beim Kunden landet, verdient einen zweiten Blick und ein Versionsfeld.",
+  "praxis": "Gates sind Teamvereinbarungen in Code-Form. Als Senior schlägst du sie vor, begründest sie und sorgst dafür, dass sie zuverlässig sind. Typische Einführung: erst messen und anzeigen, dann für neuen Code verbindlich machen, dann langsam verschärfen. Und: Jede Ausnahme wird dokumentiert, nicht still übergangen.",
   "labor": {
-    "titel": "Einbahnstrassen im eigenen Projekt",
-    "anleitung": "Liste in einem Projekt alle Datenformate und Schnittstellen auf, die nach aussen gehen: Dateien auf Geräten, Netzwerkprotokolle, öffentliche APIs. Prüfe für jede: Gibt es ein Versionsfeld?",
+    "titel": "Branch Protection einrichten",
+    "anleitung": "Richte in einem eigenen GitHub-Repository Branch Protection für `main` ein: Pull Request erforderlich, Prüfung *Validate* muss grün sein. Versuche dann, einen PR mit fehlschlagendem Test zu mergen.",
     "befehle": [
-      "rg -n 'struct \\w*(Kopf|Header|Telegramm|Paket)' src/ | head",
-      "rg -n -i 'version' src/protokoll/ | head"
+      "gh api repos/{owner}/{repo}/branches/main/protection",
+      "gh pr create --fill && gh pr checks"
     ],
-    "beobachtung": "Formate ohne Versionsfeld sind Kandidaten für ein Risiko-Ticket. Eine nachträgliche Version lässt sich oft noch einbauen, z. B. über einen neuen Magie-Wert für das neue Format."
+    "beobachtung": "Der Merge-Knopf bleibt gesperrt, solange die Pflichtprüfung rot ist. `gh pr checks` zeigt den Status aller Prüfungen auf der Kommandozeile."
   },
   "begriffe": [
-    { "begriff": "Einbahnstrasse", "englisch": "one-way door", "erklaerung": "Entscheidung, die sich nur schwer oder gar nicht umkehren lässt." },
-    { "begriff": "Drehtür", "englisch": "two-way door", "erklaerung": "Entscheidung, die sich mit geringem Aufwand umkehren lässt." },
-    { "begriff": "Last responsible moment", "englisch": "last responsible moment", "erklaerung": "So spät entscheiden wie verantwortbar, um möglichst viel Wissen zu haben." },
-    { "begriff": "Disagree and commit", "englisch": "disagree and commit", "erklaerung": "Widerspruch äussern, die getroffene Entscheidung danach aber mittragen." }
+    {
+      "begriff": "Quality Gate",
+      "englisch": "quality gate",
+      "erklaerung": "Automatisch geprüfte Bedingung, die erfüllt sein muss, bevor eine Änderung die nächste Stufe erreicht."
+    },
+    {
+      "begriff": "Branch Protection",
+      "englisch": "branch protection",
+      "erklaerung": "Regeln für einen Branch, z. B. Pflicht zu Pull Request, Review und grünen Prüfungen."
+    },
+    {
+      "begriff": "Bus-Faktor",
+      "englisch": "bus factor",
+      "erklaerung": "Wie viele Personen ausfallen dürfen, bevor Wissen über einen Teil des Systems verloren ist."
+    }
   ],
   "weiterlesen": [
-    { "titel": "Amazon: 2015 Letter to Shareholders (Type 1 und Type 2 decisions)", "url": "https://s2.q4cdn.com/299287126/files/doc_financials/annual/2015-Letter-to-Shareholders.PDF" }
+    {
+      "titel": "GitHub Docs: About protected branches",
+      "url": "https://docs.github.com/en/repositories/configuring-branches-and-merges-in-your-repository/managing-protected-branches/about-protected-branches"
+    }
   ]
 }

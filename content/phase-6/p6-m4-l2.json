@@ -1,111 +1,185 @@
 {
   "id": "p6-m4-l2",
   "phase": 6,
-  "modul": "6.4 Code-Reviews",
-  "titel": "Gutes Feedback geben",
+  "modul": "6.4 Interrupts",
+  "titel": "Daten zwischen ISR und Hauptprogramm",
   "lernziele": [
-    "Review-Kommentare konkret, begründet und freundlich formulieren",
-    "Zwischen blockierenden und optionalen Hinweisen unterscheiden",
-    "Als Autorin oder Autor konstruktiv mit Kritik umgehen"
+    "Geteilte Daten zwischen ISR und Hauptprogramm korrekt schützen",
+    "Zerrissene Lesezugriffe auf grosse Werte erkennen",
+    "Kritische Abschnitte und Ringpuffer einsetzen"
   ],
-  "dauerMinuten": 5,
+  "dauerMinuten": 7,
   "schritte": [
     {
-      "typ": "multiple-choice",
-      "frage": "Welcher Review-Kommentar ist am hilfreichsten?",
+      "typ": "code-lesen",
+      "frage": "Die ISR setzt `neueDaten = true`. Was kann im Hauptprogramm mit `-O2` passieren?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "bool neueDaten = false;",
+          "",
+          "extern \"C\" void EXTI0_IRQHandler() { EXTI->PR = 1u; neueDaten = true; }",
+          "",
+          "int main() {",
+          "    while (!neueDaten) { }",
+          "    verarbeite();",
+          "}"
+        ]
+      },
       "optionen": [
-        "„Hier kann `messwerte` leer sein, dann teilt Zeile 42 durch null. Wie wäre ein früher Return mit einer Fehlermeldung?“",
-        "„Das ist falsch.“",
-        "„Warum hast du das nicht einfach richtig gemacht?“",
-        "„LGTM“"
+        "Die Schleife endet nie, weil der Compiler `neueDaten` nur einmal liest",
+        "Die Schleife endet, sobald der Interrupt kommt",
+        "Compilerfehler, weil eine globale Variable in einer ISR benutzt wird"
       ],
       "korrekt": 0,
-      "fest": true,
-      "erklaerung": "Der gute Kommentar sagt **wo**, **was** das Problem ist, **warum** es eines ist und schlägt eine Lösung vor, als Frage formuliert. So kann die Autorin ihn sofort verstehen und umsetzen oder begründet widersprechen.",
+      "erklaerung": "Für den Compiler gibt es in `main` niemanden, der `neueDaten` ändert. Interrupts kennt die Sprache nicht. Er darf den Wert also einmal lesen. Das ist dasselbe Problem wie bei Data Races zwischen Threads (Modul 5.1): Geteilte Daten brauchen eine Kennzeichnung.",
       "begruendungen": [
         "Richtig.",
-        "Ohne Begründung und Ort ist das kaum zu verwerten.",
-        "Der Kommentar richtet sich gegen die Person, nicht gegen den Code.",
-        "Ein „Looks good to me“ ohne Inhalt ist nur bei wirklich trivialen Änderungen in Ordnung."
+        "Nur mit `volatile` oder `std::atomic` garantiert.",
+        "Globale Variablen in ISRs sind erlaubt und üblich."
       ]
     },
     {
       "typ": "erklaerung",
-      "titel": "Gutes Feedback",
-      "text": "- **Konkret**: Ort, Problem, Folge.\n- **Begründet**: Warum ist das ein Problem? Mit Verweis auf Regel, Fehlerfall oder Erfahrung.\n- **Vorschlagend**: eine Alternative oder eine Frage statt nur Kritik.\n- **Gewichtet**: klar machen, was den Merge blockiert und was eine Kleinigkeit ist.\n- **Über den Code**, nie über die Person: „Diese Funktion …“ statt „Du …“.\n- **Auch Lob**: „Schöne Lösung mit `std::expected`, das macht die Fehlerpfade viel klarer.“ Das zeigt, was man beibehalten soll."
+      "titel": "Was hilft wofür",
+      "text": "- `volatile` erzwingt, dass jeder Zugriff stattfindet. Auf einem Single-Core-Mikrocontroller reicht das für ein **einzelnes Flag**, das nur gesetzt und gelesen wird.\n- Ausgerichtete 8-, 16- und 32-Bit-Lese- und Schreibzugriffe sind auf Cortex-M unteilbar. **Lese-Ändere-Schreibe** (`++zaehler`) aber nicht, und 64-Bit-Werte auch nicht.\n- `std::atomic` macht Operationen unteilbar. Auf Cortex-M3 und höher geht das sperrfrei mit den Befehlen `LDREX`/`STREX`.\n- Ein **kritischer Abschnitt** sperrt Interrupts kurz, um mehrere zusammengehörige Werte konsistent zu lesen oder zu schreiben.\n\nIn modernem Code nimmt man für Flags und Zähler `std::atomic`, das ist ausdrücklich und portabel."
     },
     {
-      "typ": "zuordnen",
-      "frage": "Was bedeuten diese Präfixe in Review-Kommentaren?",
-      "paare": [
-        { "links": "„Blockierend:“", "rechts": "Muss vor dem Merge geändert werden" },
-        { "links": "„Nit:“", "rechts": "Kleinigkeit, die Autorin entscheidet" },
-        { "links": "„Frage:“", "rechts": "Verständnisfrage, keine Forderung" },
-        { "links": "„Vorschlag:“", "rechts": "Idee zur Verbesserung, nicht zwingend" }
-      ],
-      "erklaerung": "Solche Präfixe (angelehnt an *Conventional Comments*) ersparen viele Missverständnisse. Ohne sie wirkt jeder Kommentar gleich wichtig, und Autorinnen und Autoren setzen aus Unsicherheit alles um oder diskutieren über Kleinigkeiten."
-    },
-    {
-      "typ": "multiple-choice",
-      "frage": "Du bist Autor eines Pull Requests. Ein Reviewer verlangt eine Änderung, die du für falsch hältst. Was tust du?",
+      "typ": "code-lesen",
+      "frage": "Die SysTick-ISR erhöht jede Millisekunde `millis`. Was ist auf einem 32-Bit-Mikrocontroller das Problem?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "volatile std::uint64_t millis = 0;   // SysTick-ISR: ++millis;",
+          "",
+          "std::uint64_t jetzt() { return millis; }"
+        ]
+      },
       "optionen": [
-        "Deine Gründe sachlich erklären und nach seinen fragen. Wird es lang, kurz persönlich sprechen und das Ergebnis im PR festhalten",
-        "Die Änderung umsetzen, um Konflikte zu vermeiden",
-        "Den Kommentar ignorieren und einen anderen Reviewer suchen"
+        "Das Lesen braucht zwei 32-Bit-Zugriffe. Kommt der Interrupt dazwischen, setzt sich der Wert aus alter und neuer Hälfte zusammen",
+        "Nichts, `volatile` macht den Zugriff sicher",
+        "`uint64_t` gibt es auf Mikrocontrollern nicht"
       ],
       "korrekt": 0,
-      "erklaerung": "Reviews sind Gespräche, keine Befehle. Oft hat einer der beiden eine Information, die der andere nicht hat. Nach drei Runden hin und her in Kommentaren ist ein kurzes Gespräch fast immer schneller. Danach gehört das Ergebnis in den PR, damit andere es nachvollziehen können.",
+      "erklaerung": "Läuft `millis` gerade von `0x0000'0000'FFFF'FFFF` auf `0x0000'0001'0000'0000` über, kann `jetzt()` `0x0000'0001'FFFF'FFFF` liefern, also einen Sprung von 49 Tagen in die Zukunft. Solche **zerrissenen Lesezugriffe** (torn reads) passieren selten, aber garantiert irgendwann. Lösungen: kritischer Abschnitt, zweimal lesen und vergleichen, oder einen 32-Bit-Zähler mit Überlauf-Behandlung verwenden.",
       "begruendungen": [
         "Richtig.",
-        "Dann setzt du womöglich etwas Falsches um, und das Team lernt nichts.",
-        "Das untergräbt das Vertrauen im Team."
-      ]
-    },
-    {
-      "typ": "erklaerung",
-      "titel": "Geschwindigkeit zählt",
-      "text": "Ein Pull Request, der zwei Tage auf ein Review wartet, kostet mehr als die Zeit selbst: Die Autorin hat inzwischen etwas anderes begonnen, muss sich wieder einarbeiten, und die Konflikte mit `main` wachsen. Gute Teams vereinbaren, dass ein erstes Feedback am selben Arbeitstag kommt. Reviews haben dabei oft Vorrang vor eigener neuer Arbeit, denn fertige Arbeit ist wertvoller als begonnene."
-    },
-    {
-      "typ": "multiple-choice",
-      "frage": "Im Pull Request einer Junior-Entwicklerin findest du 20 kleine Stilfragen und ein echtes Designproblem. Wie gehst du vor?",
-      "optionen": [
-        "Das Designproblem ausführlich und freundlich erklären, die Stilfragen in einem zusammenfassenden Kommentar oder über ein Werkzeug lösen",
-        "Alle 21 Punkte einzeln kommentieren, damit nichts verloren geht",
-        "Nur die Stilfragen ansprechen, das Design kann sie später lernen"
-      ],
-      "korrekt": 0,
-      "erklaerung": "21 Kommentare erschlagen, und das Wichtige geht unter. Gerade bei Juniors ist ein Review eine Lerngelegenheit: Erkläre den einen Punkt, an dem sie am meisten lernt, gern auch im Gespräch. Wiederkehrende Stilfragen sind ein Zeichen, dass clang-format oder clang-tidy fehlen.",
-      "begruendungen": [
-        "Richtig.",
-        "Viele kleine Kommentare überdecken das eine Wichtige.",
-        "Das Designproblem ist genau das, wobei ein Review am meisten hilft."
+        "`volatile` macht nichts unteilbar.",
+        "`uint64_t` gibt es, er wird nur in zwei Hälften verarbeitet."
       ]
     },
     {
       "typ": "lueckentext",
-      "frage": "Ergänze die Grundregel.",
-      "text": "Gutes Review-Feedback bezieht sich auf den {{?}}, nicht auf die {{?}}.",
-      "luecken": [{ "loesungen": ["Code"] }, { "loesungen": ["Person"] }],
-      "auswahl": ["Code", "Person", "Prozess", "Zeit"],
-      "erklaerung": "„Diese Funktion behandelt den leeren Fall nicht“ statt „Du hast den leeren Fall vergessen“. Inhaltlich gleich, aber die erste Formulierung lädt zur gemeinsamen Lösung ein, die zweite zur Verteidigung."
+      "frage": "Ergänze den kritischen Abschnitt als RAII-Klasse (Modul 2.2). Er soll auch verschachtelt richtig funktionieren.",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "class KritischerAbschnitt {",
+          "public:",
+          "    KritischerAbschnitt() : primask_(__get_PRIMASK()) { __disable_irq(); }",
+          "    ~KritischerAbschnitt() { __set_PRIMASK({{?}}); }",
+          "    KritischerAbschnitt(const KritischerAbschnitt&) = delete;",
+          "    KritischerAbschnitt& operator=(const KritischerAbschnitt&) = delete;",
+          "private:",
+          "    std::uint32_t primask_;",
+          "};"
+        ]
+      },
+      "luecken": [{ "loesungen": ["primask_"] }],
+      "auswahl": ["primask_", "0", "1", "__enable_irq()"],
+      "erklaerung": "Der Destruktor stellt den **vorherigen** Zustand wieder her, statt Interrupts einfach einzuschalten. Wird der Abschnitt innerhalb eines anderen gesperrten Abschnitts benutzt, bleiben Interrupts danach weiter gesperrt. Ein blindes `__enable_irq()` würde sie dort zu früh freigeben."
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Der Ringpuffer",
+      "text": "Für Datenströme, z. B. Bytes vom UART, ist ein **Ringpuffer** mit genau einem Schreiber (der ISR) und einem Leser (dem Hauptprogramm) das Standardmuster (*single producer, single consumer*). Die ISR schreibt nur `kopf`, das Hauptprogramm nur `ende`. Beide Indizes sind `std::atomic`, und es braucht keine Sperre.",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "template <typename T, std::size_t N>   // N als Zweierpotenz",
+          "class Ringpuffer {",
+          "public:",
+          "    bool push(T wert) {                 // nur aus der ISR",
+          "        auto k = kopf_.load(std::memory_order_relaxed);",
+          "        if (k - ende_.load(std::memory_order_acquire) == N) return false;  // voll",
+          "        daten_[k % N] = wert;",
+          "        kopf_.store(k + 1, std::memory_order_release);",
+          "        return true;",
+          "    }",
+          "    // pop() spiegelbildlich, nur aus dem Hauptprogramm",
+          "private:",
+          "    std::array<T, N> daten_{};",
+          "    std::atomic<std::size_t> kopf_{0}, ende_{0};",
+          "};"
+        ],
+        "anmerkungen": [
+          { "zeile": 6, "text": "Voll, wenn der Schreiber N Elemente vor dem Leser liegt. Die Indizes laufen einfach weiter, Überlauf ist bei `unsigned` definiert." },
+          { "zeile": 8, "text": "`release`: Das Element ist geschrieben, bevor der neue Kopf sichtbar wird (Modul 5.3)." }
+        ]
+      }
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Welche Technik passt zu welcher Aufgabe?",
+      "paare": [
+        { "links": "`std::atomic<bool>`", "rechts": "Ein Flag, das die ISR setzt und das Hauptprogramm liest" },
+        { "links": "`std::atomic<std::uint32_t>` mit `fetch_add`", "rechts": "Ein Zähler, den beide Seiten verändern" },
+        { "links": "Kritischer Abschnitt", "rechts": "Mehrere zusammengehörige Werte konsistent lesen oder schreiben" },
+        { "links": "Ringpuffer (SPSC)", "rechts": "Ein Datenstrom von der ISR ins Hauptprogramm ohne Sperren" }
+      ],
+      "erklaerung": "Halte kritische Abschnitte so kurz wie möglich, ein paar Befehle, keine Funktionsaufrufe mit unbekannter Laufzeit. Sie verlängern die Interrupt-Latenz des ganzen Systems."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Warum stellt der kritische Abschnitt am Ende den gespeicherten Zustand wieder her, statt einfach `__enable_irq()` aufzurufen?",
+      "optionen": [
+        "Bei verschachtelten Abschnitten würde der innere sonst Interrupts freigeben, obwohl der äussere sie noch gesperrt braucht",
+        "Weil `__enable_irq()` langsamer ist",
+        "Weil `__enable_irq()` nur in ISRs erlaubt ist"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Funktion A sperrt Interrupts und ruft Funktion B auf, die das auch tut. Gibt B am Ende blind frei, ist der Rest von A ungeschützt, ohne dass es jemand merkt. Mit Sichern und Wiederherstellen funktioniert die Verschachtelung in jeder Tiefe.",
+      "begruendungen": [
+        "Richtig.",
+        "Beide sind ein einziger Befehl.",
+        "`__enable_irq()` ist überall erlaubt."
+      ]
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Auf einem **Cortex-M0** benutzt du `std::atomic<std::uint32_t>::fetch_add`. Was solltest du wissen?",
+      "optionen": [
+        "Der M0 hat keine Exklusiv-Befehle. Die Operation ist nicht sperrfrei und braucht eine Bibliotheksfunktion, die oft Interrupts sperrt oder gar nicht vorhanden ist",
+        "Auf dem M0 sind alle Operationen automatisch atomar",
+        "`std::atomic` kompiliert auf dem M0 nicht"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Auf Armv6-M (M0, M0+) gibt es kein `LDREX`/`STREX`. Laden und Speichern einzelner Werte bleiben atomar, Lese-Ändere-Schreibe-Operationen nicht. Der Compiler ruft dann z. B. `__atomic_fetch_add_4` auf, das du selbst bereitstellen musst. Prüfe mit `static_assert(std::atomic<std::uint32_t>::is_always_lock_free);`, was die Plattform kann.",
+      "begruendungen": [
+        "Richtig.",
+        "Lese-Ändere-Schreibe ist auf dem M0 nicht unteilbar.",
+        "Es kompiliert, linkt aber womöglich nicht."
+      ]
     }
   ],
-  "praxis": "Wie jemand Reviews schreibt, prägt die Kultur eines Teams stärker als fast alles andere. Seniors setzen hier den Ton: freundlich, konkret, gewichtet und schnell. Wenn du merkst, dass in deinem Team Reviews lange liegen bleiben oder harsch sind, ist das ein guter Anlass für eine gemeinsame Vereinbarung, z. B. über Präfixe, Antwortzeiten und die maximale Grösse von Pull Requests.",
+  "praxis": "Fast jede Firmware hat Daten, die zwischen ISR und Hauptprogramm geteilt werden, und fast jede ältere Firmware hat dort Fehler. Im Review suchst du globale Variablen, die in ISRs geschrieben werden, und prüfst für jede: Wie liest das Hauptprogramm sie? Ist der Zugriff unteilbar? Gehören mehrere Werte zusammen? Werkzeuge helfen hier wenig. Das Muster zu erkennen, ist Erfahrung.",
   "labor": {
-    "titel": "Eigene Kommentare umschreiben",
-    "anleitung": "Suche drei Review-Kommentare, die du in letzter Zeit geschrieben hast, und formuliere sie nach den Regeln dieser Lektion neu: Ort, Problem, Grund, Vorschlag, Gewichtung.",
+    "titel": "Den zerrissenen Lesezugriff provozieren",
+    "anleitung": "Auf dem PC lässt sich das Problem mit zwei Threads nachstellen: Einer erhöht einen 64-Bit-Zähler, der andere liest ihn und prüft, ob der Wert je kleiner wird als beim letzten Lesen. Baue für ein 32-Bit-Ziel (`-m32`) ohne `std::atomic`.",
     "befehle": [
-      "gh api 'repos/{owner}/{repo}/pulls/comments?per_page=100' --jq '.[] | select(.user.login==\"DEIN_NAME\") | .body' | head -20"
+      "g++ -m32 -O2 -pthread torn.cpp -o torn && ./torn",
+      "g++ -m32 -O2 -pthread -fsanitize=thread torn.cpp -o torn_tsan && ./torn_tsan"
     ],
-    "beobachtung": "Viele Kommentare werden mit Begründung und Präfix etwas länger, brauchen aber weniger Nachfragen. Unterm Strich spart das Zeit für beide Seiten."
+    "beobachtung": "Je nach Plattform siehst du unsinnige Werte oder TSan meldet ein Data Race. Mit `std::atomic<std::uint64_t>` verschwinden beide Probleme."
   },
   "begriffe": [
-    { "begriff": "Nit", "englisch": "nitpick", "erklaerung": "Kleiner, optionaler Hinweis im Review, der den Merge nicht blockiert." },
-    { "begriff": "Conventional Comments", "englisch": "conventional comments", "erklaerung": "Konvention, Review-Kommentare mit Präfixen wie *Frage*, *Vorschlag* oder *Nit* zu kennzeichnen." }
+    { "begriff": "Kritischer Abschnitt", "englisch": "critical section", "erklaerung": "Codestück, in dem Interrupts gesperrt sind, damit es nicht unterbrochen wird." },
+    { "begriff": "Zerrissener Lesezugriff", "englisch": "torn read", "erklaerung": "Ein Wert wird in mehreren Schritten gelesen und dazwischen geändert, sodass ein nie gültiger Wert entsteht." },
+    { "begriff": "Ringpuffer", "englisch": "ring buffer, circular buffer", "erklaerung": "Puffer fester Grösse, der wie ein Kreis beschrieben und gelesen wird." },
+    { "begriff": "PRIMASK", "englisch": "priority mask register", "erklaerung": "Cortex-M-Register, das alle konfigurierbaren Interrupts sperrt, wenn sein Bit gesetzt ist." }
   ],
   "weiterlesen": [
-    { "titel": "Google Engineering Practices: How to write code review comments", "url": "https://google.github.io/eng-practices/review/reviewer/comments.html" },
-    { "titel": "Conventional Comments", "url": "https://conventionalcomments.org/" }
+    { "titel": "cppreference: std::atomic is_always_lock_free", "url": "https://en.cppreference.com/w/cpp/atomic/atomic/is_always_lock_free" },
+    { "titel": "Embedded Artistry: Circular Buffer in C++", "url": "https://embeddedartistry.com/blog/2017/05/17/creating-a-circular-buffer-in-c-and-c/" }
   ]
 }

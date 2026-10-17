@@ -1,191 +1,183 @@
 {
   "id": "p5-m3-l2",
   "phase": 5,
-  "modul": "5.3 Jenkins",
-  "titel": "Das Jenkinsfile",
+  "modul": "5.3 Atomics und Speichermodell",
+  "titel": "Memory Ordering",
   "lernziele": [
-    "Eine Declarative Pipeline lesen und schreiben",
-    "`post`, `when` und `parallel` einsetzen",
-    "Zugangsdaten sicher verwenden"
+    "Erklären, warum Compiler und CPU Speicherzugriffe umordnen dürfen",
+    "Daten mit release/acquire sicher an einen anderen Thread übergeben",
+    "Einschätzen, wann `memory_order_relaxed` genügt"
   ],
   "dauerMinuten": 7,
   "schritte": [
     {
       "typ": "code-lesen",
-      "frage": "Die Stage `Build` schlägt fehl. Was passiert danach?",
+      "frage": "Thread A setzt Daten und ein Flag, Thread B wartet auf das Flag und liest die Daten. Ist die Ausgabe `42` garantiert?",
       "code": {
-        "sprache": "groovy",
-        "datei": "Jenkinsfile",
+        "sprache": "cpp",
         "zeilen": [
-          "pipeline {",
-          "    agent { label 'linux' }",
-          "    stages {",
-          "        stage('Build') {",
-          "            steps {",
-          "                sh 'cmake -S . -B build -G Ninja'",
-          "                sh 'cmake --build build'",
-          "            }",
-          "        }",
-          "        stage('Test') {",
-          "            steps { sh 'ctest --test-dir build --output-junit test-results.xml' }",
-          "        }",
-          "    }",
-          "    post {",
-          "        always  { junit allowEmptyResults: true, testResults: 'build/test-results.xml' }",
-          "        failure { echo 'Build fehlgeschlagen' }",
-          "    }",
-          "}"
+          "int daten = 0;",
+          "std::atomic<bool> bereit{false};",
+          "",
+          "// Thread A",
+          "daten = 42;",
+          "bereit.store(true, std::memory_order_relaxed);",
+          "",
+          "// Thread B",
+          "while (!bereit.load(std::memory_order_relaxed)) {}",
+          "std::cout << daten;"
         ]
       },
       "optionen": [
-        "`Test` wird übersprungen, danach laufen `always` und `failure` aus dem `post`-Block",
-        "`Test` läuft trotzdem, danach `always`",
-        "Die Pipeline bricht sofort ab, `post` läuft nicht"
+        "Ja, `daten` wird ja vor `bereit` geschrieben",
+        "Nein: `relaxed` legt keine Reihenfolge zu anderen Zugriffen fest. Der Zugriff auf `daten` ist damit sogar ein Data Race",
+        "Nein, die Schleife in Thread B endet nie"
       ],
-      "korrekt": 0,
-      "erklaerung": "Schlägt ein `sh`-Schritt fehl (Exit-Code ungleich 0), bricht die Stage ab, und alle folgenden Stages werden übersprungen. Der `post`-Block läuft aber immer am Ende und wählt die passenden Bedingungen aus, hier `always` und `failure`.",
+      "korrekt": 1,
+      "fest": true,
+      "erklaerung": "Compiler und CPU dürfen Speicherzugriffe umordnen, solange es für **einen** Thread keinen Unterschied macht. `relaxed` garantiert nur, dass das Flag selbst atomar ist. Dass B nach dem Flag auch die 42 sieht, ist nicht garantiert. Formal fehlt eine *happens-before*-Beziehung, und der Zugriff auf `daten` ist ein Data Race.",
       "begruendungen": [
+        "Im Quelltext ja. Compiler und CPU dürfen die Zugriffe aber umordnen.",
         "Richtig.",
-        "Nach einem Fehlschlag laufen die folgenden Stages nicht.",
-        "Genau dafür gibt es `post`: Es läuft auch nach Fehlern."
+        "B sieht das Flag irgendwann. Die Frage ist, ob dann auch `daten` schon sichtbar ist."
       ]
     },
     {
       "typ": "erklaerung",
-      "titel": "Aufbau einer Declarative Pipeline",
-      "text": "- `pipeline { }`: der äussere Rahmen\n- `agent`: wo die Pipeline läuft (oder pro Stage)\n- `environment { }`: Umgebungsvariablen\n- `options { }`: z. B. `timeout(time: 30, unit: 'MINUTES')`, `timestamps()`\n- `stages { stage('Name') { steps { … } } }`: die eigentliche Arbeit\n- `post { }`: Aufräumen und Melden nach Ergebnis\n- `when { }`: Bedingung, ob eine Stage läuft\n- `parallel { }`: Stages gleichzeitig ausführen\n\nDie feste Struktur erlaubt Jenkins, die Pipeline vor dem Start zu prüfen und die Stages übersichtlich anzuzeigen."
+      "titel": "Das Speichermodell",
+      "text": "Das C++-**Speichermodell** legt fest, wann ein Schreibzugriff eines Threads für einen anderen sichtbar ist. Der Schlüssel ist ein Paar:\n\n- Ein **release**-Store veröffentlicht: Alle Speicherzugriffe davor werden nicht hinter ihn verschoben.\n- Ein **acquire**-Load, der diesen Wert liest, übernimmt: Alle Zugriffe danach werden nicht vor ihn verschoben.\n\nLiest B per acquire den Wert, den A per release geschrieben hat, sieht B **alles**, was A vor dem release geschrieben hat. Mutexe funktionieren intern genauso: `lock` ist ein acquire, `unlock` ein release. Der Standard für alle Atomics ist das noch strengere `memory_order_seq_cst`."
     },
     {
       "typ": "lueckentext",
-      "frage": "Ergänze die Stage und den `post`-Block.",
+      "frage": "Ergänze die Speicherordnungen, damit Thread B garantiert `42` sieht.",
       "code": {
-        "sprache": "groovy",
+        "sprache": "cpp",
         "zeilen": [
-          "stage('Test') {",
-          "    {{?}} {",
-          "        sh 'ctest --test-dir build --output-junit test-results.xml'",
-          "    }",
-          "}",
-          "...",
-          "post {",
-          "    {{?}} { junit testResults: 'build/test-results.xml' }",
-          "}"
+          "// Thread A",
+          "daten = 42;",
+          "bereit.store(true, std::memory_order_{{?}});",
+          "",
+          "// Thread B",
+          "while (!bereit.load(std::memory_order_{{?}})) {}",
+          "std::cout << daten;"
         ]
       },
-      "luecken": [{ "loesungen": ["steps"] }, { "loesungen": ["always"] }],
-      "auswahl": ["steps", "always", "success", "script"],
-      "erklaerung": "Testergebnisse sollen auch dann eingelesen werden, wenn Tests fehlschlagen. Gerade dann will man sie sehen. Deshalb `always` statt `success`. Der Schritt `junit` macht aus der XML-Datei eine Übersicht der Tests in Jenkins."
+      "luecken": [
+        {
+          "loesungen": [
+            "release"
+          ]
+        },
+        {
+          "loesungen": [
+            "acquire"
+          ]
+        }
+      ],
+      "auswahl": [
+        "release",
+        "acquire",
+        "relaxed",
+        "consume"
+      ],
+      "erklaerung": "Schreiben veröffentlicht mit `release`, Lesen übernimmt mit `acquire`. Ganz ohne Angabe (also `seq_cst`) wäre es ebenfalls korrekt. `consume` ist im Standard so problematisch spezifiziert, dass alle Compiler es als `acquire` behandeln. Man sollte es nicht verwenden."
     },
     {
       "typ": "zuordnen",
-      "frage": "Wann laufen die `post`-Bedingungen?",
+      "frage": "Ordne die Speicherordnungen zu.",
       "paare": [
-        { "links": "`always`", "rechts": "Immer, unabhängig vom Ergebnis" },
-        { "links": "`success`", "rechts": "Nur, wenn alles erfolgreich war" },
-        { "links": "`failure`", "rechts": "Nur, wenn die Pipeline fehlgeschlagen ist" },
-        { "links": "`unstable`", "rechts": "Wenn der Build lief, aber z. B. Tests fehlgeschlagen sind (gelb)" },
-        { "links": "`cleanup`", "rechts": "Ganz am Schluss, nach allen anderen Bedingungen" }
+        {
+          "links": "`memory_order_seq_cst`",
+          "rechts": "Standard: eine globale Reihenfolge aller solchen Operationen, am leichtesten zu verstehen"
+        },
+        {
+          "links": "`memory_order_acquire`",
+          "rechts": "Beim Lesen: Spätere Zugriffe werden nicht davor verschoben"
+        },
+        {
+          "links": "`memory_order_release`",
+          "rechts": "Beim Schreiben: Frühere Zugriffe werden nicht dahinter verschoben"
+        },
+        {
+          "links": "`memory_order_relaxed`",
+          "rechts": "Nur Unteilbarkeit, keine Ordnung zu anderen Zugriffen"
+        }
       ],
-      "erklaerung": "„Unstable“ setzt z. B. der `junit`-Schritt, wenn er fehlgeschlagene Tests findet. Die Pipeline läuft weiter, wird aber gelb markiert. `cleanup` eignet sich für `cleanWs()`, um den Workspace zu leeren."
-    },
-    {
-      "typ": "erklaerung",
-      "titel": "Parallel und bedingt",
-      "code": {
-        "sprache": "groovy",
-        "zeilen": [
-          "stage('Prüfungen') {",
-          "    parallel {",
-          "        stage('Unit-Tests') { steps { sh 'ctest --test-dir build' } }",
-          "        stage('clang-tidy') { steps { sh 'run-clang-tidy -p build' } }",
-          "    }",
-          "}",
-          "stage('Deploy') {",
-          "    when { branch 'main' }",
-          "    steps { sh './scripts/deploy.sh' }",
-          "}"
-        ],
-        "anmerkungen": [
-          { "zeile": 2, "text": "Beide Stages laufen gleichzeitig, auf Wunsch auf verschiedenen Agents." },
-          { "zeile": 8, "text": "Ausgeliefert wird nur vom Branch `main`." }
-        ]
-      },
-      "text": "`parallel` spart Zeit, `when` macht eine Stage von Branch, Umgebungsvariablen oder Parametern abhängig."
-    },
-    {
-      "typ": "code-lesen",
-      "frage": "Die Pipeline von oben läuft für den Branch `feature/x`. Was passiert mit der Stage `Deploy`?",
-      "code": {
-        "sprache": "groovy",
-        "zeilen": [
-          "stage('Deploy') {",
-          "    when { branch 'main' }",
-          "    steps { sh './scripts/deploy.sh' }",
-          "}"
-        ]
-      },
-      "optionen": [
-        "Sie wird übersprungen und in der Übersicht als ausgelassen angezeigt",
-        "Sie läuft und schlägt fehl",
-        "Die ganze Pipeline bricht mit einem Fehler ab"
-      ],
-      "korrekt": 0,
-      "erklaerung": "`when` wertet die Bedingung vor der Stage aus. Ist sie falsch, wird die Stage übersprungen, und die Pipeline bleibt grün. So kann dieselbe Pipeline für Pull Requests und `main` dienen.",
-      "begruendungen": [
-        "Richtig.",
-        "Die Schritte werden gar nicht erst ausgeführt.",
-        "Eine falsche `when`-Bedingung ist kein Fehler."
-      ]
-    },
-    {
-      "typ": "fehler-finden",
-      "frage": "Welche Zeile ist ein Sicherheitsproblem?",
-      "code": {
-        "sprache": "groovy",
-        "zeilen": [
-          "stage('Upload') {",
-          "    steps {",
-          "        sh 'curl -u ci:Geheim123 -T build/app.tar.gz https://artefakte.firma.ch/'",
-          "    }",
-          "}"
-        ]
-      },
-      "fehlerZeile": 3,
-      "erklaerung": "Das Passwort steht im Repository, in der Git-Historie und im Build-Log. Zugangsdaten gehören in den Credentials-Speicher von Jenkins und werden mit `withCredentials` eingebunden: `withCredentials([usernamePassword(credentialsId: 'artefakte', usernameVariable: 'U', passwordVariable: 'P')]) { sh 'curl -u \"$U:$P\" -T build/app.tar.gz https://artefakte.firma.ch/' }`. Jenkins maskiert die Werte dann im Log. Ein geleaktes Passwort muss sofort geändert werden, auch wenn der Commit rückgängig gemacht wird."
+      "erklaerung": "`seq_cst` kostet auf x86 nur bei Stores etwas mehr. Auf ARM sind geordnete Loads und Stores etwas teurer als `relaxed`. In den allermeisten Programmen ist der Unterschied nicht messbar. Deshalb ist `seq_cst` der richtige Standard."
     },
     {
       "typ": "multiple-choice",
-      "frage": "Wozu dient `options { timeout(time: 30, unit: 'MINUTES') }`?",
+      "frage": "Wo ist `memory_order_relaxed` angemessen?",
       "optionen": [
-        "Ein hängender Build wird nach 30 Minuten abgebrochen, statt einen Agent unbegrenzt zu blockieren",
-        "Jede Stage darf höchstens 30 Minuten warten, bis ein Agent frei ist",
-        "Die Pipeline startet erst nach 30 Minuten"
+        "Bei einem Statistikzähler, der erst nach `join()` aller Threads ausgelesen wird",
+        "Bei einem Flag, das anzeigt, dass Daten bereitliegen",
+        "Bei einem Zeiger auf ein neu erzeugtes Objekt, das andere Threads danach benutzen"
       ],
       "korrekt": 0,
-      "erklaerung": "Ein Test, der in einem Deadlock hängt, würde den Agent sonst für immer belegen. Bald stauen sich dann alle anderen Builds. Ein Timeout gehört deshalb in jede Pipeline, gewählt mit Puffer über der normalen Laufzeit.",
+      "erklaerung": "Beim Zähler interessiert nur, dass keine Erhöhung verloren geht. Die Reihenfolge zu anderen Daten ist egal, und `join()` synchronisiert am Ende ohnehin. In den beiden anderen Fällen veröffentlicht das Atomic andere Daten (das Objekt, auf das der Zeiger zeigt). Dafür braucht es release/acquire.",
       "begruendungen": [
         "Richtig.",
-        "Ein Timeout auf Pipeline-Ebene umfasst die ganze Laufzeit, auch das Warten.",
-        "Für Verzögerungen gibt es andere Mittel, etwa `quietPeriod`."
+        "Das ist genau das Beispiel vom Anfang. Hier braucht es release/acquire.",
+        "Ohne release/acquire sieht der andere Thread womöglich ein halb konstruiertes Objekt."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Warum es „bei mir funktioniert“",
+      "text": "x86-Prozessoren ordnen Speicherzugriffe sehr streng (*Total Store Order*): Fast alles verhält sich, als wäre es acquire/release. Fehler mit zu schwacher Ordnung bleiben dort oft unsichtbar. ARM, RISC-V und POWER ordnen deutlich freier, und genau dort zeigen sich die Fehler, typischerweise erst auf dem Zielgerät.\n\nDie Empfehlung für den Alltag: Mutexe oder `seq_cst`-Atomics verwenden. Schwächere Ordnungen nur nach Messung, mit Kommentar und Review durch jemanden, der sich auskennt."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Code mit `memory_order_relaxed` läuft auf dem x86-Testrechner seit Monaten fehlerfrei, auf dem ARM-Gerät gehen sporadisch Daten verloren. Was ist die wahrscheinlichste Erklärung?",
+      "optionen": [
+        "x86 ordnet Speicherzugriffe strenger. ARM darf mehr umordnen, deshalb zeigt sich der Fehler erst dort",
+        "Der ARM-Compiler ist fehlerhaft",
+        "ARM-Prozessoren unterstützen keine Atomics"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Der Fehler war von Anfang an da. x86 hat ihn nur verdeckt. Deshalb gehören nebenläufige Tests auch auf die Zielarchitektur, und ThreadSanitizer, der solche Fehler unabhängig von der CPU erkennt, in die CI.",
+      "begruendungen": [
+        "Richtig.",
+        "Der Compiler darf genau das tun, was `relaxed` erlaubt.",
+        "ARM hat vollständige Unterstützung für Atomics."
       ]
     }
   ],
-  "praxis": "Ein Jenkinsfile ist Code und wird genauso reviewt: Gibt es ein Timeout? Werden Testergebnisse auch bei Fehlern eingelesen? Liegen Zugangsdaten im Credentials-Speicher? Läuft das Deploy nur von `main`? Wird der Workspace aufgeräumt? Und: Steht die eigentliche Logik in Skripten, die man auch lokal ausführen kann, statt in langen Groovy-Blöcken?",
+  "praxis": "Die meisten Entwickler brauchen schwache Speicherordnungen nie selbst. Erkennen musst du sie trotzdem: Im Review fragst du bei jedem `memory_order_relaxed`, ob das Atomic andere Daten veröffentlicht. Wenn ja, ist es fast sicher ein Fehler. Und bei Code, der für ARM gebaut wird, gehören nebenläufige Tests auf echte Hardware oder in QEMU mit mehreren Kernen.",
   "labor": {
-    "titel": "Ein Jenkinsfile prüfen lassen",
-    "anleitung": "Jenkins kann ein Declarative Jenkinsfile prüfen, ohne es auszuführen. Schicke deine Datei an den Validator deiner Jenkins-Instanz.",
+    "titel": "Umordnung sichtbar machen",
+    "anleitung": "Schau dir im Compiler Explorer (godbolt.org) an, welchen Code `store` mit `relaxed`, `release` und `seq_cst` auf x86-64 und auf ARM64 erzeugt.",
     "befehle": [
-      "curl -X POST -u benutzer:apitoken -F \"jenkinsfile=<Jenkinsfile\" http://localhost:8080/pipeline-model-converter/validate"
+      "g++ -O2 -S -o - ordnung.cpp | grep -E 'mov|xchg|mfence'",
+      "aarch64-linux-gnu-g++ -O2 -S -o - ordnung.cpp | grep -E 'str|stlr|dmb'"
     ],
-    "beobachtung": "Bei einem Fehler, z. B. `step` statt `steps`, meldet Jenkins Zeile und Spalte. Das spart Durchläufe auf echten Agents. Viele Editoren bieten dafür eine Erweiterung an."
+    "beobachtung": "Auf x86 erzeugen `relaxed` und `release` denselben einfachen `mov`, nur `seq_cst` braucht `xchg`. Auf ARM64 wird `relaxed` zu einem einfachen `str`, `release` und `seq_cst` zu `stlr`, einem Store mit eingebauter Ordnung. Auf x86 sieht man den Unterschied zwischen `relaxed` und `release` also gar nicht, auf ARM schon. Darum fallen Fehler erst auf ARM auf."
   },
   "begriffe": [
-    { "begriff": "Jenkinsfile", "englisch": "Jenkinsfile", "erklaerung": "Datei im Repository, die die Pipeline als Code beschreibt." },
-    { "begriff": "Declarative Pipeline", "englisch": "declarative pipeline", "erklaerung": "Pipeline mit fester Struktur (`pipeline`, `stages`, `steps`, `post`), die Jenkins prüfen und anzeigen kann." },
-    { "begriff": "Credentials", "englisch": "credentials", "erklaerung": "In Jenkins gespeicherte Zugangsdaten, die mit `withCredentials` maskiert in Builds eingebunden werden." }
+    {
+      "begriff": "Speichermodell",
+      "englisch": "memory model",
+      "erklaerung": "Regeln, wann Schreibzugriffe eines Threads für andere Threads sichtbar sind."
+    },
+    {
+      "begriff": "Acquire/Release",
+      "englisch": "acquire/release semantics",
+      "erklaerung": "Paar von Operationen, das alle Schreibzugriffe vor dem release für den Leser nach dem acquire sichtbar macht."
+    },
+    {
+      "begriff": "Happens-before",
+      "englisch": "happens-before",
+      "erklaerung": "Ordnungsbeziehung zwischen Operationen verschiedener Threads. Ohne sie ist ein Zugriff auf gemeinsame Daten ein Data Race."
+    }
   ],
   "weiterlesen": [
-    { "titel": "Jenkins: Pipeline Syntax", "url": "https://www.jenkins.io/doc/book/pipeline/syntax/" },
-    { "titel": "Jenkins: Using credentials", "url": "https://www.jenkins.io/doc/book/using/using-credentials/" }
+    {
+      "titel": "cppreference: std::memory_order",
+      "url": "https://en.cppreference.com/w/cpp/atomic/memory_order"
+    },
+    {
+      "titel": "Preshing on Programming: Acquire and Release Semantics",
+      "url": "https://preshing.com/20120913/acquire-and-release-semantics/"
+    }
   ]
 }

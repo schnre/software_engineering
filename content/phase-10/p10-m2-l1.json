@@ -1,0 +1,142 @@
+{
+  "id": "p10-m2-l1",
+  "phase": 10,
+  "modul": "10.2 Schichten und Hardware Abstraction Layer",
+  "titel": "Schichtenarchitektur",
+  "lernziele": [
+    "Die typischen Schichten einer Embedded- oder Systemsoftware benennen",
+    "Verstösse gegen die Schichtung erkennen",
+    "Schichten im Build verbindlich machen"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Ein System hat die Schichten Anwendung, Dienste, HAL und Treiber, von oben nach unten. Welche Abhängigkeit verletzt die Schichtung?",
+      "optionen": [
+        "Ein Treiber ruft eine Funktion der Anwendung auf",
+        "Die Anwendung nutzt einen Dienst",
+        "Ein Dienst nutzt eine HAL-Schnittstelle"
+      ],
+      "korrekt": 0,
+      "erklaerung": "In einer Schichtenarchitektur hängen höhere Schichten von tieferen ab, nie umgekehrt. Ein Treiber, der die Anwendung kennt, lässt sich in einem anderen Produkt nicht wiederverwenden und nicht allein testen. Muss er nach oben melden, tut er das über einen Callback oder eine Schnittstelle, die er selbst definiert.",
+      "begruendungen": [
+        "Richtig.",
+        "Das ist die erlaubte Richtung.",
+        "Ebenfalls die erlaubte Richtung."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Typische Schichten",
+      "text": "- **Anwendung**: die eigentliche Produktlogik, z. B. Regelstrategien, Abläufe, Bedienlogik\n- **Dienste** (Middleware): wiederverwendbare Funktionen wie Kommunikation, Konfiguration, Protokollierung, Dateisystem\n- **HAL** (Hardware Abstraction Layer): Schnittstellen zur Hardware ohne Details, z. B. `IGpio`, `IUart`, `ITimer`\n- **Treiber / BSP**: konkrete Implementierungen für einen bestimmten Mikrocontroller oder ein Board\n- **Hardware**\n\nDer Nutzen: Jede Schicht ist für sich verständlich und austauschbar. Ein neuer Mikrocontroller betrifft nur die Treiber, ein neues Produkt meist nur die Anwendung."
+    },
+    {
+      "typ": "reihenfolge",
+      "frage": "Ordne die Schichten von **oben** nach **unten**.",
+      "elemente": [
+        "Anwendung",
+        "Dienste",
+        "Hardware Abstraction Layer",
+        "Treiber und Board-Support",
+        "Hardware"
+      ],
+      "erklaerung": "Abhängigkeiten zeigen in dieser Liste nur nach unten. Ausnahmen gibt es für **querschnittliche** Belange wie Logging oder Fehlerbehandlung. Sie stehen oft neben den Schichten und dürfen von allen benutzt werden, hängen aber selbst von keiner höheren Schicht ab."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "In welche Schicht gehört was?",
+      "paare": [
+        {
+          "links": "Regelstrategie für die Heizung",
+          "rechts": "Anwendung"
+        },
+        {
+          "links": "Protokollierung, Konfiguration, Kommunikation",
+          "rechts": "Dienste"
+        },
+        {
+          "links": "Schnittstelle `IUart` ohne Registerdetails",
+          "rechts": "Hardware Abstraction Layer"
+        },
+        {
+          "links": "Registerzugriffe für den UART eines bestimmten Mikrocontrollers",
+          "rechts": "Treiber"
+        }
+      ],
+      "erklaerung": "Die Grenze zwischen HAL und Treiber ist die wichtigste: Oberhalb davon soll kein Registername, keine Chip-Bezeichnung und keine Pin-Nummer vorkommen. Dann lässt sich alles darüber auf einem PC bauen und testen."
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Welche Zeile in dieser Anwendungsklasse verletzt die Schichtung?",
+      "code": {
+        "sprache": "cpp",
+        "datei": "app/heizungsregler.cpp",
+        "zeilen": [
+          "void Heizungsregler::schritt() {",
+          "    double t = sensor_.lies();",
+          "    if (t < soll_) {",
+          "        *reinterpret_cast<volatile std::uint32_t*>(0x40020018) = (1u << 5);",
+          "    }",
+          "}"
+        ]
+      },
+      "fehlerZeile": 4,
+      "erklaerung": "Die Anwendung schreibt direkt in ein Hardware-Register (hier das GPIO-Set-Register eines STM32). Damit ist sie an genau diesen Chip und diesen Pin gebunden und auf dem PC nicht testbar. Richtig wäre `heizung_.ein();` über eine HAL-Schnittstelle, deren Treiber das Register kennt."
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Strenge und lockere Schichtung",
+      "text": "Bei **strenger** Schichtung darf jede Schicht nur die direkt darunter benutzen. Das ist sauber, erzeugt aber manchmal reine Durchreich-Funktionen. Bei **lockerer** Schichtung darf eine Schicht alle tieferen benutzen. Wichtig ist bei beiden nur: **nie nach oben**.\n\nMeldungen nach oben (ein Byte ist angekommen, ein Fehler ist aufgetreten) laufen über Callbacks oder Schnittstellen, die die tiefere Schicht definiert und die höhere implementiert. Das ist wieder Dependency Inversion."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Die Schichten existieren nur als Ordner. Im Build darf jedes Modul jedes andere einbinden. Was passiert über die Jahre?",
+      "optionen": [
+        "Verstösse schleichen sich ein, weil der Build sie erlaubt. Besser sind CMake-Targets mit erlaubten Abhängigkeiten und eine Prüfung in der CI",
+        "Nichts, ein gutes Team hält sich an die Ordner",
+        "Der Compiler meldet Verstösse automatisch"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Unter Zeitdruck ist der direkte Include immer der schnellste Weg. Was der Build nicht verhindert, passiert irgendwann. Wenn `drivers` gar nicht gegen `app` linkt und `app` die Treiber nur über `hal` sieht, ist der Verstoss ein Compilerfehler statt einer Review-Diskussion.",
+      "begruendungen": [
+        "Richtig.",
+        "Gute Absicht allein hält unter Termindruck selten.",
+        "Ohne Build-Regeln kennt der Compiler keine Schichten."
+      ]
+    }
+  ],
+  "praxis": "Schichten sind in Embedded-Projekten der wichtigste Hebel für Wiederverwendung und Testbarkeit: Wer die Anwendung über einer sauberen HAL hat, kann sie auf dem PC testen, auf einem neuen Chip weiterverwenden und mit simulierter Hardware vorführen. Im Review achtest du auf Registernamen, Chip-Header und Pin-Nummern oberhalb der HAL. Das sind klare Befunde.",
+  "labor": {
+    "titel": "Schichtverstösse finden",
+    "anleitung": "Suche in einem Embedded-Projekt nach Hardware-Details ausserhalb der Treiber.",
+    "befehle": [
+      "rg -n 'stm32|GPIO[A-Z]->|0x400[0-9A-F]{5}' app/ services/ | head",
+      "rg -n '#include \"(drivers|bsp)/' app/ | head"
+    ],
+    "beobachtung": "Jeder Treffer in `app/` oder `services/` ist ein Kandidat für eine HAL-Schnittstelle. Oft sind es nur wenige Stellen, die eine ganze Schicht an einen Chip binden."
+  },
+  "begriffe": [
+    {
+      "begriff": "Schichtenarchitektur",
+      "englisch": "layered architecture",
+      "erklaerung": "Aufteilung in Schichten, bei der höhere nur von tieferen abhängen."
+    },
+    {
+      "begriff": "HAL",
+      "englisch": "hardware abstraction layer",
+      "erklaerung": "Schnittstellen zur Hardware ohne chip-spezifische Details."
+    },
+    {
+      "begriff": "BSP",
+      "englisch": "board support package",
+      "erklaerung": "Code für ein bestimmtes Board: Pinbelegung, Takt, Start-Code, Treiber."
+    }
+  ],
+  "weiterlesen": [
+    {
+      "titel": "Martin Fowler: Presentation Domain Data Layering",
+      "url": "https://martinfowler.com/bliki/PresentationDomainDataLayering.html"
+    }
+  ]
+}

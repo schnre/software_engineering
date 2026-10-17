@@ -43,10 +43,22 @@
       "typ": "zuordnen",
       "frage": "Ordne zu.",
       "paare": [
-        { "links": "Überlauf eines `int`", "rechts": "Undefined Behavior" },
-        { "links": "`sizeof(long)`", "rechts": "Implementierungsdefiniert: vom Compiler dokumentiert" },
-        { "links": "Reihenfolge, in der `f(a(), b())` die Argumente auswertet", "rechts": "Unspezifiziert: eine von mehreren erlaubten Möglichkeiten" },
-        { "links": "Überlauf eines `unsigned int`", "rechts": "Wohldefiniert: rechnet modulo 2ⁿ" }
+        {
+          "links": "Überlauf eines `int`",
+          "rechts": "Undefined Behavior"
+        },
+        {
+          "links": "`sizeof(long)`",
+          "rechts": "Implementierungsdefiniert: vom Compiler dokumentiert"
+        },
+        {
+          "links": "Reihenfolge, in der `f(a(), b())` die Argumente auswertet",
+          "rechts": "Unspezifiziert: eine von mehreren erlaubten Möglichkeiten"
+        },
+        {
+          "links": "Überlauf eines `unsigned int`",
+          "rechts": "Wohldefiniert: rechnet modulo 2ⁿ"
+        }
       ],
       "erklaerung": "`sizeof(long)` ist unter 64-Bit-Linux 8, unter 64-Bit-Windows 4. Beides ist korrekt und dokumentiert. Wer portablen Code schreibt, verwendet für feste Breiten `std::int64_t` aus `<cstdint>`."
     },
@@ -79,7 +91,7 @@
     {
       "typ": "erklaerung",
       "titel": "Warum das im Alltag zählt",
-      "text": "UB-Fehler sind tückisch, weil sie oft lange unentdeckt bleiben: Im Debug-Build läuft alles, im Release-Build nicht. Nach einem Compiler-Update geht etwas kaputt, das jahrelang funktioniert hat. Auf einer anderen Plattform verhält sich das Programm anders.\n\nWerkzeuge dagegen: Compiler-Warnungen (`-Wall -Wextra`), Sanitizer zur Laufzeit (`-fsanitize=undefined,address`, Phase 3), statische Analyse (clang-tidy) und Kompilierzeit-Auswertung mit `constexpr`, die UB erkennt."
+      "text": "UB-Fehler sind tückisch, weil sie oft lange unentdeckt bleiben: Im Debug-Build läuft alles, im Release-Build nicht. Nach einem Compiler-Update geht etwas kaputt, das jahrelang funktioniert hat. Auf einer anderen Plattform verhält sich das Programm anders.\n\nWerkzeuge dagegen: Compiler-Warnungen (`-Wall -Wextra`), Sanitizer zur Laufzeit (`-fsanitize=undefined,address`, Phase 4), statische Analyse (clang-tidy) und Kompilierzeit-Auswertung mit `constexpr`, die UB erkennt."
     },
     {
       "typ": "multiple-choice",
@@ -101,8 +113,24 @@
       "typ": "lueckentext",
       "frage": "Ergänze die Fachbegriffe.",
       "text": "Bei {{?}} Behavior stellt der Standard keinerlei Anforderungen. Bei {{?}} Behavior muss der Compiler dokumentieren, was passiert.",
-      "luecken": [{ "loesungen": ["undefined"] }, { "loesungen": ["implementation-defined"] }],
-      "auswahl": ["undefined", "implementation-defined", "unspecified", "well-defined"],
+      "luecken": [
+        {
+          "loesungen": [
+            "undefined"
+          ]
+        },
+        {
+          "loesungen": [
+            "implementation-defined"
+          ]
+        }
+      ],
+      "auswahl": [
+        "undefined",
+        "implementation-defined",
+        "unspecified",
+        "well-defined"
+      ],
       "erklaerung": "Die englischen Begriffe stehen so im Standard und in Fehlermeldungen. Im Deutschen sagt man meist einfach „UB“."
     }
   ],
@@ -118,12 +146,30 @@
     "beobachtung": "Mit `-O2` besteht die Funktion nur noch aus `mov $1, %eax` und `ret`. Mit UBSan und dem Aufruf `passtNoch(INT_MAX)` meldet das Programm `signed integer overflow`."
   },
   "begriffe": [
-    { "begriff": "Undefined Behavior", "englisch": "undefined behavior, UB", "erklaerung": "Verhalten, für das der Standard keine Anforderungen stellt. Der Compiler darf annehmen, dass es nie auftritt." },
-    { "begriff": "Implementierungsdefiniert", "englisch": "implementation-defined", "erklaerung": "Verhalten, das der Compiler festlegen und dokumentieren muss, z. B. die Grösse von `long`." },
-    { "begriff": "Unspezifiziert", "englisch": "unspecified", "erklaerung": "Eine von mehreren erlaubten Möglichkeiten, ohne Pflicht zur Dokumentation." }
+    {
+      "begriff": "Undefined Behavior",
+      "englisch": "undefined behavior, UB",
+      "erklaerung": "Verhalten, für das der Standard keine Anforderungen stellt. Der Compiler darf annehmen, dass es nie auftritt."
+    },
+    {
+      "begriff": "Implementierungsdefiniert",
+      "englisch": "implementation-defined",
+      "erklaerung": "Verhalten, das der Compiler festlegen und dokumentieren muss, z. B. die Grösse von `long`."
+    },
+    {
+      "begriff": "Unspezifiziert",
+      "englisch": "unspecified",
+      "erklaerung": "Eine von mehreren erlaubten Möglichkeiten, ohne Pflicht zur Dokumentation."
+    }
   ],
   "weiterlesen": [
-    { "titel": "cppreference: Undefined behavior", "url": "https://en.cppreference.com/w/cpp/language/ub" },
-    { "titel": "Chris Lattner: What Every C Programmer Should Know About Undefined Behavior", "url": "https://blog.llvm.org/2011/05/what-every-c-programmer-should-know.html" }
+    {
+      "titel": "cppreference: Undefined behavior",
+      "url": "https://en.cppreference.com/w/cpp/language/ub"
+    },
+    {
+      "titel": "Chris Lattner: What Every C Programmer Should Know About Undefined Behavior",
+      "url": "https://blog.llvm.org/2011/05/what-every-c-programmer-should-know.html"
+    }
   ]
 }

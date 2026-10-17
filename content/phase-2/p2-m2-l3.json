@@ -13,7 +13,11 @@
     {
       "typ": "multiple-choice",
       "frage": "Ein Objekt soll genau **einen** Besitzer haben. Der Besitz soll weitergegeben werden können, z. B. aus einer Fabrikfunktion an den Aufrufer. Was nimmst du?",
-      "optionen": ["`std::unique_ptr`", "`std::shared_ptr`", "Einen rohen Zeiger mit Kommentar „Aufrufer muss löschen“"],
+      "optionen": [
+        "`std::unique_ptr`",
+        "`std::shared_ptr`",
+        "Einen rohen Zeiger mit Kommentar „Aufrufer muss löschen“"
+      ],
       "korrekt": 0,
       "erklaerung": "`std::unique_ptr` drückt exklusiven Besitz aus. Er lässt sich verschieben, aber nicht kopieren. Er ist genauso gross und schnell wie ein roher Zeiger und gibt das Objekt im Destruktor frei.",
       "begruendungen": [
@@ -65,7 +69,12 @@
           "std::cout << a.use_count();"
         ]
       },
-      "optionen": ["`3 2`", "`1 1`", "`3 3`", "`2 1`"],
+      "optionen": [
+        "`3 2`",
+        "`1 1`",
+        "`3 3`",
+        "`2 1`"
+      ],
       "korrekt": 0,
       "fest": true,
       "erklaerung": "`a`, `b` und `c` teilen sich ein Objekt, der Zähler steht auf 3. Am Ende des Blocks wird `c` zerstört, der Zähler sinkt auf 2. Das `int` wird erst freigegeben, wenn auch `a` und `b` verschwinden.",
@@ -110,10 +119,22 @@
       "typ": "zuordnen",
       "frage": "Welcher Zeiger passt zu welcher Situation?",
       "paare": [
-        { "links": "Fabrikfunktion gibt ein neues Objekt an den Aufrufer", "rechts": "`std::unique_ptr`" },
-        { "links": "Mehrere Threads nutzen ein Objekt, unklar ist, wer zuletzt fertig ist", "rechts": "`std::shared_ptr`" },
-        { "links": "Ein Cache will Objekte kennen, ohne sie am Leben zu halten", "rechts": "`std::weak_ptr`" },
-        { "links": "Eine Funktion liest ein Objekt nur, der Besitz bleibt beim Aufrufer", "rechts": "Referenz oder roher Zeiger" }
+        {
+          "links": "Fabrikfunktion gibt ein neues Objekt an den Aufrufer",
+          "rechts": "`std::unique_ptr`"
+        },
+        {
+          "links": "Mehrere Threads nutzen ein Objekt, unklar ist, wer zuletzt fertig ist",
+          "rechts": "`std::shared_ptr`"
+        },
+        {
+          "links": "Ein Cache will Objekte kennen, ohne sie am Leben zu halten",
+          "rechts": "`std::weak_ptr`"
+        },
+        {
+          "links": "Eine Funktion liest ein Objekt nur, der Besitz bleibt beim Aufrufer",
+          "rechts": "Referenz oder roher Zeiger"
+        }
       ],
       "erklaerung": "Eine Funktion, die nur benutzt, sollte keinen Smart Pointer verlangen. `void zeige(const Sensor&)` funktioniert mit jedem Besitzmodell, `void zeige(std::shared_ptr<Sensor>)` zwingt allen `shared_ptr` auf und kostet zusätzlich eine Zähler-Operation."
     },
@@ -145,12 +166,30 @@
     "beobachtung": "Beide Werkzeuge melden am Programmende verlorenen Speicher (`Direct leak` bzw. `definitely lost`). Mit `weak_ptr` für `eltern` verschwindet die Meldung."
   },
   "begriffe": [
-    { "begriff": "Smart Pointer", "englisch": "smart pointer", "erklaerung": "Klasse, die einen Zeiger besitzt und das Objekt automatisch freigibt (RAII für Heap-Speicher)." },
-    { "begriff": "Kontrollblock", "englisch": "control block", "erklaerung": "Verwaltungsdaten eines `shared_ptr`: Zähler für starke und schwache Referenzen, Deleter." },
-    { "begriff": "Referenzzyklus", "englisch": "reference cycle", "erklaerung": "Objekte, die sich gegenseitig per `shared_ptr` am Leben halten und deshalb nie freigegeben werden." }
+    {
+      "begriff": "Smart Pointer",
+      "englisch": "smart pointer",
+      "erklaerung": "Klasse, die einen Zeiger besitzt und das Objekt automatisch freigibt (RAII für Heap-Speicher)."
+    },
+    {
+      "begriff": "Kontrollblock",
+      "englisch": "control block",
+      "erklaerung": "Verwaltungsdaten eines `shared_ptr`: Zähler für starke und schwache Referenzen, Deleter."
+    },
+    {
+      "begriff": "Referenzzyklus",
+      "englisch": "reference cycle",
+      "erklaerung": "Objekte, die sich gegenseitig per `shared_ptr` am Leben halten und deshalb nie freigegeben werden."
+    }
   ],
   "weiterlesen": [
-    { "titel": "C++ Core Guidelines: R.20–R.37 Smart pointers", "url": "https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#Rr-owner" },
-    { "titel": "cppreference: std::shared_ptr", "url": "https://en.cppreference.com/w/cpp/memory/shared_ptr" }
+    {
+      "titel": "C++ Core Guidelines: R.20–R.37 Smart pointers",
+      "url": "https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#Rr-owner"
+    },
+    {
+      "titel": "cppreference: std::shared_ptr",
+      "url": "https://en.cppreference.com/w/cpp/memory/shared_ptr"
+    }
   ]
 }

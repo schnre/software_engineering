@@ -1,0 +1,177 @@
+{
+  "id": "p10-m2-l2",
+  "phase": 10,
+  "modul": "10.2 Schichten und Hardware Abstraction Layer",
+  "titel": "Hardware Abstraction Layer",
+  "lernziele": [
+    "Eine HAL-Schnittstelle ohne Hardwaredetails entwerfen",
+    "Implementierungen pro Plattform im Build auswählen",
+    "Virtuelle Schnittstellen und Auswahl zur Link-Zeit abwägen"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Wegen Lieferengpässen muss ein Produkt vom Mikrocontroller eines Herstellers auf einen anderen umsteigen. Was macht das am günstigsten?",
+      "optionen": [
+        "Eine HAL, über der kein Code chip-spezifisch ist. Neu geschrieben werden nur die Treiber unter der HAL",
+        "Möglichst viel Assembler, weil der überall gleich ist",
+        "Den Code des alten Herstellers einfach weiterverwenden"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Chip-Wechsel waren in den letzten Jahren für viele Firmen bittere Realität. Wer eine saubere HAL hatte, schrieb ein paar Treiber neu. Wer Registerzugriffe in der ganzen Anwendung verteilt hatte, schrieb das halbe Produkt neu.",
+      "begruendungen": [
+        "Richtig.",
+        "Assembler ist für jede CPU-Familie anders, also das Gegenteil.",
+        "Die Bibliotheken eines Herstellers laufen nur auf dessen Chips."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Gute HAL-Schnittstellen",
+      "text": "- **Absicht statt Register**: `setze(true)` statt `ODR |= (1 << 5)`.\n- **Klein**: nur, was die Anwendung wirklich braucht.\n- **Ehrlich über Fehler und Zeit**: Kann etwas scheitern? Blockiert es? Wie lange höchstens?\n- **Plattformneutrale Typen**: `std::span<const std::byte>` statt eines Hersteller-Pufferstrukts.\n\nZu jeder Schnittstelle gibt es mehrere Implementierungen: für jeden Chip, eine **Host-Simulation** für den PC und Fakes für Unit-Tests."
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze die CMake-Datei: Je nach Plattform wird eine andere GPIO-Implementierung gebaut, die Anwendung linkt nur gegen `hal`.",
+      "code": {
+        "sprache": "cmake",
+        "zeilen": [
+          "add_library(hal INTERFACE)",
+          "target_include_directories(hal INTERFACE include)",
+          "",
+          "if(PLATTFORM STREQUAL \"stm32\")",
+          "  target_sources(hal INTERFACE stm32/gpio.cpp)",
+          "elseif(PLATTFORM STREQUAL \"{{?}}\")",
+          "  target_sources(hal INTERFACE host/gpio_simulation.cpp)",
+          "endif()",
+          "",
+          "target_link_libraries(app PRIVATE {{?}})"
+        ]
+      },
+      "luecken": [
+        {
+          "loesungen": [
+            "host"
+          ]
+        },
+        {
+          "loesungen": [
+            "hal"
+          ]
+        }
+      ],
+      "auswahl": [
+        "host",
+        "hal",
+        "stm32",
+        "app"
+      ],
+      "erklaerung": "Die Anwendung kennt nur das Target `hal` und dessen Header. Welche Implementierung dahintersteckt, entscheidet die Plattform beim Konfigurieren, z. B. mit `-DPLATTFORM=host` für die CI auf einem Linux-Rechner."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Wofür ist welche Implementierung der HAL da?",
+      "paare": [
+        {
+          "links": "STM32-Implementierung",
+          "rechts": "Läuft im ausgelieferten Produkt"
+        },
+        {
+          "links": "Host-Simulation",
+          "rechts": "Läuft auf dem PC für Entwicklung, Vorführungen und CI"
+        },
+        {
+          "links": "Fake im Unit-Test",
+          "rechts": "Liefert gezielt Werte und Fehlerfälle"
+        },
+        {
+          "links": "Aufzeichnende Implementierung",
+          "rechts": "Protokolliert alle Zugriffe zur Analyse"
+        }
+      ],
+      "erklaerung": "Mit einer Host-Simulation kann das ganze Team ohne Hardware an der Anwendung arbeiten. Das ist besonders wertvoll, wenn es nur wenige Prototypen gibt."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Was stimmt mit dieser HAL-Schnittstelle nicht?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "class IUart {",
+          "public:",
+          "    virtual ~IUart() = default;",
+          "    virtual void sende(std::span<const std::byte> daten) = 0;",
+          "    virtual void setzeRegisterCR1(std::uint32_t wert) = 0;",
+          "};"
+        ]
+      },
+      "optionen": [
+        "`setzeRegisterCR1` ist ein STM32-Detail. Andere Plattformen können es nicht sinnvoll umsetzen, und die Anwendung wird an den Chip gekoppelt",
+        "`std::span` ist für Embedded-Systeme ungeeignet",
+        "Eine Schnittstelle braucht keinen virtuellen Destruktor"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Eine solche **undichte Abstraktion** (leaky abstraction) gibt Hardwaredetails nach oben weiter. Was die Anwendung mit CR1 eigentlich will, z. B. die Baudrate oder Parität setzen, sollte als eigene, neutrale Funktion in die Schnittstelle: `konfiguriere(UartKonfig k)`.",
+      "begruendungen": [
+        "Richtig.",
+        "`std::span` kostet nichts und ist ideal für Puffer.",
+        "Für polymorphe Schnittstellen ist er richtig (Modul 2.4)."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Virtuell oder zur Link-Zeit?",
+      "text": "Eine HAL lässt sich auf zwei Arten umsetzen:\n\n- **Virtuelle Schnittstelle** (`class IGpio`): Implementierung zur Laufzeit wählbar, Fakes im selben Test-Binary möglich. Kostet einen indirekten Aufruf und verhindert Inlining.\n- **Auswahl zur Link-Zeit**: Ein Header `hal/gpio.h` mit normalen Funktionen, pro Plattform eine andere `.cpp`. Kein Overhead, der Compiler kann inlinen. Dafür gibt es pro Binary genau eine Implementierung.\n\nIn engen Interrupt-Routinen auf kleinen Mikrocontrollern bevorzugt man oft die zweite Variante oder Templates (Modul 10.5)."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Was ist der Preis der Auswahl zur Link-Zeit gegenüber einer virtuellen Schnittstelle?",
+      "optionen": [
+        "Pro Binary gibt es nur eine Implementierung. Für Tests mit Fakes braucht man ein eigenes Test-Binary mit eigener Fake-Implementierung",
+        "Der Code wird langsamer",
+        "Die Header müssen für jede Plattform anders sein"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Das ist meist ein guter Tausch: Für das Produkt gibt es ohnehin nur eine Hardware, und Tests laufen als eigene Binaries. Unpraktisch wird es, wenn man innerhalb eines Tests verschiedene Fakes kombinieren will. Dann sind virtuelle Schnittstellen bequemer.",
+      "begruendungen": [
+        "Richtig.",
+        "Im Gegenteil, es entfällt der indirekte Aufruf.",
+        "Der Header ist für alle Plattformen derselbe, nur die `.cpp` wechselt."
+      ]
+    }
+  ],
+  "praxis": "Beim Entwurf einer HAL ist die wichtigste Frage: Was will die Anwendung eigentlich? Die Schnittstelle sollte das ausdrücken, nicht das, was die Hardware zufällig kann. Im Review prüfst du neue HAL-Funktionen darauf, ob ein zweiter Chip sie sinnvoll umsetzen könnte. Wenn nicht, ist die Abstraktion undicht.",
+  "labor": {
+    "titel": "Eine Host-Simulation bauen",
+    "anleitung": "Schreibe für eine kleine Anwendung, die eine LED blinken lässt, eine HAL-Schnittstelle `IGpioAusgang` und zwei Implementierungen: eine Host-Simulation, die den Zustand auf der Konsole ausgibt, und einen Fake für Tests.",
+    "befehle": [
+      "cmake -S . -B build-host -DPLATTFORM=host && cmake --build build-host && ./build-host/blinker",
+      "ctest --test-dir build-host"
+    ],
+    "beobachtung": "Die Anwendung läuft auf dem PC und zeigt `LED an` / `LED aus`. Der Test prüft mit dem Fake, dass die LED nach drei Ticks genau dreimal umgeschaltet hat, ganz ohne Hardware."
+  },
+  "begriffe": [
+    {
+      "begriff": "Undichte Abstraktion",
+      "englisch": "leaky abstraction",
+      "erklaerung": "Eine Schnittstelle gibt Details der Implementierung nach aussen weiter."
+    },
+    {
+      "begriff": "Host-Simulation",
+      "englisch": "host simulation",
+      "erklaerung": "Implementierung der HAL für den Entwicklungsrechner, damit die Anwendung ohne Zielhardware läuft."
+    },
+    {
+      "begriff": "Link-Zeit-Auswahl",
+      "englisch": "link-time selection",
+      "erklaerung": "Für einen gemeinsamen Header wird je nach Build eine andere Implementierungsdatei gelinkt."
+    }
+  ],
+  "weiterlesen": [
+    {
+      "titel": "Joel Spolsky: The Law of Leaky Abstractions",
+      "url": "https://www.joelonsoftware.com/2002/11/11/the-law-of-leaky-abstractions/"
+    }
+  ]
+}

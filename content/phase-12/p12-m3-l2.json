@@ -1,0 +1,126 @@
+{
+  "id": "p12-m3-l2",
+  "phase": 12,
+  "modul": "12.3 Security für Embedded-Systeme",
+  "titel": "Secure Boot, Schlüssel und sichere Kommunikation",
+  "lernziele": [
+    "Die Vertrauenskette von Secure Boot erklären",
+    "Schlüssel sicher erzeugen, speichern und verwalten",
+    "Kryptografische Bausteine richtig einsetzen"
+  ],
+  "dauerMinuten": 7,
+  "schritte": [
+    {
+      "typ": "reihenfolge",
+      "frage": "Bringe die Glieder der Vertrauenskette (*chain of trust*) beim Secure Boot in die richtige Reihenfolge.",
+      "elemente": [
+        "Unveränderlicher Boot-ROM-Code im Chip mit dem Hash des öffentlichen Schlüssels in OTP-Speicher",
+        "Boot-ROM prüft die Signatur des Bootloaders",
+        "Bootloader prüft die Signatur der Firmware oder des Kernels",
+        "Kernel prüft Root-Dateisystem oder Anwendungen (z. B. mit dm-verity)",
+        "Nur geprüfter Code wird ausgeführt"
+      ],
+      "erklaerung": "Der **Root of Trust** ist der Code, den niemand ändern kann, mit einem Schlüssel, den niemand austauschen kann. Jede Stufe prüft die nächste, bevor sie sie startet. Reisst ein Glied, ist die ganze Kette wertlos. Auf Mikrocontrollern übernimmt das z. B. TF-M mit MCUboot (Lektion 6.7), auf Linux-Systemen Boot-ROM, U-Boot mit FIT-Signatur und dm-verity."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Welcher kryptografische Baustein schützt was?",
+      "paare": [
+        { "links": "Digitale Signatur (ECDSA, Ed25519)", "rechts": "Echtheit und Unverfälschtheit, jeder kann prüfen, nur der Schlüsselinhaber kann signieren" },
+        { "links": "MAC (HMAC, CMAC)", "rechts": "Unverfälschtheit mit gemeinsamem geheimen Schlüssel, z. B. SecOC auf dem CAN-Bus" },
+        { "links": "Authentifizierte Verschlüsselung (AES-GCM, ChaCha20-Poly1305)", "rechts": "Vertraulichkeit und Unverfälschtheit zusammen" },
+        { "links": "Hash (SHA-256)", "rechts": "Fingerabdruck von Daten, ohne Schlüssel kein Schutz gegen gezielte Manipulation" }
+      ],
+      "erklaerung": "Die wichtigste Regel: keine eigene Kryptografie erfinden, sondern geprüfte Bibliotheken wie mbed TLS, wolfSSL, PSA Crypto oder die Hardwarebeschleuniger des Chips nutzen. Fehler entstehen fast immer bei der Verwendung, nicht in den Algorithmen."
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Dieser Code prüft ein Authentifizierungs-Token. Welche Zeile ist eine Schwachstelle?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "bool tokenGueltig(std::span<const uint8_t, 32> erhalten, std::span<const uint8_t, 32> erwartet) {",
+          "    for (std::size_t i = 0; i < 32; ++i) {",
+          "        if (erhalten[i] != erwartet[i]) return false;",
+          "    }",
+          "    return true;",
+          "}"
+        ]
+      },
+      "fehlerZeile": 3,
+      "erklaerung": "Der Vergleich bricht beim ersten falschen Byte ab. Die Laufzeit verrät, wie viele Bytes stimmen. Ein Angreifer kann das Token so Byte für Byte erraten (**Timing-Angriff**). Richtig ist ein Vergleich mit konstanter Laufzeit: alle Unterschiede mit `|=` sammeln und erst am Ende prüfen, oder die Funktion der Kryptobibliothek verwenden, z. B. `mbedtls_ct_memcmp` oder `CRYPTO_memcmp`."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Wo speichert man den privaten Schlüssel, mit dem sich ein Gerät gegenüber der Cloud ausweist, am besten?",
+      "optionen": [
+        "In einem **Secure Element** oder einem geschützten Bereich (TrustZone, Secure Enclave), aus dem er nicht ausgelesen werden kann. Er wird pro Gerät in der Fertigung erzeugt",
+        "Als Konstante im Quellcode, für alle Geräte gleich",
+        "In einer Datei auf der SD-Karte"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Ein Secure Element (z. B. Microchip ATECC608, NXP SE050, Infineon OPTIGA) führt Signaturen selbst aus. Der Schlüssel verlässt den Chip nie, auch nicht bei physischem Zugriff. Mit einem Schlüssel pro Gerät betrifft ein kompromittiertes Gerät nur sich selbst. Der Schlüssel für die Firmware-Signatur gehört dagegen nie auf ein Gerät, sondern in ein HSM beim Hersteller.",
+      "begruendungen": [
+        "Richtig.",
+        "Dann reicht ein ausgelesenes Gerät, um alle zu kompromittieren.",
+        "Eine SD-Karte kann jeder auslesen."
+      ]
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Was ist das Problem dieser Verschlüsselung von Telemetrie-Nachrichten?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "constexpr std::array<uint8_t, 12> NONCE{0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1};",
+          "",
+          "auto verschluessle(std::span<const uint8_t> klartext) {",
+          "    return aes_gcm_encrypt(geraeteSchluessel, NONCE, klartext);",
+          "}"
+        ]
+      },
+      "optionen": [
+        "Die Nonce ist für jede Nachricht gleich. Bei AES-GCM zerstört eine wiederverwendete Nonce die Vertraulichkeit und erlaubt das Fälschen von Nachrichten",
+        "AES-GCM ist veraltet",
+        "Die Nonce ist zu lang"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Eine **Nonce** (*number used once*) darf mit demselben Schlüssel nie zweimal verwendet werden. Üblich ist ein Zähler, der über Neustarts hinweg im Flash weitergeführt wird, oder ein ausreichend langer Zufallswert aus einem echten Zufallsgenerator. Noch einfacher und robuster: TLS oder DTLS verwenden, das diese Details korrekt erledigt.",
+      "begruendungen": [
+        "Richtig.",
+        "AES-GCM ist Standard und sicher, wenn man es richtig verwendet.",
+        "96 Bit ist die empfohlene Nonce-Länge für GCM."
+      ]
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze.",
+      "text": "Die Vertrauenskette beginnt beim unveränderlichen {{?}} of Trust. Eine Nonce darf mit demselben Schlüssel {{?}} wiederverwendet werden.",
+      "luecken": [{ "loesungen": ["Root"] }, { "loesungen": ["nie"] }],
+      "auswahl": ["Root", "nie", "Chain", "selten"],
+      "erklaerung": "Beides sind Grundregeln, bei deren Verletzung die übrigen Massnahmen wertlos werden."
+    }
+  ],
+  "praxis": "Kryptografie im Produkt ist zu einem grossen Teil Schlüsselverwaltung: Wer erzeugt Schlüssel, wo liegen sie, wie werden sie in der Fertigung eingebracht, wie werden sie erneuert oder widerrufen? Plane das mit Produktion und Betrieb zusammen. Und: Debug-Zugang, Fertigungs-Testmodus und Rückfall-Bootloader sind häufige Hintertüren, die im Feld geschlossen sein müssen.",
+  "labor": {
+    "titel": "Firmware signieren und prüfen",
+    "anleitung": "Erzeuge mit OpenSSL ein Ed25519-Schlüsselpaar, signiere ein Firmware-Image und prüfe die Signatur. Ändere danach ein Byte im Image und prüfe erneut.",
+    "befehle": [
+      "openssl genpkey -algorithm ed25519 -out privat.pem",
+      "openssl pkey -in privat.pem -pubout -out oeffentlich.pem",
+      "openssl pkeyutl -sign -inkey privat.pem -rawin -in firmware.bin -out firmware.sig",
+      "openssl pkeyutl -verify -pubin -inkey oeffentlich.pem -rawin -in firmware.bin -sigfile firmware.sig"
+    ],
+    "beobachtung": "Nach der Änderung eines einzigen Bytes schlägt die Prüfung fehl. Im Gerät steckt nur der öffentliche Schlüssel (oder sein Hash), der private bleibt in der sicheren Umgebung des Herstellers."
+  },
+  "begriffe": [
+    { "begriff": "Secure Boot", "englisch": "secure boot", "erklaerung": "Startvorgang, bei dem jede Stufe die Signatur der nächsten prüft." },
+    { "begriff": "Root of Trust", "englisch": "root of trust", "erklaerung": "Unveränderlicher Ausgangspunkt der Vertrauenskette." },
+    { "begriff": "Secure Element", "englisch": "secure element", "erklaerung": "Manipulationsgeschützter Chip, der Schlüssel speichert und kryptografische Operationen ausführt." },
+    { "begriff": "Nonce", "englisch": "number used once", "erklaerung": "Wert, der mit einem Schlüssel nur ein einziges Mal verwendet werden darf." }
+  ],
+  "weiterlesen": [
+    { "titel": "Arm: Platform Security Architecture (PSA) Certified", "url": "https://www.psacertified.org/" },
+    { "titel": "Trusted Firmware-M", "url": "https://www.trustedfirmware.org/projects/tf-m/" }
+  ]
+}
