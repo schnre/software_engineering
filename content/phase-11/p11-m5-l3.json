@@ -1,0 +1,146 @@
+{
+  "id": "p11-m5-l3",
+  "phase": 11,
+  "modul": "11.5 Automotive und Robotik",
+  "titel": "ROS 2 und DDS",
+  "lernziele": [
+    "Nodes, Topics, Services und Actions in ROS 2 unterscheiden",
+    "Die Rolle von DDS und Quality-of-Service-Einstellungen verstehen",
+    "Einen einfachen ROS-2-Node in C++ lesen"
+  ],
+  "dauerMinuten": 7,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Was ist **ROS 2**?",
+      "optionen": [
+        "Ein Framework für Robotiksoftware mit Kommunikations-Middleware, Werkzeugen und vielen fertigen Paketen, kein Betriebssystem im klassischen Sinn",
+        "Ein Echtzeitbetriebssystem für Mikrocontroller",
+        "Eine Programmiersprache für Roboter"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Das *Robot Operating System* läuft meist auf Linux. Eine Anwendung besteht aus vielen **Nodes**, die über Nachrichten kommunizieren: Kamera, Lokalisierung, Planung, Motorsteuerung. ROS 2 löste ROS 1 ab, unter anderem wegen fehlender Echtzeitfähigkeit, Sicherheit und Mehr-Roboter-Unterstützung.",
+      "begruendungen": [
+        "Richtig.",
+        "Für Mikrocontroller gibt es micro-ROS, das sich mit ROS 2 verbindet.",
+        "Nodes schreibt man in C++ oder Python."
+      ]
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Ordne die Kommunikationsarten zu.",
+      "paare": [
+        { "links": "Topic", "rechts": "Publish-Subscribe, z. B. Laserscans mit 20 Hz" },
+        { "links": "Service", "rechts": "Anfrage und Antwort, z. B. „Karte speichern“" },
+        { "links": "Action", "rechts": "Langlaufender Auftrag mit Rückmeldungen und Abbruch, z. B. „fahre zu Punkt X“" },
+        { "links": "Parameter", "rechts": "Konfigurationswerte eines Nodes, zur Laufzeit änderbar" }
+      ],
+      "erklaerung": "Die Nachrichtentypen beschreibt man in `.msg`-, `.srv`- und `.action`-Dateien, aus denen C++- und Python-Code generiert wird. Das Konzept entspricht der serviceorientierten Architektur aus der letzten Lektion."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Was macht dieser Node?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "class Notstopp : public rclcpp::Node {",
+          "public:",
+          "    Notstopp() : Node(\"notstopp\") {",
+          "        pub_ = create_publisher<geometry_msgs::msg::Twist>(\"cmd_vel\", 10);",
+          "        sub_ = create_subscription<sensor_msgs::msg::LaserScan>(\"scan\", rclcpp::SensorDataQoS(),",
+          "            [this](const sensor_msgs::msg::LaserScan& s) {",
+          "                const auto naechster = std::ranges::min(s.ranges);",
+          "                if (naechster < 0.3f) pub_->publish(geometry_msgs::msg::Twist{});",
+          "            });",
+          "    }",
+          "private:",
+          "    rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr pub_;",
+          "    rclcpp::Subscription<sensor_msgs::msg::LaserScan>::SharedPtr sub_;",
+          "};"
+        ]
+      },
+      "optionen": [
+        "Er abonniert Laserscans und sendet einen Geschwindigkeitsbefehl mit Nullwerten, sobald ein Hindernis näher als 30 cm ist",
+        "Er steuert den Laserscanner an",
+        "Er speichert die Scans in eine Datei"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Ein leeres `Twist` heisst: keine Bewegung. Der Node kennt weder den Scanner noch den Motortreiber, nur die Topics `scan` und `cmd_vel`. `SensorDataQoS` wählt Einstellungen für Sensordaten: Lieber den neuesten Wert schnell als jeden Wert garantiert. Für eine echte Sicherheitsfunktion reicht so ein Node allerdings nicht, dazu später in Phase 12.",
+      "begruendungen": [
+        "Richtig.",
+        "Der Node liest nur die Daten des Scanners.",
+        "Zum Aufzeichnen gibt es `ros2 bag`."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "DDS und Quality of Service",
+      "text": "ROS 2 baut auf **DDS** (*Data Distribution Service*) auf, einem OMG-Standard für Publish-Subscribe ohne zentralen Broker. Teilnehmer finden sich selbst im Netzwerk (Discovery). DDS wird auch ohne ROS in Rüstung, Medizin, Energie und Fahrzeugen eingesetzt.\n\nMit **QoS-Profilen** legt man pro Topic fest, wie kommuniziert wird:\n\n- **Reliability**: `reliable` (Nachrichten werden wiederholt) oder `best_effort`\n- **History/Depth**: wie viele Nachrichten gepuffert werden\n- **Durability**: `transient_local` liefert späten Abonnenten die letzte Nachricht nach\n- **Deadline** und **Liveliness**: Überwachung, ob ein Publisher noch aktiv ist\n\nPassen die QoS von Publisher und Subscriber nicht zusammen, kommt keine Nachricht an. Das ist einer der häufigsten Anfängerfehler."
+    },
+    {
+      "typ": "terminal-deuten",
+      "frage": "Ein Subscriber empfängt nichts, obwohl der Publisher sendet. Was verrät die Ausgabe?",
+      "terminal": {
+        "befehl": "ros2 topic info /karte --verbose",
+        "ausgabe": [
+          "Publisher count: 1",
+          "  Node name: kartendienst",
+          "  QoS profile: Reliability: RELIABLE, Durability: TRANSIENT_LOCAL",
+          "Subscription count: 1",
+          "  Node name: planer",
+          "  QoS profile: Reliability: RELIABLE, Durability: VOLATILE"
+        ]
+      },
+      "optionen": [
+        "Die QoS sind kompatibel. Der Planer erhält aber nur Karten, die nach seinem Start veröffentlicht werden, weil er `VOLATILE` verlangt. Wurde die Karte nur einmal beim Start gesendet, verpasst er sie",
+        "Die Topics haben verschiedene Namen",
+        "Der Publisher ist abgestürzt"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Ein `TRANSIENT_LOCAL`-Publisher bewahrt die letzte Nachricht für späte Abonnenten auf. Das wirkt aber nur, wenn auch der Subscriber `TRANSIENT_LOCAL` anfordert. Für Daten, die selten gesendet werden (Karten, Konfiguration), ist das die richtige Wahl. Mit `ros2 doctor` und `ros2 topic info --verbose` findet man solche Probleme schnell.",
+      "begruendungen": [
+        "Richtig.",
+        "Beide hängen am Topic `/karte`.",
+        "Der Publisher ist gelistet und damit aktiv."
+      ]
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Ein Roboter soll eine Mikrocontroller-Motorsteuerung in das ROS-2-System einbinden. Was ist ein gängiger Weg?",
+      "optionen": [
+        "**micro-ROS** auf dem Mikrocontroller (z. B. mit FreeRTOS oder Zephyr), verbunden über einen Agent auf dem Linux-Rechner per UART, USB oder UDP",
+        "ROS 2 vollständig auf dem Mikrocontroller installieren",
+        "Den Mikrocontroller durch einen zweiten Linux-Rechner ersetzen"
+      ],
+      "korrekt": 0,
+      "erklaerung": "micro-ROS verwendet DDS-XRCE, eine schlanke DDS-Variante für Geräte mit wenigen KB RAM. Der Agent übersetzt in normales DDS. Alternativ schreibt man ein eigenes Protokoll mit einem Brückenknoten auf Linux. Das ist einfacher, aber man verliert die einheitlichen Werkzeuge.",
+      "begruendungen": [
+        "Richtig.",
+        "Dafür fehlen auf einem Mikrocontroller Speicher und Betriebssystem.",
+        "Das verschenkt die Echtzeitvorteile des Mikrocontrollers."
+      ]
+    }
+  ],
+  "praxis": "ROS 2 ist in Forschung und Industrie (mobile Roboter, Landmaschinen, Drohnen, autonome Fahrzeuge in der Entwicklung) Standard. Für Produkte achtet man besonders auf: Echtzeitfähige Executors, QoS bewusst wählen, Speicheranforderungen im Regelpfad vermeiden, Sicherheit mit SROS 2 und eine klare Trennung zwischen ROS-Welt und sicherheitskritischen Funktionen, die nicht von ROS abhängen dürfen.",
+  "labor": {
+    "titel": "Erste Schritte mit ROS 2",
+    "anleitung": "Starte in einem ROS-2-Docker-Container die Demo-Nodes und untersuche die Kommunikation mit den Kommandozeilenwerkzeugen.",
+    "befehle": [
+      "docker run -it --rm ros:jazzy",
+      "ros2 run demo_nodes_cpp talker &",
+      "ros2 topic list && ros2 topic echo /chatter",
+      "ros2 topic hz /chatter"
+    ],
+    "beobachtung": "`ros2 topic hz` zeigt die Rate, `ros2 node info /talker` alle Publisher und Subscriber eines Nodes. Mit `ros2 bag record /chatter` zeichnest du Daten auf und spielst sie später für Tests wieder ab."
+  },
+  "begriffe": [
+    { "begriff": "ROS 2", "englisch": "Robot Operating System 2", "erklaerung": "Framework für Robotiksoftware mit Kommunikation über Nodes und Topics." },
+    { "begriff": "Node", "englisch": "node", "erklaerung": "Eigenständige Einheit in ROS 2, die Topics, Services und Actions nutzt." },
+    { "begriff": "DDS", "englisch": "Data Distribution Service", "erklaerung": "OMG-Standard für brokerloses Publish-Subscribe mit QoS." },
+    { "begriff": "QoS", "englisch": "quality of service", "erklaerung": "Einstellungen zu Zuverlässigkeit, Pufferung und Verfügbarkeit einer Kommunikation." }
+  ],
+  "weiterlesen": [
+    { "titel": "ROS 2 Documentation", "url": "https://docs.ros.org/en/jazzy/" },
+    { "titel": "ROS 2: About Quality of Service settings", "url": "https://docs.ros.org/en/jazzy/Concepts/Intermediate/About-Quality-of-Service-Settings.html" }
+  ]
+}

@@ -1,0 +1,153 @@
+{
+  "id": "p9-m4-l2",
+  "phase": 9,
+  "modul": "9.4 Code-Reviews",
+  "titel": "Gutes Feedback geben",
+  "lernziele": [
+    "Review-Kommentare konkret, begründet und freundlich formulieren",
+    "Zwischen blockierenden und optionalen Hinweisen unterscheiden",
+    "Als Autorin oder Autor konstruktiv mit Kritik umgehen"
+  ],
+  "dauerMinuten": 5,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Welcher Review-Kommentar ist am hilfreichsten?",
+      "optionen": [
+        "„Hier kann `messwerte` leer sein, dann teilt Zeile 42 durch null. Wie wäre ein früher Return mit einer Fehlermeldung?“",
+        "„Das ist falsch.“",
+        "„Warum hast du das nicht einfach richtig gemacht?“",
+        "„LGTM“"
+      ],
+      "korrekt": 0,
+      "fest": true,
+      "erklaerung": "Der gute Kommentar sagt **wo**, **was** das Problem ist, **warum** es eines ist und schlägt eine Lösung vor, als Frage formuliert. So kann die Autorin ihn sofort verstehen und umsetzen oder begründet widersprechen.",
+      "begruendungen": [
+        "Richtig.",
+        "Ohne Begründung und Ort ist das kaum zu verwerten.",
+        "Der Kommentar richtet sich gegen die Person, nicht gegen den Code.",
+        "Ein „Looks good to me“ ohne Inhalt ist nur bei wirklich trivialen Änderungen in Ordnung."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Gutes Feedback",
+      "text": "- **Konkret**: Ort, Problem, Folge.\n- **Begründet**: Warum ist das ein Problem? Mit Verweis auf Regel, Fehlerfall oder Erfahrung.\n- **Vorschlagend**: eine Alternative oder eine Frage statt nur Kritik.\n- **Gewichtet**: klar machen, was den Merge blockiert und was eine Kleinigkeit ist.\n- **Über den Code**, nie über die Person: „Diese Funktion …“ statt „Du …“.\n- **Auch Lob**: „Schöne Lösung mit `std::expected`, das macht die Fehlerpfade viel klarer.“ Das zeigt, was man beibehalten soll."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Was bedeuten diese Präfixe in Review-Kommentaren?",
+      "paare": [
+        {
+          "links": "„Blockierend:“",
+          "rechts": "Muss vor dem Merge geändert werden"
+        },
+        {
+          "links": "„Nit:“",
+          "rechts": "Kleinigkeit, die Autorin entscheidet"
+        },
+        {
+          "links": "„Frage:“",
+          "rechts": "Verständnisfrage, keine Forderung"
+        },
+        {
+          "links": "„Vorschlag:“",
+          "rechts": "Idee zur Verbesserung, nicht zwingend"
+        }
+      ],
+      "erklaerung": "Solche Präfixe (angelehnt an *Conventional Comments*) ersparen viele Missverständnisse. Ohne sie wirkt jeder Kommentar gleich wichtig, und Autorinnen und Autoren setzen aus Unsicherheit alles um oder diskutieren über Kleinigkeiten."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Du bist Autor eines Pull Requests. Ein Reviewer verlangt eine Änderung, die du für falsch hältst. Was tust du?",
+      "optionen": [
+        "Deine Gründe sachlich erklären und nach seinen fragen. Wird es lang, kurz persönlich sprechen und das Ergebnis im PR festhalten",
+        "Die Änderung umsetzen, um Konflikte zu vermeiden",
+        "Den Kommentar ignorieren und einen anderen Reviewer suchen"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Reviews sind Gespräche, keine Befehle. Oft hat einer der beiden eine Information, die der andere nicht hat. Nach drei Runden hin und her in Kommentaren ist ein kurzes Gespräch fast immer schneller. Danach gehört das Ergebnis in den PR, damit andere es nachvollziehen können.",
+      "begruendungen": [
+        "Richtig.",
+        "Dann setzt du womöglich etwas Falsches um, und das Team lernt nichts.",
+        "Das untergräbt das Vertrauen im Team."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Geschwindigkeit zählt",
+      "text": "Ein Pull Request, der zwei Tage auf ein Review wartet, kostet mehr als die Zeit selbst: Die Autorin hat inzwischen etwas anderes begonnen, muss sich wieder einarbeiten, und die Konflikte mit `main` wachsen. Gute Teams vereinbaren, dass ein erstes Feedback am selben Arbeitstag kommt. Reviews haben dabei oft Vorrang vor eigener neuer Arbeit, denn fertige Arbeit ist wertvoller als begonnene."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Im Pull Request einer Junior-Entwicklerin findest du 20 kleine Stilfragen und ein echtes Designproblem. Wie gehst du vor?",
+      "optionen": [
+        "Das Designproblem ausführlich und freundlich erklären, die Stilfragen in einem zusammenfassenden Kommentar oder über ein Werkzeug lösen",
+        "Alle 21 Punkte einzeln kommentieren, damit nichts verloren geht",
+        "Nur die Stilfragen ansprechen, das Design kann sie später lernen"
+      ],
+      "korrekt": 0,
+      "erklaerung": "21 Kommentare erschlagen, und das Wichtige geht unter. Gerade bei Juniors ist ein Review eine Lerngelegenheit: Erkläre den einen Punkt, an dem sie am meisten lernt, gern auch im Gespräch. Wiederkehrende Stilfragen sind ein Zeichen, dass clang-format oder clang-tidy fehlen.",
+      "begruendungen": [
+        "Richtig.",
+        "Viele kleine Kommentare überdecken das eine Wichtige.",
+        "Das Designproblem ist genau das, wobei ein Review am meisten hilft."
+      ]
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze die Grundregel.",
+      "text": "Gutes Review-Feedback bezieht sich auf den {{?}}, nicht auf die {{?}}.",
+      "luecken": [
+        {
+          "loesungen": [
+            "Code"
+          ]
+        },
+        {
+          "loesungen": [
+            "Person"
+          ]
+        }
+      ],
+      "auswahl": [
+        "Code",
+        "Person",
+        "Prozess",
+        "Zeit"
+      ],
+      "erklaerung": "„Diese Funktion behandelt den leeren Fall nicht“ statt „Du hast den leeren Fall vergessen“. Inhaltlich gleich, aber die erste Formulierung lädt zur gemeinsamen Lösung ein, die zweite zur Verteidigung."
+    }
+  ],
+  "praxis": "Wie jemand Reviews schreibt, prägt die Kultur eines Teams stärker als fast alles andere. Seniors setzen hier den Ton: freundlich, konkret, gewichtet und schnell. Wenn du merkst, dass in deinem Team Reviews lange liegen bleiben oder harsch sind, ist das ein guter Anlass für eine gemeinsame Vereinbarung, z. B. über Präfixe, Antwortzeiten und die maximale Grösse von Pull Requests.",
+  "labor": {
+    "titel": "Eigene Kommentare umschreiben",
+    "anleitung": "Suche drei Review-Kommentare, die du in letzter Zeit geschrieben hast, und formuliere sie nach den Regeln dieser Lektion neu: Ort, Problem, Grund, Vorschlag, Gewichtung.",
+    "befehle": [
+      "gh api 'repos/{owner}/{repo}/pulls/comments?per_page=100' --jq '.[] | select(.user.login==\"DEIN_NAME\") | .body' | head -20"
+    ],
+    "beobachtung": "Viele Kommentare werden mit Begründung und Präfix etwas länger, brauchen aber weniger Nachfragen. Unterm Strich spart das Zeit für beide Seiten."
+  },
+  "begriffe": [
+    {
+      "begriff": "Nit",
+      "englisch": "nitpick",
+      "erklaerung": "Kleiner, optionaler Hinweis im Review, der den Merge nicht blockiert."
+    },
+    {
+      "begriff": "Conventional Comments",
+      "englisch": "conventional comments",
+      "erklaerung": "Konvention, Review-Kommentare mit Präfixen wie *Frage*, *Vorschlag* oder *Nit* zu kennzeichnen."
+    }
+  ],
+  "weiterlesen": [
+    {
+      "titel": "Google Engineering Practices: How to write code review comments",
+      "url": "https://google.github.io/eng-practices/review/reviewer/comments.html"
+    },
+    {
+      "titel": "Conventional Comments",
+      "url": "https://conventionalcomments.org/"
+    }
+  ]
+}

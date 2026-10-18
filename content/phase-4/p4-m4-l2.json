@@ -1,158 +1,182 @@
 {
   "id": "p4-m4-l2",
   "phase": 4,
-  "modul": "4.4 Performance verstehen",
-  "titel": "Profiling und Benchmarks",
+  "modul": "4.4 Sanitizer und Valgrind",
+  "titel": "ThreadSanitizer und Valgrind",
   "lernziele": [
-    "Mit einem Profiler die Stelle finden, an der Zeit verloren geht",
-    "Einen aussagekräftigen Mikrobenchmark schreiben",
-    "Den möglichen Gewinn einer Optimierung vorab abschätzen"
+    "Data Races mit ThreadSanitizer finden",
+    "Valgrind-Meldungen zu Speicherfehlern lesen",
+    "Die Werkzeuge in der CI sinnvoll kombinieren"
   ],
   "dauerMinuten": 6,
   "schritte": [
     {
-      "typ": "multiple-choice",
-      "frage": "Ein Programm ist zu langsam. Was ist der erste Schritt?",
+      "typ": "code-lesen",
+      "frage": "Was gibt dieses Programm aus?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "int zaehler = 0;",
+          "",
+          "void zaehle() { for (int i = 0; i < 100'000; ++i) ++zaehler; }",
+          "",
+          "int main() {",
+          "    std::thread a(zaehle), b(zaehle);",
+          "    a.join(); b.join();",
+          "    std::cout << zaehler;",
+          "}"
+        ]
+      },
       "optionen": [
-        "Mit einem Profiler messen, wo die Zeit tatsächlich verbraucht wird",
-        "Die Funktionen optimieren, die am kompliziertesten aussehen",
-        "Alles auf `-O3` und `-march=native` umstellen und hoffen"
+        "Genau `200000`",
+        "Meist weniger als `200000`. Das Programm hat ein Data Race und damit Undefined Behavior",
+        "Compilerfehler"
       ],
-      "korrekt": 0,
-      "erklaerung": "Die Intuition liegt bei Performance erstaunlich oft daneben. Oft verbringt ein Programm 80 % der Zeit in einem kleinen Teil des Codes, und das ist selten der, den man vermutet. Ohne Messung optimiert man an der falschen Stelle und macht dabei den Code komplizierter.",
+      "korrekt": 1,
+      "fest": true,
+      "erklaerung": "`++zaehler` besteht aus Lesen, Erhöhen und Schreiben. Laufen beide Threads gleichzeitig, überschreibt einer die Erhöhung des anderen. Ein gleichzeitiger Zugriff ohne Synchronisation, bei dem mindestens einer schreibt, heisst **Data Race** und ist Undefined Behavior. Mit `-O2` macht der Compiler vielleicht sogar `zaehler += 100000` daraus, und das Ergebnis stimmt zufällig.",
       "begruendungen": [
-        "Richtig. Erst messen, dann ändern, dann wieder messen.",
-        "Kompliziert heisst nicht langsam.",
-        "Compiler-Optionen bringen selten mehr als ein paar Prozent und verschleiern das eigentliche Problem."
+        "Nur zufällig. Garantiert ist nichts.",
+        "Richtig.",
+        "Der Code kompiliert. Das Problem zeigt sich erst zur Laufzeit."
       ]
     },
     {
       "typ": "erklaerung",
-      "titel": "Profiler",
-      "text": "Ein **Sampling-Profiler** wie `perf` (Linux) hält das Programm tausende Male pro Sekunde kurz an und notiert, wo es gerade steht. Die Verteilung zeigt die **Hotspots**. Der Aufwand ist gering, das Programm läuft fast normal schnell.\n\nWichtig: Release-Build profilieren (`-O2`), aber mit `-g` und `-fno-omit-frame-pointer`, damit Funktionsnamen und Aufrufketten sichtbar sind. `perf record -g ./app` zeichnet auf, `perf report` zeigt die Auswertung. **Flame Graphs** stellen die Aufrufketten als Grafik dar: Je breiter ein Balken, desto mehr Zeit. Weitere Werkzeuge: Intel VTune, Tracy, callgrind und Hotspot (eine grafische Oberfläche für perf)."
+      "titel": "ThreadSanitizer",
+      "text": "**ThreadSanitizer** (TSan, `-fsanitize=thread`) verfolgt zur Laufzeit, welche Speicherzugriffe durch Synchronisation geordnet sind (*happens-before*). Zwei Zugriffe ohne solche Ordnung, einer davon schreibend: Data Race. TSan meldet beide Stellen mit Stacktrace.\n\nKosten: etwa 5- bis 15-fache Laufzeit und deutlich mehr Speicher. TSan lässt sich **nicht** mit ASan kombinieren, also braucht es einen eigenen Build. TSan findet nur Races, die beim Test wirklich auftreten können. Tests mit echter Nebenläufigkeit sind deshalb wichtig."
     },
     {
       "typ": "terminal-deuten",
-      "frage": "Wo setzt du an?",
+      "frage": "Was ist die richtige Lösung?",
       "terminal": {
-        "befehl": "perf report --stdio --no-children | head",
+        "befehl": "./zaehler",
         "ausgabe": [
-          "# Overhead  Command  Shared Object  Symbol",
-          "    62.31%  app      app            [.] Parser::naechstesToken",
-          "    18.04%  app      libc.so.6      [.] __memmove_avx_unaligned_erms",
-          "     7.55%  app      app            [.] std::vector<Token>::_M_realloc_insert",
-          "     3.10%  app      app            [.] main"
+          "WARNING: ThreadSanitizer: data race (pid=4242)",
+          "  Write of size 4 at 0x55e2c3a4b010 by thread T2:",
+          "    #0 zaehle() zaehler.cpp:3",
+          "  Previous write of size 4 at 0x55e2c3a4b010 by thread T1:",
+          "    #0 zaehle() zaehler.cpp:3",
+          "  Location is global 'zaehler' of size 4 at 0x55e2c3a4b010"
         ]
       },
       "optionen": [
-        "Bei `Parser::naechstesToken`. Zudem deuten `memmove` und `_M_realloc_insert` darauf hin, dass ein Vektor ohne `reserve` wächst",
-        "Bei `main`, weil dort alles beginnt",
-        "Bei `libc.so.6`: Die C-Bibliothek ist langsam"
+        "`zaehler` als `std::atomic<int>` deklarieren oder die Zugriffe mit einem `std::mutex` schützen",
+        "`zaehler` als `volatile int` deklarieren",
+        "Den zweiten Thread mit `sleep_for` etwas später starten"
       ],
       "korrekt": 0,
-      "erklaerung": "Über 60 % in einer Funktion: Dort lohnt sich die Analyse. Interessant ist auch der Rest. `_M_realloc_insert` ist die Funktion, mit der `std::vector` beim Wachsen umzieht, und `memmove` kopiert dabei die Elemente. Zusammen 25 %, die ein einziges `reserve` vermutlich fast beseitigt.",
+      "erklaerung": "`std::atomic<int>` macht `++zaehler` zu einer unteilbaren Operation. Ein Mutex schützt ganze Abschnitte. Beides schafft die Ordnung, die TSan vermisst. Noch besser ist oft, gar nicht zu teilen: Jeder Thread zählt lokal, am Ende wird addiert. Mehr dazu in Phase 5.",
       "begruendungen": [
         "Richtig.",
-        "`main` hat nur 3 % *eigene* Zeit.",
-        "`memmove` ist hoch optimiert. Das Problem ist, dass es zu oft aufgerufen wird."
+        "Ein verbreiteter Irrtum: `volatile` verhindert nur bestimmte Optimierungen. Es macht nichts atomar und synchronisiert keine Threads.",
+        "Das verschiebt das Problem nur und macht es seltener, also noch schwerer zu finden."
       ]
     },
     {
       "typ": "erklaerung",
-      "titel": "Mikrobenchmarks",
-      "text": "Um zwei Varianten einer Funktion zu vergleichen, schreibt man einen **Mikrobenchmark**, z. B. mit Google Benchmark. Die Bibliothek wiederholt den Code so lange, bis die Messung stabil ist, und gibt Mittelwert und Streuung aus.\n\nDie grössten Fallen: Der Compiler entfernt Code, dessen Ergebnis niemand benutzt. Die Daten passen im Benchmark in den Cache, in der Realität nicht. Und der Rechner taktet während der Messung hoch oder runter. Benchmark-Ergebnisse gelten deshalb nur für ähnliche Bedingungen."
+      "titel": "Valgrind",
+      "text": "**Valgrind** führt ein unverändertes Programm in einer virtuellen CPU aus und beobachtet jeden Befehl. Neu kompilieren ist nicht nötig, praktisch für fremde Binaries. Das Werkzeug **memcheck** (Standard) findet ungültige Zugriffe, Lecks und die Verwendung nicht initialisierter Werte. Der Preis: Das Programm läuft 20- bis 50-mal langsamer.\n\nWeitere Werkzeuge: **callgrind** (Profiling: Wo wird Zeit verbraucht?), **massif** (Heap-Verbrauch über die Zeit), **helgrind** (Data Races)."
     },
     {
-      "typ": "code-lesen",
-      "frage": "`berechne` hat keine Seiteneffekte. Was misst dieser selbst gebaute Benchmark mit `-O2` vermutlich?",
-      "code": {
-        "sprache": "cpp",
-        "zeilen": [
-          "auto start = std::chrono::steady_clock::now();",
-          "for (int i = 0; i < 1'000'000; ++i) {",
-          "    berechne(i);",
-          "}",
-          "auto dauer = std::chrono::steady_clock::now() - start;"
+      "typ": "terminal-deuten",
+      "frage": "Was bedeutet diese Meldung?",
+      "terminal": {
+        "befehl": "valgrind ./pruefung",
+        "ausgabe": [
+          "==9876== Conditional jump or move depends on uninitialised value(s)",
+          "==9876==    at 0x10917B: pruefe(int) (pruefe.cpp:6)",
+          "==9876==    by 0x1091B4: main (main.cpp:4)"
         ]
       },
       "optionen": [
-        "Fast nichts: Der Compiler darf die Schleife entfernen, weil das Ergebnis nie benutzt wird",
-        "Genau die Laufzeit von einer Million Aufrufen",
-        "Die Laufzeit inklusive Kompilieren"
+        "In `pruefe.cpp` Zeile 6 hängt eine Entscheidung (z. B. ein `if`) von einem nicht initialisierten Wert ab",
+        "In Zeile 6 wird Speicher freigegeben, der nicht reserviert wurde",
+        "Das Programm hat ein Speicherleck in `main`"
       ],
       "korrekt": 0,
-      "erklaerung": "Ist `berechne` inline sichtbar und ohne Seiteneffekte, wirft der Optimierer die ganze Schleife weg. Das Ergebnis ist eine beeindruckende, aber wertlose Zahl nahe null. Deshalb gibt es in Benchmark-Bibliotheken Hilfen wie `benchmark::DoNotOptimize(x)`, die den Compiler zwingen, das Ergebnis zu berechnen.",
+      "erklaerung": "Valgrind meldet nicht initialisierte Werte erst dann, wenn sie das Verhalten beeinflussen, also bei einem Sprung oder einer Ausgabe. Den Ursprung zeigt die Option `--track-origins=yes`: Dann nennt Valgrind die Stelle, an der der Wert entstanden ist, oft eine Variable ohne Initialisierung.",
       "begruendungen": [
         "Richtig.",
-        "Nur, wenn der Compiler die Aufrufe nicht entfernen kann.",
-        "Kompiliert wird vorher, das gehört nie zur Laufzeit."
-      ]
-    },
-    {
-      "typ": "lueckentext",
-      "frage": "Ergänze den Benchmark mit Google Benchmark.",
-      "code": {
-        "sprache": "cpp",
-        "zeilen": [
-          "static void BM_Sortieren(benchmark::State& state) {",
-          "    const auto original = erzeugeZufallszahlen(state.range(0));",
-          "    for (auto _ : state) {",
-          "        auto v = original;",
-          "        std::sort(v.begin(), v.end());",
-          "        benchmark::{{?}}(v.data());",
-          "    }",
-          "}",
-          "{{?}}(BM_Sortieren)->Range(1 << 10, 1 << 20);"
-        ]
-      },
-      "luecken": [{ "loesungen": ["DoNotOptimize"] }, { "loesungen": ["BENCHMARK"] }],
-      "auswahl": ["DoNotOptimize", "BENCHMARK", "ClobberMemory", "TEST"],
-      "erklaerung": "`Range` misst für verschiedene Grössen von 1024 bis etwa einer Million. So sieht man, wie die Laufzeit mit der Datenmenge wächst. Die Kopie `auto v = original;` wird mitgemessen. Wer nur das Sortieren messen will, nimmt sie mit `state.PauseTiming()` heraus oder zieht ihre Zeit separat ab."
-    },
-    {
-      "typ": "multiple-choice",
-      "frage": "Eine Funktion braucht 5 % der Gesamtlaufzeit. Du machst sie 10-mal schneller. Um wie viel wird das Programm schneller?",
-      "optionen": ["Um etwa 4,5 %", "10-mal", "Um etwa 50 %"],
-      "korrekt": 0,
-      "fest": true,
-      "erklaerung": "Aus 5 % werden 0,5 %, eingespart sind 4,5 % der Laufzeit. Wieder das Gesetz von Amdahl: Der Gewinn einer Optimierung ist durch den Anteil des optimierten Teils begrenzt. Deshalb zuerst den Profiler fragen, welcher Teil gross ist.",
-      "begruendungen": [
-        "Richtig.",
-        "Nur die Funktion ist 10-mal schneller, nicht das ganze Programm.",
-        "Das wäre so, wenn die Funktion die Hälfte der Laufzeit ausmachte."
+        "Das wäre `Invalid free()`.",
+        "Lecks meldet Valgrind am Ende mit `definitely lost`."
       ]
     },
     {
       "typ": "zuordnen",
-      "frage": "Welches Werkzeug beantwortet welche Frage?",
+      "frage": "Welche Eigenschaft gehört zu welchem Werkzeug?",
       "paare": [
-        { "links": "`perf record` / `perf report`", "rechts": "In welchen Funktionen verbringt das Programm seine Zeit?" },
-        { "links": "Flame Graph", "rechts": "Über welche Aufrufketten entsteht die Zeit, auf einen Blick?" },
-        { "links": "Google Benchmark", "rechts": "Welche von zwei Varianten einer Funktion ist schneller?" },
-        { "links": "heaptrack oder massif", "rechts": "Wer fordert wie oft und wie viel Speicher an?" }
+        {
+          "links": "AddressSanitizer",
+          "rechts": "Speicherfehler, etwa doppelte Laufzeit, braucht Neukompilierung"
+        },
+        {
+          "links": "ThreadSanitizer",
+          "rechts": "Data Races, etwa 5- bis 15-fache Laufzeit"
+        },
+        {
+          "links": "UBSan",
+          "rechts": "Undefined Behavior wie Überläufe, geringer Aufwand"
+        },
+        {
+          "links": "Valgrind memcheck",
+          "rechts": "Ohne Neukompilierung, aber 20- bis 50-mal langsamer"
+        }
       ],
-      "erklaerung": "Ein typischer Ablauf: Profiler findet den Hotspot, Benchmark vergleicht Varianten dafür, Profiler bestätigt den Gewinn im ganzen Programm. Ein Benchmark ohne vorheriges Profiling optimiert oft eine Stelle, die gar nicht zählt."
+      "erklaerung": "Für eigenen Code sind die Sanitizer meist die erste Wahl, weil sie schneller sind und genauere Berichte liefern. Valgrind hilft bei fremden Binaries oder wenn eine Neukompilierung schwierig ist."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Wie richtest du die CI sinnvoll ein?",
+      "optionen": [
+        "Getrennte Jobs: ein normaler Build, ein Build mit ASan und UBSan, ein Build mit TSan",
+        "Ein einziger Build mit ASan und TSan zusammen",
+        "Sanitizer nur lokal, die CI baut nur Release"
+      ],
+      "korrekt": 0,
+      "erklaerung": "ASan und TSan schliessen sich aus, deshalb braucht es zwei instrumentierte Builds. Die Jobs laufen parallel, die Gesamtzeit steigt also kaum. Wichtig: Fehler der Sanitizer müssen den Job scheitern lassen (`halt_on_error=1`, `-fno-sanitize-recover=all`).",
+      "begruendungen": [
+        "Richtig.",
+        "Die Kombination wird von den Compilern abgelehnt.",
+        "Lokal vergisst man es. Die CI sorgt dafür, dass es immer passiert."
+      ]
     }
   ],
-  "praxis": "Performance-Diskussionen im Team werden mit Messungen geführt, nicht mit Meinungen. Eine gute Gewohnheit: Jeder Performance-Pull-Request enthält Vorher-nachher-Zahlen unter vergleichbaren Bedingungen. Für kritische Pfade lohnen sich Benchmarks in der CI, die bei Verschlechterungen warnen.",
+  "praxis": "Bei nebenläufigem Code ist ein TSan-Job in der CI fast Pflicht. Data Races zeigen sich sonst erst unter Last beim Kunden. Und wenn du im Review `volatile` für die Kommunikation zwischen Threads siehst, ist das ein klarer Befund: Gemeint ist fast immer `std::atomic`. Ausnahme: Speicherzugriffe auf Hardware-Register, dort ist `volatile` richtig.",
   "labor": {
-    "titel": "Einen Hotspot finden",
-    "anleitung": "Nimm ein eigenes Programm oder schreibe einen kleinen Parser, der eine grosse Datei Zeichen für Zeichen liest und Tokens in einen `std::vector` schreibt. Profiliere ihn, behebe den grössten Hotspot und miss erneut.",
+    "titel": "Ein Data Race finden und beheben",
+    "anleitung": "Baue das Zählerbeispiel mit TSan, lies den Bericht und behebe den Fehler mit `std::atomic<int>`.",
     "befehle": [
-      "g++ -O2 -g -fno-omit-frame-pointer parser.cpp -o parser",
-      "perf record -g ./parser gross.txt && perf report --stdio --no-children | head -20",
-      "git clone https://github.com/brendangregg/FlameGraph && perf script | FlameGraph/stackcollapse-perf.pl | FlameGraph/flamegraph.pl > flame.svg"
+      "g++ -std=c++20 -g -O1 -fsanitize=thread zaehler.cpp -o zaehler && ./zaehler",
+      "valgrind --leak-check=full --track-origins=yes ./pruefung"
     ],
-    "beobachtung": "Öffne `flame.svg` im Browser. Breite Balken zeigen, wo die Zeit hingeht. Ein `reserve` an der richtigen Stelle lässt `_M_realloc_insert` oft vollständig verschwinden."
+    "beobachtung": "Nach der Umstellung auf `std::atomic<int>` meldet TSan nichts mehr, und die Ausgabe ist immer 200000."
   },
   "begriffe": [
-    { "begriff": "Profiler", "englisch": "profiler", "erklaerung": "Werkzeug, das misst, wo ein Programm seine Zeit verbringt." },
-    { "begriff": "Hotspot", "englisch": "hotspot", "erklaerung": "Stelle im Code, die einen grossen Anteil der Laufzeit verbraucht." },
-    { "begriff": "Mikrobenchmark", "englisch": "microbenchmark", "erklaerung": "Gezielte Laufzeitmessung eines kleinen Code-Stücks unter kontrollierten Bedingungen." },
-    { "begriff": "Flame Graph", "englisch": "flame graph", "erklaerung": "Grafik der Aufrufketten, bei der die Breite den Anteil an der Laufzeit zeigt." }
+    {
+      "begriff": "Data Race",
+      "englisch": "data race",
+      "erklaerung": "Zwei Threads greifen ohne Synchronisation auf denselben Speicher zu, mindestens einer schreibt. Undefined Behavior."
+    },
+    {
+      "begriff": "ThreadSanitizer",
+      "englisch": "ThreadSanitizer, TSan",
+      "erklaerung": "Laufzeitprüfung, die Data Races mit beiden beteiligten Stellen meldet."
+    },
+    {
+      "begriff": "Valgrind",
+      "englisch": "Valgrind",
+      "erklaerung": "Werkzeugsammlung, die Programme ohne Neukompilierung auf Speicherfehler, Lecks und mehr untersucht."
+    }
   ],
   "weiterlesen": [
-    { "titel": "Brendan Gregg: perf Examples", "url": "https://www.brendangregg.com/perf.html" },
-    { "titel": "Google Benchmark: User Guide", "url": "https://github.com/google/benchmark/blob/main/docs/user_guide.md" }
+    {
+      "titel": "Clang: ThreadSanitizer",
+      "url": "https://clang.llvm.org/docs/ThreadSanitizer.html"
+    },
+    {
+      "titel": "Valgrind: Memcheck Manual",
+      "url": "https://valgrind.org/docs/manual/mc-manual.html"
+    }
   ]
 }

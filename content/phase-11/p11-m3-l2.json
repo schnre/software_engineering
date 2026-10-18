@@ -1,0 +1,127 @@
+{
+  "id": "p11-m3-l2",
+  "phase": 11,
+  "modul": "11.3 Komponenten, Plugins und Pipelines",
+  "titel": "Pipes & Filters und Datenflussarchitekturen",
+  "lernziele": [
+    "Eine Verarbeitungskette in unabhängige Filter zerlegen",
+    "Puffer, Gegendruck und Taktung zwischen Filtern gestalten",
+    "Pipelines auf mehrere Kerne verteilen"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "reihenfolge",
+      "frage": "Eine Vibrationsüberwachung soll als Pipeline gebaut werden. Bringe die Filter in eine sinnvolle Reihenfolge.",
+      "elemente": [
+        "ADC-Werte per DMA erfassen",
+        "Tiefpass und Dezimierung",
+        "Fensterung und FFT",
+        "Merkmale berechnen (Amplituden in Frequenzbändern)",
+        "Grenzwerte prüfen und Alarm melden"
+      ],
+      "erklaerung": "Jeder Filter hat eine klare Eingabe und Ausgabe und weiss nichts von den anderen. So kann man jeden einzeln mit aufgezeichneten Daten testen, austauschen oder auf einen anderen Kern verschieben."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Ordne die Begriffe zu.",
+      "paare": [
+        { "links": "Filter", "rechts": "Verarbeitungsschritt mit Eingabe und Ausgabe, ohne Wissen über Nachbarn" },
+        { "links": "Pipe", "rechts": "Puffer oder Queue zwischen zwei Filtern" },
+        { "links": "Quelle", "rechts": "Erster Filter, erzeugt Daten, z. B. Sensor oder Datei" },
+        { "links": "Senke", "rechts": "Letzter Filter, verbraucht Daten, z. B. Anzeige oder Netzwerk" }
+      ],
+      "erklaerung": "Die Unix-Shell ist das bekannteste Beispiel: `cat log | grep ERROR | sort | uniq -c`. Jedes Programm ist ein Filter, die Pipes verbindet das Betriebssystem."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Die FFT-Stufe ist langsamer als die Erfassung. Was passiert ohne Gegenmassnahme?",
+      "optionen": [
+        "Die Pipe vor der FFT läuft voll. Dann gehen Daten verloren oder die Quelle muss gebremst werden",
+        "Die FFT wird automatisch schneller",
+        "Nichts, Pipes sind unendlich gross"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Das Thema heisst **Gegendruck** (*backpressure*): Wie erfährt eine schnelle Quelle, dass die Verarbeitung nicht nachkommt? Möglichkeiten sind Blockieren beim Schreiben, Verwerfen mit Zähler, Dezimieren oder eine schnellere Implementierung. Bei Echtzeitdaten von Sensoren kann man die Quelle oft nicht bremsen. Dann muss die Pipeline im schlechtesten Fall schnell genug sein.",
+      "begruendungen": [
+        "Richtig.",
+        "Die Laufzeit eines Filters ändert sich nicht von selbst.",
+        "Puffer haben immer eine feste Grösse, besonders auf Mikrocontrollern."
+      ]
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Was ist der Vorteil dieser Filter-Schnittstelle?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "template <typename T>",
+          "concept Filter = requires(T f, std::span<const float> ein, std::span<float> aus) {",
+          "    { f.verarbeite(ein, aus) } -> std::same_as<std::size_t>;",
+          "};",
+          "",
+          "class Tiefpass {",
+          "public:",
+          "    std::size_t verarbeite(std::span<const float> ein, std::span<float> aus);",
+          "private:",
+          "    float zustand_ = 0.0f;",
+          "};"
+        ]
+      },
+      "optionen": [
+        "Filter arbeiten blockweise auf fremden Puffern, ohne selbst Speicher anzufordern. Sie sind mit aufgezeichneten Daten testbar und lassen sich statisch verketten",
+        "Jeder Filter läuft automatisch in einem eigenen Thread",
+        "Die Filter müssen voneinander erben"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Blockweise Verarbeitung (z. B. 64 Werte auf einmal) ist viel effizienter als Wert für Wert: weniger Aufrufe, bessere Cache-Nutzung, SIMD möglich. Die Rückgabe sagt, wie viele Ausgabewerte entstanden sind. Bei Dezimierung sind das weniger als Eingabewerte.",
+      "begruendungen": [
+        "Richtig.",
+        "Die Zuordnung zu Threads ist eine eigene Entscheidung.",
+        "Das Concept verlangt keine Basisklasse."
+      ]
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Ein Linux-System mit vier Kernen verarbeitet Kamerabilder in fünf Stufen. Wie nutzt man die Kerne am besten?",
+      "optionen": [
+        "Jede Stufe als eigener Thread mit Queue dazwischen (**Pipelining**): Während Stufe 3 Bild n bearbeitet, bearbeitet Stufe 2 schon Bild n+1",
+        "Alle fünf Stufen nacheinander in einem Thread, aber viermal gleichzeitig",
+        "Mehr Kerne bringen bei Pipelines nichts"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Pipelining erhöht den Durchsatz, die Latenz pro Bild bleibt gleich oder steigt leicht. Der Durchsatz wird durch die langsamste Stufe begrenzt. Diese kann man zusätzlich parallelisieren. Frameworks wie Intel TBB (`parallel_pipeline`) oder GStreamer übernehmen viel davon. Auch Variante B kann sinnvoll sein, wenn die Reihenfolge der Bilder egal ist.",
+      "begruendungen": [
+        "Richtig.",
+        "Das geht, wenn die Reihenfolge egal ist, braucht aber viermal so viel Speicher für Zwischenergebnisse.",
+        "Gerade Pipelines lassen sich gut verteilen."
+      ]
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze.",
+      "text": "Der Durchsatz einer Pipeline wird durch die {{?}} Stufe begrenzt. Wenn eine Quelle schneller ist als die Verarbeitung, spricht man von {{?}}.",
+      "luecken": [{ "loesungen": ["langsamste"] }, { "loesungen": ["Gegendruck"] }],
+      "auswahl": ["langsamste", "Gegendruck", "schnellste", "Polling"],
+      "erklaerung": "Darum misst man in jeder Pipeline zuerst die Laufzeit jeder Stufe und die Füllstände der Puffer."
+    }
+  ],
+  "praxis": "Datenflussarchitekturen sind in Mess-, Audio-, Bild- und Regelungssystemen zentral. Gute Pipelines haben messbare Stufen (Laufzeit, Füllstand, verworfene Daten), klar definierte Datenformate zwischen den Stufen und Testdaten, mit denen man jeden Filter einzeln prüfen kann. In der Signalverarbeitung lohnt es sich, Filter in Python zu entwerfen und die C++-Implementierung gegen dieselben Testvektoren zu prüfen.",
+  "labor": {
+    "titel": "Eine Pipeline mit Threads",
+    "anleitung": "Baue drei Stufen (Erzeugen, Filtern, Auswerten) als Threads, verbunden über eine begrenzte, threadsichere Queue. Miss den Durchsatz und mach eine Stufe künstlich langsamer.",
+    "befehle": [
+      "g++ -std=c++20 -O2 -pthread pipeline.cpp -o pipeline",
+      "./pipeline"
+    ],
+    "beobachtung": "Der Durchsatz sinkt auf den der langsamsten Stufe, die Queue davor bleibt voll, die Queues danach leer. Genau dieses Muster sucht man in echten Systemen."
+  },
+  "begriffe": [
+    { "begriff": "Pipes & Filters", "englisch": "pipes and filters", "erklaerung": "Architekturstil, bei dem Daten durch eine Kette unabhängiger Verarbeitungsschritte fliessen." },
+    { "begriff": "Gegendruck", "englisch": "backpressure", "erklaerung": "Signal oder Mechanismus, mit dem eine überlastete Stufe ihre Quelle bremst." },
+    { "begriff": "Pipelining", "englisch": "pipelining", "erklaerung": "Gleichzeitige Bearbeitung aufeinanderfolgender Daten in verschiedenen Stufen." }
+  ],
+  "weiterlesen": [
+    { "titel": "GStreamer: Application Development Manual", "url": "https://gstreamer.freedesktop.org/documentation/application-development/index.html" }
+  ]
+}

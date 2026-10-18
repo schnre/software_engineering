@@ -1,123 +1,169 @@
 {
   "id": "p8-m1-l2",
   "phase": 8,
-  "modul": "8.1 Technische Schulden und Refactoring",
-  "titel": "Sicher umbauen in Legacy-Code",
+  "modul": "8.1 Continuous Integration und Deployment",
+  "titel": "Continuous Delivery und Deployment",
   "lernziele": [
-    "Legacy-Code mit Nähten testbar machen",
-    "Einen Umbau in kleinen, sicheren Schritten planen",
-    "Schrittweise Ablösung einem Neuschreiben vorziehen"
+    "Continuous Delivery und Continuous Deployment unterscheiden",
+    "Das Prinzip „einmal bauen, mehrfach ausliefern“ erklären",
+    "Eine Auslieferungs-Pipeline in Stufen gliedern"
   ],
   "dauerMinuten": 6,
   "schritte": [
     {
       "typ": "multiple-choice",
-      "frage": "Michael Feathers definiert Legacy-Code ganz knapp. Wie?",
+      "frage": "Was ist der Unterschied zwischen **Continuous Delivery** und **Continuous Deployment**?",
       "optionen": [
-        "Code ohne Tests",
-        "Code, der älter als fünf Jahre ist",
-        "Code in einer veralteten Programmiersprache"
+        "Bei Delivery ist jede Änderung jederzeit auslieferbar, ausgeliefert wird per Entscheidung. Bei Deployment geht jede grüne Änderung automatisch in Produktion",
+        "Das sind zwei Namen für dasselbe",
+        "Delivery betrifft nur Embedded-Systeme, Deployment nur Web-Anwendungen"
       ],
       "korrekt": 0,
-      "erklaerung": "Nach Feathers ist nicht das Alter entscheidend, sondern ob man den Code sicher ändern kann. Ohne Tests weiss man nach jeder Änderung nicht, ob noch alles funktioniert. Auch Code von gestern kann so schon Legacy sein.",
+      "erklaerung": "Beide setzen CI voraus und automatisieren den Weg bis zum auslieferbaren Artefakt. Der Unterschied liegt im letzten Schritt: ein Knopfdruck nach einer bewussten Entscheidung (Delivery) oder vollautomatisch (Deployment). Die Abkürzung „CD“ wird für beides verwendet.",
       "begruendungen": [
         "Richtig.",
-        "Alter Code mit guten Tests lässt sich problemlos ändern.",
-        "Auch modernes C++ ohne Tests ist nach dieser Definition Legacy."
+        "Der letzte Schritt unterscheidet sich.",
+        "Beide Ansätze gibt es in allen Bereichen."
       ]
     },
     {
       "typ": "erklaerung",
-      "titel": "Nähte",
-      "text": "Um Legacy-Code zu testen, muss man oft Abhängigkeiten ersetzen, ohne viel Code zu ändern. Dafür braucht es eine **Naht** (seam): eine Stelle, an der man das Verhalten austauschen kann, ohne den Code dort zu bearbeiten.\n\nDas Vorgehen nach Feathers:\n1. Die Stelle finden, die geändert werden soll.\n2. Eine Stelle finden, an der man das Verhalten prüfen kann.\n3. Abhängigkeiten aufbrechen, also eine Naht schaffen.\n4. Charakterisierungstests schreiben (Modul 3.2).\n5. Ändern und aufräumen, gesichert durch die Tests."
+      "titel": "Von Commit bis Produktion",
+      "text": "Eine Auslieferungs-Pipeline (*delivery pipeline*) führt jede Änderung durch eine Reihe von Stufen. Jede Stufe erhöht das Vertrauen und kostet mehr Zeit. Wichtig ist das Prinzip **einmal bauen**: Das Artefakt, also das Binary, Paket oder Image, entsteht genau einmal. Danach wird es durch die Stufen **befördert**, statt in jeder Stufe neu gebaut zu werden. So ist das ausgelieferte Artefakt bitgenau das, was getestet wurde."
     },
     {
       "typ": "zuordnen",
-      "frage": "Welche Art von Naht ist das?",
+      "frage": "Ordne die Begriffe zu.",
       "paare": [
-        { "links": "Objekt-Naht", "rechts": "Abhängigkeit über eine Schnittstelle oder virtuelle Funktion ersetzbar machen" },
-        { "links": "Link-Naht", "rechts": "Im Test-Build eine andere Implementierungsdatei linken" },
-        { "links": "Parameter-Naht", "rechts": "Die Abhängigkeit als Parameter übergeben statt sie intern zu holen" },
-        { "links": "Präprozessor-Naht", "rechts": "Per Makro im Test anderes Verhalten einschalten, der letzte Ausweg" }
+        {
+          "links": "Continuous Integration",
+          "rechts": "Jede Änderung wird automatisch gebaut und getestet"
+        },
+        {
+          "links": "Continuous Delivery",
+          "rechts": "Jede Änderung ist jederzeit auslieferbar, die Auslieferung erfolgt per Knopfdruck"
+        },
+        {
+          "links": "Continuous Deployment",
+          "rechts": "Jede grüne Änderung geht automatisch in Produktion"
+        },
+        {
+          "links": "Release",
+          "rechts": "Eine Version wird für Nutzer verfügbar gemacht"
+        }
       ],
-      "erklaerung": "Die Link-Naht ist bei C-artigem Legacy-Code mit freien Funktionen oft der einfachste Einstieg: Gleicher Header, im Test eine andere `.cpp`. Das kennst du von der HAL-Auswahl zur Link-Zeit in Modul 7.2."
-    },
-    {
-      "typ": "reihenfolge",
-      "frage": "Bringe das Vorgehen nach Feathers in die richtige Reihenfolge.",
-      "elemente": [
-        "Änderungsstelle finden",
-        "Prüfstelle für das Verhalten finden",
-        "Abhängigkeiten aufbrechen (Naht schaffen)",
-        "Charakterisierungstests schreiben",
-        "Ändern und aufräumen"
-      ],
-      "erklaerung": "Das Aufbrechen der Abhängigkeiten passiert noch **ohne** Tests. Deshalb nimmt man dafür möglichst einfache, mechanische Schritte, die das Verhalten nicht ändern können, z. B. die automatischen Refactorings der IDE."
+      "erklaerung": "Deployment und Release lassen sich trennen: Neuer Code kann ausgeliefert, aber per Feature Flag noch abgeschaltet sein. Freigeschaltet wird dann für einzelne Kunden oder schrittweise."
     },
     {
       "typ": "multiple-choice",
-      "frage": "Du sollst eine Funktion mit 600 Zeilen ohne Tests ändern. Welcher erste Umbau ist am sichersten?",
+      "frage": "Warum baut man das Artefakt nur einmal und befördert es durch Test- und Produktionsstufe, statt es für jede Stufe neu zu bauen?",
       "optionen": [
-        "Mit dem automatischen Refactoring der IDE einen in sich geschlossenen Block in eine eigene Funktion auslagern und einzeln committen",
-        "Die ganze Funktion neu schreiben, so wie sie sein sollte",
-        "Gleichzeitig die Logik korrigieren und die Struktur verbessern"
+        "Damit das ausgelieferte Artefakt exakt das ist, das getestet wurde",
+        "Weil Bauen teuer ist und Lizenzen kostet",
+        "Weil die Produktionsumgebung keinen Compiler hat"
       ],
       "korrekt": 0,
-      "erklaerung": "Werkzeug-gestützte Refactorings wie *Extract Function* oder *Rename* verändern das Verhalten nachweislich nicht. Jeder kleine Schritt ist einzeln prüfbar und einzeln rückgängig zu machen. Struktur- und Verhaltensänderungen gehören in getrennte Commits.",
+      "erklaerung": "Ein neuer Build kann sich unterscheiden: andere Abhängigkeitsversion, anderer Compiler auf dem Agent, andere Umgebungsvariablen. Dann wäre das ausgelieferte Binary nie getestet worden. Konfiguration, die je Umgebung variiert, wird deshalb ausserhalb des Artefakts gehalten, z. B. in Konfigurationsdateien oder Umgebungsvariablen.",
       "begruendungen": [
         "Richtig.",
-        "Ohne Tests gehen dabei fast sicher Sonderfälle verloren.",
-        "Geht dann etwas kaputt, weiss niemand, welche der beiden Änderungen schuld war."
+        "Zeit spart man auch, der Hauptgrund ist aber die Gewissheit.",
+        "Das trifft oft zu, ist aber nicht der Grund."
       ]
     },
     {
       "typ": "erklaerung",
-      "titel": "Schrittweise ablösen",
-      "text": "Für ganze Subsysteme gibt es das Muster **Strangler Fig** (Würgefeige): Das neue System wächst neben dem alten. Eine Facade (Modul 7.4) leitet Aufrufe weiter, zuerst alle ans alte System, dann Funktion für Funktion ans neue. Irgendwann wird das alte nicht mehr aufgerufen und kann gelöscht werden.\n\nDer Vorteil gegenüber einem Neuschreiben: Das System ist jederzeit lieferbar, jeder Schritt ist klein, und das Risiko bleibt beherrschbar."
+      "titel": "Und bei Geräten?",
+      "text": "Bei Firmware für Fahrzeuge, Medizingeräte oder Industrieanlagen geht selten jeder Commit automatisch ins Feld. Continuous **Delivery** ist trotzdem erreichbar: Jeder Stand auf `main` erzeugt ein signiertes, versioniertes Firmware-Paket, das automatisch auf Prüfständen getestet wird und jederzeit freigegeben werden könnte. Ausgeliefert wird per Over-the-Air-Update (OTA), oft schrittweise (*staged rollout*): erst an wenige Geräte, dann an alle, mit der Möglichkeit, zurückzurollen."
+    },
+    {
+      "typ": "reihenfolge",
+      "frage": "Bringe die Stufen einer typischen Auslieferungs-Pipeline in die richtige Reihenfolge.",
+      "elemente": [
+        "Commit und Push",
+        "Build und Unit-Tests",
+        "Statische Analyse und Integrationstests",
+        "Artefakt versionieren und ablegen",
+        "Auslieferung in eine Testumgebung und Systemtests",
+        "Freigabe und Auslieferung in Produktion"
+      ],
+      "erklaerung": "Schnelle, billige Prüfungen kommen zuerst (*fail fast*). Ab Schritt 4 wird nicht mehr gebaut, sondern dasselbe Artefakt weitergereicht."
     },
     {
       "typ": "multiple-choice",
-      "frage": "Das Team will ein zehn Jahre altes Subsystem komplett neu schreiben. Was ist das grösste Risiko?",
+      "frage": "Wozu dient ein Feature Flag in einer Continuous-Delivery-Umgebung?",
       "optionen": [
-        "Die Neuentwicklung dauert viel länger als geplant, das alte System muss parallel weiter gepflegt werden, und unzählige Sonderfälle gehen verloren",
-        "Neuer Code ist immer langsamer",
-        "Es gibt kein Risiko, neuer Code ist immer besser"
+        "Unfertigen Code in den Hauptzweig integrieren und ausliefern, ohne ihn für Nutzer zu aktivieren",
+        "Kennzeichnen, welche Commits Features und welche Bugfixes sind",
+        "Den Build für bestimmte Features beschleunigen"
       ],
       "korrekt": 0,
-      "erklaerung": "Alter Code enthält zehn Jahre Wissen über Sonderfälle, Kundenwünsche und Hardware-Eigenheiten, oft undokumentiert. Grosse Neuschreib-Projekte scheitern deshalb häufig oder liefern Jahre später ein System mit neuen Fehlern. Schrittweise Ablösung ist fast immer die sicherere Wahl.",
+      "erklaerung": "Ohne Feature Flags müsste man unfertige Funktionen auf langen Branches halten, und das widerspricht CI. Der Preis: Flags erhöhen die Komplexität und müssen nach dem Abschluss wieder entfernt werden, sonst entsteht ein Dickicht aus toten Schaltern.",
       "begruendungen": [
         "Richtig.",
-        "Um die Geschwindigkeit geht es selten.",
-        "Neuer Code hat neue, noch unbekannte Fehler."
+        "Dafür gibt es Commit-Konventionen oder Labels.",
+        "Flags wirken zur Laufzeit, nicht beim Bauen."
       ]
     },
     {
       "typ": "lueckentext",
-      "frage": "Ergänze den Namen des Musters.",
-      "text": "Beim Muster {{?}} wird ein Altsystem schrittweise ersetzt: Neue Funktionen entstehen daneben, und Aufrufe werden Stück für Stück umgeleitet.",
-      "luecken": [{ "loesungen": ["Strangler Fig"] }],
-      "auswahl": ["Strangler Fig", "Big Bang", "Singleton", "Observer"],
-      "erklaerung": "Martin Fowler hat den Namen nach Würgefeigen gewählt, die an einem Baum emporwachsen, bis sie ihn ersetzen. Das Gegenstück, alles auf einmal umzustellen, heisst *Big Bang* und ist berüchtigt."
+      "frage": "Ergänze die Begriffe.",
+      "text": "Bei Continuous {{?}} geht jede Änderung, die alle Prüfungen besteht, automatisch in Produktion. Bei Continuous {{?}} ist sie jederzeit auslieferbar, ausgeliefert wird aber auf Entscheidung.",
+      "luecken": [
+        {
+          "loesungen": [
+            "Deployment"
+          ]
+        },
+        {
+          "loesungen": [
+            "Delivery"
+          ]
+        }
+      ],
+      "auswahl": [
+        "Deployment",
+        "Delivery",
+        "Integration",
+        "Testing"
+      ],
+      "erklaerung": "Merkhilfe: *Deployment* ist der Vorgang des Ausrollens. Bei Continuous Deployment passiert er ständig und von selbst."
     }
   ],
-  "praxis": "Fast jeder Senior arbeitet an Legacy-Code, das ist der Normalfall, nicht die Ausnahme. Die Fähigkeit, in fremdem, ungetestetem Code sicher kleine Schritte zu machen, ist deshalb eine der wertvollsten überhaupt. Wenn im Team der Ruf nach „alles neu“ laut wird, hilfst du, einen schrittweisen Weg zu finden, und zeigst mit einem ersten kleinen Erfolg, dass er funktioniert.",
+  "praxis": "Frag in jedem Projekt: Wie lange dauert es vom Commit bis zur Auslieferung, und wie viele manuelle Schritte liegen dazwischen? Jeder manuelle Schritt ist eine Fehlerquelle und ein Engpass. Ein Senior hilft, diese Strecke zu automatisieren und das Prinzip „einmal bauen“ durchzusetzen, besonders dort, wo heute noch jemand „schnell auf seinem Rechner das Release baut“.",
   "labor": {
-    "titel": "Eine Naht schaffen",
-    "anleitung": "Nimm eine Funktion, die direkt eine Datei liest oder die Uhrzeit abfragt. Schaffe eine Parameter-Naht: Die Abhängigkeit wird als Parameter mit Standardwert übergeben. Schreibe dann einen Charakterisierungstest.",
+    "titel": "Den Weg eines Releases nachzeichnen",
+    "anleitung": "Nimm ein Projekt aus deinem Alltag und zeichne auf, welche Schritte zwischen einem Commit und der Auslieferung liegen. Markiere die manuellen Schritte und notiere, wie lange jeder dauert.",
     "befehle": [
-      "git switch -c naht-schaffen",
-      "git commit -am 'Übergib Zeitquelle als Parameter (keine Verhaltensänderung)'",
-      "git commit -am 'Füge Charakterisierungstest für berichtErstellen hinzu'"
+      "git log --tags --simplify-by-decoration --pretty='%ad %d' --date=short | head"
     ],
-    "beobachtung": "Mit einem Standardwert für den neuen Parameter müssen bestehende Aufrufer nicht geändert werden. Nur der Test übergibt eine eigene Zeitquelle. Zwei kleine Commits, beide leicht zu reviewen."
+    "beobachtung": "Der Befehl zeigt, wie oft bisher released wurde. Lange Abstände zwischen Releases deuten meist auf viele manuelle Schritte oder fehlendes Vertrauen in die automatischen Prüfungen hin."
   },
   "begriffe": [
-    { "begriff": "Legacy-Code", "englisch": "legacy code", "erklaerung": "Nach Michael Feathers: Code ohne Tests, unabhängig vom Alter." },
-    { "begriff": "Naht", "englisch": "seam", "erklaerung": "Stelle, an der man Verhalten austauschen kann, ohne den Code dort zu ändern." },
-    { "begriff": "Strangler Fig", "englisch": "strangler fig pattern", "erklaerung": "Schrittweise Ablösung eines Altsystems, indem Funktionen nach und nach in ein neues verlagert werden." }
+    {
+      "begriff": "Continuous Delivery",
+      "englisch": "continuous delivery",
+      "erklaerung": "Jede Änderung ist jederzeit auslieferbar. Ausgeliefert wird per Entscheidung und Knopfdruck."
+    },
+    {
+      "begriff": "Continuous Deployment",
+      "englisch": "continuous deployment",
+      "erklaerung": "Jede Änderung, die alle Prüfungen besteht, geht automatisch in Produktion."
+    },
+    {
+      "begriff": "Artefakt",
+      "englisch": "artifact",
+      "erklaerung": "Ergebnis eines Builds, das ausgeliefert wird: Binary, Paket, Firmware-Image oder Container-Image."
+    },
+    {
+      "begriff": "Staged Rollout",
+      "englisch": "staged rollout",
+      "erklaerung": "Schrittweise Auslieferung, erst an wenige Nutzer oder Geräte, dann an alle."
+    }
   ],
   "weiterlesen": [
-    { "titel": "Martin Fowler: StranglerFigApplication", "url": "https://martinfowler.com/bliki/StranglerFigApplication.html" },
-    { "titel": "Refactoring.com: Catalog of Refactorings", "url": "https://refactoring.com/catalog/" }
+    {
+      "titel": "Martin Fowler: Continuous Delivery",
+      "url": "https://martinfowler.com/bliki/ContinuousDelivery.html"
+    }
   ]
 }

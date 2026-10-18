@@ -1,128 +1,143 @@
 {
   "id": "p6-m3-l1",
   "phase": 6,
-  "modul": "6.3 Abhängigkeiten managen",
-  "titel": "Dependency Injection",
+  "modul": "6.3 Takt, GPIO und Timer",
+  "titel": "Takt und GPIO",
   "lernziele": [
-    "Erklären, was Dependency Injection ist und welches Problem sie löst",
-    "Konstruktor-, Setter- und Template-Injektion unterscheiden",
-    "Versteckte Abhängigkeiten durch globale Zugriffe erkennen"
+    "Erklären, warum jede Peripherie zuerst ihren Takt braucht",
+    "Die Betriebsarten eines GPIO-Pins unterscheiden",
+    "Typische Fehler bei Eingängen wie fehlende Pull-ups und Prellen erkennen"
   ],
-  "dauerMinuten": 6,
+  "dauerMinuten": 7,
   "schritte": [
     {
       "typ": "multiple-choice",
-      "frage": "Was bedeutet **Dependency Injection**?",
+      "frage": "Du konfigurierst PA5 als Ausgang und setzt den Pin. Die LED bleibt dunkel, und die GPIO-Register lesen sich im Debugger immer als 0. Was ist die wahrscheinlichste Ursache?",
       "optionen": [
-        "Ein Objekt erzeugt seine Abhängigkeiten nicht selbst, sondern bekommt sie von aussen übergeben",
-        "Ein Framework fügt zur Laufzeit automatisch Code in Klassen ein",
-        "Abhängigkeiten werden per `#include` in jede Datei eingefügt"
+        "Der Takt für GPIO-Port A ist im RCC nicht eingeschaltet",
+        "Die LED ist kaputt",
+        "GPIO-Register kann man im Debugger grundsätzlich nicht lesen"
       ],
       "korrekt": 0,
-      "erklaerung": "Statt `I2cSensor sensor(0x48);` im Inneren bekommt der `Regler` im Konstruktor eine Referenz auf irgendein `ITemperaturSensor`. Wer was benutzt, entscheidet dann eine Stelle ausserhalb. Das macht Klassen austauschbar und testbar. In C++ braucht man dafür kein Framework, ein Konstruktor genügt.",
+      "erklaerung": "Um Strom zu sparen, sind nach dem Reset fast alle Peripherie-Takte **aus**. Ohne Takt ignoriert der Port jeden Schreibzugriff, und Lesen liefert 0. Der erste Schritt jeder Initialisierung ist deshalb das Einschalten des Takts, beim STM32 im *Reset and Clock Control* (RCC).",
       "begruendungen": [
-        "Richtig.",
-        "Es gibt solche Frameworks, sie sind für die Idee aber nicht nötig.",
-        "Includes machen Deklarationen bekannt, sie verdrahten keine Objekte."
+        "Richtig. Einer der häufigsten Anfängerfehler.",
+        "Möglich, aber dann liessen sich die Register trotzdem schreiben und lesen.",
+        "Der Debugger kann Register lesen, sofern die Peripherie getaktet ist."
       ]
     },
     {
       "typ": "erklaerung",
-      "titel": "Formen der Injektion",
-      "text": "- **Konstruktor-Injektion**: Abhängigkeiten als Konstruktorparameter. Das Objekt ist nach dem Erzeugen vollständig. Erste Wahl.\n- **Setter-Injektion**: nachträglich setzen. Nur für optionale Abhängigkeiten, weil das Objekt zwischendurch unvollständig ist.\n- **Template-Parameter**: Die Abhängigkeit wird zur Kompilierzeit festgelegt, ohne virtuelle Aufrufe. Beliebt in Embedded-Code.\n\nVerdrahtet wird an einer zentralen Stelle, der **Composition Root**, meist in `main()`. Dort entstehen die konkreten Objekte und werden zusammengesteckt. Alle anderen Klassen kennen nur Schnittstellen."
+      "titel": "Der Taktbaum",
+      "text": "Takte entstehen aus Oszillatoren: einem internen RC-Oszillator (HSI, schnell bereit, aber ungenau), einem externen Quarz (HSE, genau) und oft einem 32,768-kHz-Uhrenquarz (LSE) für die Echtzeituhr. Eine **PLL** vervielfacht einen Takt auf die Systemfrequenz, etwa 168 MHz. Teiler (*prescaler*) leiten daraus die Bustakte ab.\n\nWer die Takte falsch einstellt, bekommt merkwürdige Folgefehler: Baudraten stimmen nicht, Timer laufen zu schnell, USB funktioniert nicht. Werkzeuge wie STM32CubeMX zeigen den Taktbaum grafisch und rechnen die Teiler aus."
     },
     {
-      "typ": "lueckentext",
-      "frage": "Ergänze die Composition Root: Hier werden die konkreten Objekte erzeugt und an den Regler übergeben.",
-      "code": {
-        "sprache": "cpp",
-        "datei": "main.cpp",
+      "typ": "erklaerung",
+      "titel": "Betriebsarten eines Pins",
+      "tabelle": {
+        "kopf": ["Modus", "Wofür"],
         "zeilen": [
-          "int main() {",
-          "    I2cTemperaturSensor sensor(0x48);",
-          "    RelaisHeizung heizung(17);",
-          "    Regler regler({{?}}, {{?}}, 21.0);",
-          "    regler.laufe();",
-          "}"
+          ["Eingang (floating, Pull-up, Pull-down)", "Taster, digitale Signale"],
+          ["Ausgang Push-Pull", "treibt aktiv High und Low, z. B. LED"],
+          ["Ausgang Open-Drain", "zieht nur nach Low, High über Widerstand, z. B. I²C"],
+          ["Alternativfunktion", "Pin wird von UART, SPI, Timer … gesteuert"],
+          ["Analog", "für ADC oder DAC, digitale Eingangsstufe aus"]
         ]
       },
-      "luecken": [{ "loesungen": ["sensor"] }, { "loesungen": ["heizung"] }],
-      "auswahl": ["sensor", "heizung", "nullptr", "Regler"],
-      "erklaerung": "Der Regler bekommt Referenzen auf Objekte, die in `main` leben und ihn überleben. Im Test steht an derselben Stelle ein `MockSensor` und eine `FakeHeizung`. Der Regler merkt keinen Unterschied."
+      "text": "Dazu kommt die **Flankensteilheit** (speed). Schnellere Einstellungen erzeugen mehr Störungen, also nur so schnell wie nötig."
     },
     {
       "typ": "zuordnen",
-      "frage": "Ordne zu.",
+      "frage": "Welcher Modus passt?",
       "paare": [
-        { "links": "Konstruktor-Injektion", "rechts": "Abhängigkeiten beim Erzeugen übergeben, das Objekt ist danach vollständig" },
-        { "links": "Setter-Injektion", "rechts": "Abhängigkeit nachträglich setzen, das Objekt kann zwischendurch unvollständig sein" },
-        { "links": "Template-Parameter", "rechts": "Abhängigkeit zur Kompilierzeit festlegen, ohne virtuelle Aufrufe" },
-        { "links": "Composition Root", "rechts": "Zentrale Stelle, meist `main`, an der alle Objekte verdrahtet werden" }
+        { "links": "Push-Pull", "rechts": "Treibt aktiv High und Low" },
+        { "links": "Open-Drain", "rechts": "Zieht nur nach Low, High kommt über einen Pull-up, z. B. bei I²C" },
+        { "links": "Eingang mit Pull-up", "rechts": "Definierter High-Pegel, solange der Taster gegen Masse offen ist" },
+        { "links": "Alternativfunktion", "rechts": "Der Pin wird von einer Peripherie wie UART oder SPI gesteuert" },
+        { "links": "Analog", "rechts": "Pin für den ADC, digitale Eingangsstufe abgeschaltet" }
       ],
-      "erklaerung": "Template-Injektion sieht so aus: `template <typename Sensor> class Regler { Sensor& sensor_; … };`. Im Produkt ist `Sensor` der echte Treiber, im Test ein Fake. Der Compiler kann alles inlinen, kostet aber längere Kompilierzeit und den Code im Header."
-    },
-    {
-      "typ": "code-lesen",
-      "frage": "Was ist das Problem dieses Codes für Tests?",
-      "code": {
-        "sprache": "cpp",
-        "zeilen": [
-          "void Bericht::erstelle() {",
-          "    auto daten = Datenbank::instanz().lade(\"messwerte\");",
-          "    ...",
-          "}"
-        ]
-      },
-      "optionen": [
-        "`Bericht` hängt versteckt von einer globalen Datenbank ab. Ein Test kann sie nicht ersetzen und spricht mit der echten",
-        "`instanz()` ist langsam",
-        "Kein Problem, Singletons sind für Datenbanken gedacht"
-      ],
-      "korrekt": 0,
-      "erklaerung": "Von aussen sieht `Bericht` aus, als bräuchte es nichts. Die Abhängigkeit steckt in der Implementierung. Solche **versteckten Abhängigkeiten** machen Tests langsam, unzuverlässig und abhängig von der Reihenfolge. Mit `Bericht(IMesswertQuelle& quelle)` wäre die Abhängigkeit sichtbar und ersetzbar.",
-      "begruendungen": [
-        "Richtig.",
-        "Die Geschwindigkeit ist nicht das Hauptproblem.",
-        "Gerade bei Datenbanken will man im Test eine Ersatzimplementierung."
-      ]
-    },
-    {
-      "typ": "erklaerung",
-      "titel": "Lebenszeit bei DI",
-      "text": "Wer injiziert, muss klären, wem was gehört:\n\n- **Referenz** oder **roher Zeiger**: Die Abhängigkeit lebt woanders länger (typisch: in `main`). Einfach und schnell.\n- **`std::unique_ptr`**: Das Objekt übernimmt den Besitz. Gut, wenn die Abhängigkeit nur für dieses Objekt existiert.\n- **`std::shared_ptr`**: geteilter Besitz. Selten wirklich nötig und macht Lebenszeiten unklar.\n\nIn der Composition Root legt man die Objekte meist in der richtigen Reihenfolge an: erst die Abhängigkeiten, dann die Nutzer. Zerstört wird automatisch in umgekehrter Reihenfolge, wie in Modul 2.2 gesehen."
+      "erklaerung": "Bei Open-Drain können mehrere Teilnehmer dieselbe Leitung nach Low ziehen, ohne sich gegenseitig kurzzuschliessen. Das ist die Grundlage von I²C und vieler Interrupt-Leitungen."
     },
     {
       "typ": "multiple-choice",
-      "frage": "Ein Konstruktor bekommt mit Dependency Injection neun Parameter. Was sagt dir das?",
+      "frage": "Warum schreibt man beim STM32 `GPIOA->BSRR = (1u << 5);` statt `GPIOA->ODR |= (1u << 5);`, wenn auch Interrupts Pins desselben Ports ändern?",
       "optionen": [
-        "Die Klasse hat vermutlich zu viele Aufgaben und sollte aufgeteilt werden",
-        "Dependency Injection ist für diese Klasse ungeeignet",
-        "Nichts, die Parameter sollte man in ein globales Objekt verschieben"
+        "`BSRR` setzt das Bit mit einem einzigen Schreibzugriff, ohne vorher zu lesen. Gleichzeitige Änderungen anderer Pins gehen nicht verloren",
+        "`BSRR` ist schneller, weil es ein 64-Bit-Register ist",
+        "`ODR` darf man nicht beschreiben"
       ],
       "korrekt": 0,
-      "erklaerung": "DI macht Abhängigkeiten sichtbar, auch unangenehm viele. Das ist ein Vorteil: Ohne DI wären die neun Abhängigkeiten auch da, nur versteckt. Die Lösung ist, die Klasse nach Belangen aufzuteilen, nicht die Abhängigkeiten wieder zu verstecken.",
+      "erklaerung": "In `BSRR` setzen die unteren 16 Bits Pins, die oberen 16 Bits löschen sie. Nullen bewirken nichts. Damit ist das Setzen oder Löschen einzelner Pins von Natur aus unteilbar, und das Lese-Ändere-Schreibe-Problem aus Modul 6.1 entfällt.",
       "begruendungen": [
         "Richtig.",
-        "DI zeigt nur ein Problem, das schon vorher da war.",
-        "Damit wären die Abhängigkeiten wieder versteckt."
+        "`BSRR` ist ein 32-Bit-Register.",
+        "`ODR` lässt sich beschreiben, nur nicht unteilbar für einzelne Bits."
+      ]
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze: erst den Takt einschalten, dann Pin 5 über das obere Halbwort von `BSRR` auf Low setzen.",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "RCC->AHB1ENR {{?}} RCC_AHB1ENR_GPIOAEN;",
+          "(void)RCC->AHB1ENR;                    // kurz warten, bis der Takt aktiv ist",
+          "GPIOA->BSRR = (1u << ({{?}} + 16));    // PA5 löschen"
+        ]
+      },
+      "luecken": [{ "loesungen": ["|="] }, { "loesungen": ["5"] }],
+      "auswahl": ["|=", "=", "5", "16"],
+      "erklaerung": "Mit `=` statt `|=` würden alle anderen Takte auf diesem Bus abgeschaltet. Das Zurücklesen in Zeile 2 ist ein bekannter Trick: Laut Errata mancher STM32 braucht es nach dem Einschalten ein paar Takte, bevor die Peripherie reagiert."
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Ein Taster an PA0 schaltet gegen Masse, es gibt keinen externen Widerstand. Der gelesene Zustand springt zufällig hin und her. Welche Zeile ist schuld?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "// Taster an PA0 gegen GND, kein externer Widerstand",
+          "gpioA().MODER &= ~(0b11u << (0 * 2));   // PA0 als Eingang",
+          "gpioA().PUPDR &= ~(0b11u << (0 * 2));   // keine Pull-Widerstände",
+          "bool gedrueckt = !(gpioA().IDR & 1u);"
+        ]
+      },
+      "fehlerZeile": 3,
+      "erklaerung": "Ist der Taster offen, hängt der Eingang in der Luft (*floating*) und fängt jede Störung ein. Mit internem Pull-up (`PUPDR` für Pin 0 auf `01`) liegt er definiert auf High, und ein Druck zieht ihn auf Low. Zeile 4 wertet dann richtig aus."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Ein Tastendruck löst manchmal drei oder vier Ereignisse aus. Was steckt dahinter?",
+      "optionen": [
+        "Mechanisches Prellen: Der Kontakt schliesst und öffnet in den ersten Millisekunden mehrmals. Abhilfe ist Entprellen in Software oder ein RC-Glied",
+        "Ein Fehler im Interrupt-Controller",
+        "Zu niedrige Taktfrequenz"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Mechanische Kontakte prellen typischerweise einige Millisekunden lang. In Software entprellt man, indem man einen Zustand erst übernimmt, wenn er z. B. 20 ms stabil war, oder indem man nach der ersten Flanke eine Weile nicht mehr reagiert. Der Zustand gehört in eine kleine Zustandsmaschine (Modul 10.4).",
+      "begruendungen": [
+        "Richtig.",
+        "Der Interrupt-Controller meldet korrekt jede Flanke.",
+        "Ein schnellerer Takt würde noch mehr Flanken sehen."
       ]
     }
   ],
-  "praxis": "Dependency Injection ist der wichtigste Hebel für testbaren C++-Code, besonders in Embedded-Projekten mit viel Hardware. Im Review achtest du auf `new` oder lokale Objekte konkreter Klassen mitten in der Logik, auf Singletons und globale Zugriffe sowie auf Klassen, die Zeit (`system_clock::now()`) oder Zufall selbst holen. All das sollte von aussen kommen.",
+  "praxis": "Bei „Die Hardware tut nichts“ prüfst du in dieser Reihenfolge: Ist der Takt an? Ist der Pin im richtigen Modus und mit der richtigen Alternativfunktion? Stimmen Pull-ups? Erst danach lohnt sich der Blick in die eigene Logik. Im Debugger hilft eine Ansicht der Peripherie-Register (SVD-Datei), mit der du jedes Bit mit Namen siehst.",
   "labor": {
-    "titel": "Eine Klasse testbar machen",
-    "anleitung": "Nimm den `Regler` aus Modul 3.1 mit fest eingebautem Sensor und baue ihn auf Konstruktor-Injektion um. Schreibe danach einen Test mit einem Fake-Sensor, der nacheinander 18, 22 und 25 °C liefert.",
+    "titel": "Eine LED ohne HAL",
+    "anleitung": "Lass auf einem Nucleo- oder Discovery-Board die Benutzer-LED blinken, nur mit Registerzugriffen: Takt einschalten, Pin als Ausgang, dann in einer Schleife über `BSRR` setzen und löschen.",
     "befehle": [
-      "cmake --build build && ctest --test-dir build -R Regler --output-on-failure"
+      "arm-none-eabi-g++ -std=c++20 -mcpu=cortex-m4 -mthumb -O2 -T stm32f4.ld startup.s blink.cpp -o blink.elf -specs=nosys.specs",
+      "openocd -f board/st_nucleo_f4.cfg -c 'program blink.elf verify reset exit'"
     ],
-    "beobachtung": "Die Umstellung betrifft nur den Konstruktor und `main`. Die Logik in `schritt()` bleibt unverändert, ist jetzt aber vollständig ohne Hardware testbar."
+    "beobachtung": "Lässt du das Einschalten des Takts weg, bleibt die LED dunkel. Im Debugger (Modul 7.6) siehst du, dass `MODER` trotz Schreibzugriff 0 bleibt."
   },
   "begriffe": [
-    { "begriff": "Dependency Injection", "englisch": "dependency injection, DI", "erklaerung": "Abhängigkeiten werden einem Objekt von aussen übergeben, statt dass es sie selbst erzeugt." },
-    { "begriff": "Composition Root", "englisch": "composition root", "erklaerung": "Zentrale Stelle, an der die konkreten Objekte erzeugt und verdrahtet werden." },
-    { "begriff": "Versteckte Abhängigkeit", "englisch": "hidden dependency", "erklaerung": "Abhängigkeit, die nicht in der Schnittstelle sichtbar ist, z. B. über ein Singleton oder eine globale Variable." }
+    { "begriff": "GPIO", "englisch": "general purpose input/output", "erklaerung": "Frei konfigurierbarer digitaler Ein- oder Ausgang eines Mikrocontrollers." },
+    { "begriff": "PLL", "englisch": "phase-locked loop", "erklaerung": "Schaltung, die aus einem Referenztakt einen höheren Takt erzeugt." },
+    { "begriff": "Pull-up-Widerstand", "englisch": "pull-up resistor", "erklaerung": "Widerstand, der eine Leitung ohne aktiven Treiber auf High hält." },
+    { "begriff": "Prellen", "englisch": "contact bounce", "erklaerung": "Mehrfaches Schliessen und Öffnen eines mechanischen Kontakts beim Betätigen." }
   ],
   "weiterlesen": [
-    { "titel": "Martin Fowler: Inversion of Control Containers and the Dependency Injection pattern", "url": "https://martinfowler.com/articles/injection.html" }
+    { "titel": "ST: RM0090 Reference manual STM32F405/415 (GPIO, RCC)", "url": "https://www.st.com/resource/en/reference_manual/rm0090-stm32f405415-stm32f407417-stm32f427437-and-stm32f429439-advanced-armbased-32bit-mcus-stmicroelectronics.pdf" }
   ]
 }

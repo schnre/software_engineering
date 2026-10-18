@@ -13,7 +13,11 @@
     {
       "typ": "multiple-choice",
       "frage": "`int x = 5;` – Welcher Ausdruck ist **nicht** erlaubt?",
-      "optionen": ["`&x`", "`&(x + 1)`", "`int& r = x;`"],
+      "optionen": [
+        "`&x`",
+        "`&(x + 1)`",
+        "`int& r = x;`"
+      ],
       "korrekt": 1,
       "fest": true,
       "erklaerung": "`x + 1` ist ein Zwischenwert ohne eigene Identität, er hat keine Adresse, die man nehmen könnte. `x` dagegen ist ein Objekt mit Namen und fester Adresse. Diesen Unterschied beschreiben die **Wertkategorien**.",
@@ -32,10 +36,22 @@
       "typ": "zuordnen",
       "frage": "Ordne jeden Ausdruck seiner Wertkategorie zu.",
       "paare": [
-        { "links": "`x`", "rechts": "lvalue: benannte Variable" },
-        { "links": "`v[0]`", "rechts": "lvalue: Elementzugriff liefert eine Referenz" },
-        { "links": "`x + 1`", "rechts": "prvalue: berechneter Zwischenwert" },
-        { "links": "`std::move(x)`", "rechts": "xvalue: Objekt, das verschoben werden darf" }
+        {
+          "links": "`x`",
+          "rechts": "lvalue: benannte Variable"
+        },
+        {
+          "links": "`v[0]`",
+          "rechts": "lvalue: Elementzugriff liefert eine Referenz"
+        },
+        {
+          "links": "`x + 1`",
+          "rechts": "prvalue: berechneter Zwischenwert"
+        },
+        {
+          "links": "`std::move(x)`",
+          "rechts": "xvalue: Objekt, das verschoben werden darf"
+        }
       ],
       "erklaerung": "Eine einfache Merkhilfe: Kann ich die Adresse nehmen, und hat das Ding einen Namen oder hängt es an einem? Dann lvalue. Entsteht es nur als Ergebnis, prvalue. `std::move` macht aus einem lvalue ein xvalue, ohne etwas zu verschieben."
     },
@@ -56,7 +72,12 @@
           "}"
         ]
       },
-      "optionen": ["`LRR`", "`LRL`", "`LLR`", "`RRR`"],
+      "optionen": [
+        "`LRR`",
+        "`LRL`",
+        "`LLR`",
+        "`RRR`"
+      ],
       "korrekt": 0,
       "fest": true,
       "erklaerung": "`x` ist ein lvalue und bindet an `int&`. `2` ist ein prvalue, `std::move(x)` ein xvalue, beide binden an `int&&`. Genau diesen Mechanismus nutzen Move-Konstruktoren: Die `T&&`-Überladung wird für Objekte gewählt, die man ausräumen darf.",
@@ -95,7 +116,11 @@
           "int main() { g(5); }"
         ]
       },
-      "optionen": ["`L`", "`R`", "Compilerfehler"],
+      "optionen": [
+        "`L`",
+        "`R`",
+        "Compilerfehler"
+      ],
       "korrekt": 0,
       "fest": true,
       "erklaerung": "`g` nimmt ein rvalue entgegen, aber innerhalb von `g` ist `a` eine benannte Variable, also ein lvalue. `f(a)` wählt deshalb `f(int&)`. Für `R` müsste dort `f(std::move(a))` stehen. In Templates nimmt man stattdessen `std::forward<T>(a)`, das *Perfect Forwarding*.",
@@ -109,8 +134,29 @@
       "typ": "lueckentext",
       "frage": "Ergänze die Bindungsregeln.",
       "text": "Eine Referenz `T&` bindet nur an {{?}}. Eine Referenz `const T&` bindet an lvalues und an {{?}}. Eine Referenz `T&&` bindet nur an {{?}}.",
-      "luecken": [{ "loesungen": ["lvalues"] }, { "loesungen": ["rvalues"] }, { "loesungen": ["rvalues"] }],
-      "auswahl": ["lvalues", "rvalues", "rvalues", "Zeiger"],
+      "luecken": [
+        {
+          "loesungen": [
+            "lvalues"
+          ]
+        },
+        {
+          "loesungen": [
+            "rvalues"
+          ]
+        },
+        {
+          "loesungen": [
+            "rvalues"
+          ]
+        }
+      ],
+      "auswahl": [
+        "lvalues",
+        "rvalues",
+        "rvalues",
+        "Zeiger"
+      ],
       "erklaerung": "Weil `const T&` alles annimmt, war es vor C++11 der übliche Parametertyp für „nur lesen“. Mit `T&&` kam die Möglichkeit, rvalues gezielt anders zu behandeln, nämlich sie zu verschieben statt zu kopieren."
     }
   ],
@@ -124,11 +170,26 @@
     "beobachtung": "Schreibe z. B. `static_assert(std::is_lvalue_reference_v<decltype((x))>);` für mehrere Ausdrücke und prüfe deine Vorhersagen. Schlägt eine Vorhersage fehl, schlägt der Build fehl."
   },
   "begriffe": [
-    { "begriff": "Wertkategorie", "englisch": "value category", "erklaerung": "Eigenschaft eines Ausdrucks: lvalue, prvalue oder xvalue. Bestimmt, an welche Referenzen er binden kann." },
-    { "begriff": "lvalue", "englisch": "lvalue", "erklaerung": "Ausdruck mit Identität, der über den Ausdruck hinaus lebt, z. B. eine benannte Variable." },
-    { "begriff": "rvalue-Referenz", "englisch": "rvalue reference", "erklaerung": "Referenz `T&&`, die nur an rvalues bindet. Grundlage der Move-Semantik." }
+    {
+      "begriff": "Wertkategorie",
+      "englisch": "value category",
+      "erklaerung": "Eigenschaft eines Ausdrucks: lvalue, prvalue oder xvalue. Bestimmt, an welche Referenzen er binden kann."
+    },
+    {
+      "begriff": "lvalue",
+      "englisch": "lvalue",
+      "erklaerung": "Ausdruck mit Identität, der über den Ausdruck hinaus lebt, z. B. eine benannte Variable."
+    },
+    {
+      "begriff": "rvalue-Referenz",
+      "englisch": "rvalue reference",
+      "erklaerung": "Referenz `T&&`, die nur an rvalues bindet. Grundlage der Move-Semantik."
+    }
   ],
   "weiterlesen": [
-    { "titel": "cppreference: Value categories", "url": "https://en.cppreference.com/w/cpp/language/value_category" }
+    {
+      "titel": "cppreference: Value categories",
+      "url": "https://en.cppreference.com/w/cpp/language/value_category"
+    }
   ]
 }

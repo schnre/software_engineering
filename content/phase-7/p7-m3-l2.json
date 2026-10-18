@@ -1,139 +1,125 @@
 {
   "id": "p7-m3-l2",
   "phase": 7,
-  "modul": "7.3 Ports & Adapters",
-  "titel": "Testbarkeit durch Ports",
+  "modul": "7.3 Speicher ohne Heap",
+  "titel": "Container mit fester Kapazität",
   "lernziele": [
-    "Schwer testbare Abhängigkeiten wie Zeit und Zufall hinter Ports legen",
-    "Tests mit einer Fake-Uhr schreiben, die nicht warten",
-    "Adapter dünn halten (Humble Object)"
+    "Container mit fester Kapazität einsetzen",
+    "Die Embedded Template Library und `std::inplace_vector` kennen",
+    "Mit vollen Containern bewusst umgehen"
   ],
   "dauerMinuten": 6,
   "schritte": [
     {
       "typ": "multiple-choice",
-      "frage": "Eine Sitzung läuft nach 30 Minuten ab. Der Kern prüft das mit `std::chrono::system_clock::now() > ablauf_`. Was ist das Problem für Tests?",
+      "frage": "Du brauchst eine Liste mit höchstens 16 Messwerten, deren Anzahl sich zur Laufzeit ändert. Welcher Typ passt ohne Heap?",
       "optionen": [
-        "Ein Test müsste 30 Minuten warten oder die Systemzeit verstellen. Die Uhr gehört hinter einen Port",
-        "`system_clock` ist zu ungenau",
-        "Es gibt keins, man testet einfach mit kürzeren Zeiten"
+        "Ein Vektor mit fester Kapazität wie `etl::vector<Messwert, 16>` oder `std::inplace_vector<Messwert, 16>` (C++26)",
+        "`std::array<Messwert, 16>`",
+        "`std::vector<Messwert>` mit `reserve(16)`"
       ],
       "korrekt": 0,
-      "erklaerung": "Die aktuelle Zeit ist eine versteckte Abhängigkeit nach aussen, genau wie eine Datenbank. Mit einem Port `IUhr` kann der Test die Zeit selbst vorstellen. Ausserdem: Für Zeitabstände nimmt man `steady_clock`, denn `system_clock` kann springen, z. B. bei einer Zeitsynchronisation.",
+      "erklaerung": "Ein Vektor mit fester Kapazität hat den Speicher für 16 Elemente im Objekt selbst, verhält sich aber wie ein `std::vector` mit `push_back`, `size` und Iteratoren. `std::array` hat immer genau 16 konstruierte Elemente und keine variable Grösse. `reserve` ruft trotzdem den Heap auf, nur einmal.",
       "begruendungen": [
         "Richtig.",
-        "Die Genauigkeit ist nicht das Problem, die Kontrolle schon.",
-        "Kürzere Zeiten verändern das getestete Verhalten und machen Tests flaky."
+        "`std::array` hat eine feste Grösse, keine variable Anzahl.",
+        "`reserve` alloziert ebenfalls auf dem Heap."
       ]
     },
     {
       "typ": "erklaerung",
-      "titel": "Typische Ports für Testbarkeit",
-      "text": "Neben Datenbank und Hardware gibt es Abhängigkeiten, die man leicht übersieht, weil sie „einfach da“ sind:\n\n- **Zeit**: `now()`, Timer, `sleep`\n- **Zufall**: Zufallszahlen, UUIDs\n- **Dateisystem**: Dateien lesen und schreiben\n- **Umgebung**: Umgebungsvariablen, Kommandozeile, Konfiguration\n- **Netzwerk** und **Hardware**\n\nAlle diese Dinge machen Tests langsam, unzuverlässig oder unmöglich, solange der Kern sie direkt benutzt. Hinter einem Port sind sie im Test vollständig steuerbar."
-    },
-    {
-      "typ": "lueckentext",
-      "frage": "Ergänze den Port und die Fake-Uhr.",
-      "code": {
-        "sprache": "cpp",
-        "zeilen": [
-          "class IUhr {",
-          "public:",
-          "    virtual ~IUhr() = default;",
-          "    virtual std::chrono::steady_clock::time_point {{?}}() const = 0;",
-          "};",
-          "",
-          "class FakeUhr : public IUhr {",
-          "public:",
-          "    std::chrono::steady_clock::time_point jetzt() const override { return t_; }",
-          "    void vorstellen(std::chrono::milliseconds d) { t_ {{?}} d; }",
-          "private:",
-          "    std::chrono::steady_clock::time_point t_{};",
-          "};"
-        ]
-      },
-      "luecken": [{ "loesungen": ["jetzt"] }, { "loesungen": ["+="] }],
-      "auswahl": ["jetzt", "+=", "=", "now"],
-      "erklaerung": "Die Fake-Uhr steht, bis der Test sie vorstellt. Die Produktions-Implementierung `SystemUhr` gibt einfach `std::chrono::steady_clock::now()` zurück. Sie ist so dünn, dass sie kaum eigene Tests braucht."
+      "titel": "Die Embedded Template Library",
+      "text": "Die **ETL** ist eine freie Header-Bibliothek, die viele Standardcontainer mit fester Kapazität nachbildet:\n\n- `etl::vector<T, N>`, `etl::string<N>`, `etl::deque<T, N>`\n- `etl::map<K, V, N>`, `etl::unordered_map<K, V, N>`\n- `etl::circular_buffer<T, N>`, `etl::queue_spsc_atomic<T, N>`\n- `etl::delegate`, `etl::fsm`, `etl::observer` und mehr\n\nDie Schnittstellen entsprechen weitgehend der Standardbibliothek. Viele Container gibt es auch als `etl::ivector<T>`, eine Basisklasse ohne N in der Signatur. So schreibt man Funktionen, die mit jeder Kapazität arbeiten. Mit C++26 kommt `std::inplace_vector` in den Standard."
     },
     {
       "typ": "code-lesen",
-      "frage": "Wie lange läuft dieser Test?",
+      "frage": "Was passiert in diesem Code?",
       "code": {
         "sprache": "cpp",
         "zeilen": [
-          "TEST(SitzungTest, LaeuftNachDreissigMinutenAb) {",
-          "    FakeUhr uhr;",
-          "    Sitzung s(uhr, 30min);",
-          "    uhr.vorstellen(29min);",
-          "    EXPECT_FALSE(s.abgelaufen());",
-          "    uhr.vorstellen(2min);",
-          "    EXPECT_TRUE(s.abgelaufen());",
+          "etl::vector<int, 4> v;",
+          "for (int i = 0; i < 6; ++i) {",
+          "    if (v.full()) { ++verworfen; continue; }",
+          "    v.push_back(i);",
           "}"
         ]
       },
       "optionen": [
-        "Mikrosekunden. Es wird nicht gewartet, nur die Fake-Uhr vorgestellt",
-        "31 Minuten",
-        "Das hängt von der Last des Rechners ab"
+        "`v` enthält 0 bis 3, `verworfen` wird zweimal erhöht",
+        "`v` wächst auf 6 Elemente",
+        "Das Programm stürzt beim fünften `push_back` ab"
       ],
       "korrekt": 0,
-      "erklaerung": "Der Test prüft beide Seiten der Grenze, knapp davor und knapp danach, schnell und **deterministisch**: Er liefert bei jedem Lauf und auf jedem Rechner dasselbe Ergebnis. Vergleiche mit dem flaky Timer-Test aus Modul 3.2.",
+      "erklaerung": "Ein voller Container ist kein Ausnahmefall, sondern ein Zustand, über den man entscheiden muss. Ohne die Prüfung löst `push_back` bei der ETL je nach Konfiguration eine Assertion oder einen Fehlerhandler aus. Bei `std::inplace_vector` gibt es dafür `try_push_back`, das ohne Exception einen Nullzeiger zurückgibt.",
       "begruendungen": [
         "Richtig.",
-        "Mit einer echten Uhr wäre das so.",
-        "Ohne echte Zeit spielt die Last keine Rolle."
+        "Die Kapazität ist fest und kann nicht wachsen.",
+        "Die Prüfung mit `full()` verhindert genau das."
       ]
     },
     {
       "typ": "zuordnen",
-      "frage": "Welcher Port macht welche Abhängigkeit testbar?",
+      "frage": "Was tun, wenn der Container voll ist? Ordne zu.",
       "paare": [
-        { "links": "Aktuelle Uhrzeit", "rechts": "`IUhr` mit Fake-Uhr" },
-        { "links": "Zufallszahlen", "rechts": "Injizierter Generator mit festem Startwert" },
-        { "links": "Dateien lesen", "rechts": "`IDateiQuelle` oder ein Dateisystem im Speicher" },
-        { "links": "Hardware-Register", "rechts": "HAL-Schnittstelle mit Fake" }
+        { "links": "Messwertverlauf", "rechts": "Ältesten Wert überschreiben (Ringpuffer)" },
+        { "links": "Befehle von aussen", "rechts": "Ablehnen und dem Sender einen Fehler melden" },
+        { "links": "Log-Meldungen", "rechts": "Verwerfen und die Anzahl verlorener Meldungen zählen" },
+        { "links": "Sicherheitsrelevante Ereignisse", "rechts": "In einen sicheren Zustand gehen, denn das sollte nie passieren" }
       ],
-      "erklaerung": "Bei Zufall reicht oft schon, den Generator (z. B. `std::mt19937`) zu injizieren und im Test mit einem festen Startwert (*seed*) zu erzeugen. Dann sind die „zufälligen“ Werte bei jedem Testlauf gleich."
+      "erklaerung": "Diese Entscheidung gehört in die Anforderungen und das Design, nicht in eine zufällige Implementierung. Ein guter Test füllt jeden Container absichtlich bis über die Grenze."
     },
     {
-      "typ": "erklaerung",
-      "titel": "Humble Object",
-      "text": "Adapter sind schwer zu testen, weil sie echte Technik berühren. Deshalb hält man sie **bescheiden** (*humble object*): so wenig Logik wie möglich, nur Übersetzen und Durchreichen. Jede Entscheidung, jede Umrechnung und jede Fehlerbehandlung gehört in den Kern, wo sie leicht testbar ist.\n\nEin Adapter für einen CAN-Sensor liest Bytes und übergibt sie. Ob die Bytes plausibel sind und wie sie in °C umgerechnet werden, entscheidet der Kern."
+      "typ": "fehler-finden",
+      "frage": "Dieser Code soll einen Befehl in einen String mit fester Kapazität kopieren. Welche Zeile ist gefährlich?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "char befehl[32];",
+          "",
+          "void empfange(std::span<const char> daten) {",
+          "    std::memcpy(befehl, daten.data(), daten.size());",
+          "    befehl[daten.size()] = '\\0';",
+          "}"
+        ]
+      },
+      "fehlerZeile": 4,
+      "erklaerung": "Kommen mehr als 31 Zeichen, schreibt `memcpy` über das Ende des Arrays hinaus: ein klassischer Pufferüberlauf, oft auch eine Sicherheitslücke (Modul 12.3). Zeile 5 hat dasselbe Problem. Besser: `etl::string<31>` mit `assign`, das kürzt oder einen Fehler meldet, oder vorher die Grösse prüfen und ablehnen."
     },
     {
       "typ": "multiple-choice",
-      "frage": "Wie testet man die Adapter selbst?",
+      "frage": "Welcher Vorteil ergibt sich, wenn alle Container eine feste Kapazität haben?",
       "optionen": [
-        "Mit wenigen Integrationstests gegen die echte Technik, z. B. eine echte SQLite-Datei oder ein CAN-Bus auf dem Prüfstand",
-        "Gar nicht, Adapter sind zu einfach für Tests",
-        "Mit denselben Fakes wie den Kern"
+        "Der gesamte RAM-Bedarf ist nach dem Linken bekannt, und `arm-none-eabi-size` zeigt, ob er passt",
+        "Das Programm wird automatisch schneller",
+        "Man braucht keine Tests mehr für Grenzfälle"
       ],
       "korrekt": 0,
-      "erklaerung": "Ein Fake würde genau das ersetzen, was man beim Adapter prüfen will: das Zusammenspiel mit der echten Technik. Weil die Adapter dünn sind, reichen wenige solche Tests. Sie laufen oft nicht bei jedem Commit, sondern in einer späteren Pipeline-Stufe.",
+      "erklaerung": "Ohne Heap ist der Speicherbedarf (abgesehen vom Stack) statisch. Passt er nicht ins RAM, scheitert der Build, nicht das Gerät im Feld. Das ist eine der wertvollsten Eigenschaften eines heapfreien Designs.",
       "begruendungen": [
         "Richtig.",
-        "Auch einfache Übersetzung kann falsch sein, etwa bei Byte-Reihenfolge oder Einheiten.",
-        "Dann testet man den Fake, nicht den Adapter."
+        "Die Geschwindigkeit ist ein Nebeneffekt, kein Ziel.",
+        "Die Grenzfälle werden sogar wichtiger, weil Container voll werden können."
       ]
     }
   ],
-  "praxis": "Ein guter Test dafür, ob eine Architektur testbar ist: Lässt sich der wichtigste fachliche Ablauf in einem Unit-Test durchspielen, der in Millisekunden läuft und keine Datei, kein Netz, keine Hardware und keine echte Uhr braucht? Wenn nicht, zeigt der Test, welcher Port fehlt. Im Review fallen besonders direkte Aufrufe von `now()`, `rand()` und Dateifunktionen im Kern auf.",
+  "praxis": "Die ETL ist in vielen Embedded-C++-Projekten Standard, oft zusammen mit eigenen Containern. Prüfe beim Einsatz die Konfiguration: Was passiert bei Fehlern (`ETL_THROW_EXCEPTIONS`, `ETL_LOG_ERRORS`, eigener Handler)? In Code-Reviews lohnt bei jedem Container die Frage: Woher stammt die Kapazität, und was passiert, wenn sie erreicht wird?",
   "labor": {
-    "titel": "Eine Uhr injizieren",
-    "anleitung": "Nimm eine Klasse aus einem eigenen Projekt, die `std::chrono::...::now()` direkt aufruft. Führe einen Port `IUhr` ein und schreibe einen Test, der mit `FakeUhr` eine Zeitgrenze prüft.",
+    "titel": "ETL ausprobieren",
+    "anleitung": "Hol dir die ETL per CMake-FetchContent und ersetze in einem kleinen Programm `std::vector` und `std::string` durch ETL-Container. Prüfe mit einem zählenden `operator new`, dass keine Allokation mehr stattfindet.",
     "befehle": [
-      "rg -n 'clock::now\\(\\)' src/ | head",
-      "cmake --build build && ctest --test-dir build -R Sitzung"
+      "git clone https://github.com/ETLCPP/etl.git",
+      "g++ -std=c++20 -Ietl/include etl_demo.cpp -o etl_demo",
+      "./etl_demo"
     ],
-    "beobachtung": "Die Liste aus dem ersten Befehl zeigt, wie verbreitet direkte Zeitzugriffe sind. Jeder davon in der Fachlogik ist eine Stelle, die heute nur schwer testbar ist."
+    "beobachtung": "Der Zähler bleibt bei 0. `sizeof(etl::vector<int, 16>)` ist etwa 16 · 4 Byte plus einige Verwaltungsdaten. Der Speicher steckt im Objekt."
   },
   "begriffe": [
-    { "begriff": "Deterministischer Test", "englisch": "deterministic test", "erklaerung": "Test, der bei jedem Lauf und auf jedem Rechner dasselbe Ergebnis liefert." },
-    { "begriff": "Humble Object", "englisch": "humble object", "erklaerung": "Möglichst logikfreier Adapter an einer schwer testbaren Grenze. Die Logik liegt testbar im Kern." },
-    { "begriff": "Seed", "englisch": "seed", "erklaerung": "Startwert eines Zufallsgenerators. Gleicher Seed ergibt gleiche Zahlenfolge." }
+    { "begriff": "ETL", "englisch": "Embedded Template Library", "erklaerung": "Freie C++-Bibliothek mit Containern fester Kapazität und weiteren Embedded-Werkzeugen." },
+    { "begriff": "inplace_vector", "englisch": "inplace_vector", "erklaerung": "Vektor mit fester Kapazität im Objekt selbst, ab C++26 im Standard." },
+    { "begriff": "Ringpuffer", "englisch": "ring buffer / circular buffer", "erklaerung": "Puffer fester Grösse, bei dem nach dem Ende wieder am Anfang geschrieben wird." }
   ],
   "weiterlesen": [
-    { "titel": "Martin Fowler: Humble Object", "url": "https://martinfowler.com/bliki/HumbleObject.html" }
+    { "titel": "Embedded Template Library", "url": "https://www.etlcpp.com/" },
+    { "titel": "cppreference: std::inplace_vector", "url": "https://en.cppreference.com/w/cpp/container/inplace_vector" }
   ]
 }

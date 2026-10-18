@@ -1,0 +1,218 @@
+{
+  "id": "p8-m5-l1",
+  "phase": 8,
+  "modul": "8.5 GitHub Actions im Vergleich",
+  "titel": "Workflows, Jobs und Steps",
+  "lernziele": [
+    "Den Aufbau eines GitHub-Actions-Workflows lesen",
+    "Begriffe aus Jenkins auf GitHub Actions übertragen",
+    "Fremde Actions sicher einbinden"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Was entspricht in GitHub Actions am ehesten einem Jenkins-Agent?",
+      "optionen": [
+        "Ein **Runner**",
+        "Ein **Step**",
+        "Ein **Workflow**"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Ein **Runner** ist die Maschine, auf der ein Job läuft. GitHub stellt fertige Runner bereit (`ubuntu-latest`, `windows-latest`, `macos-latest`). Für eigene Hardware wie Prüfstände oder spezielle Toolchains installiert man **self-hosted runner**, ganz ähnlich wie Jenkins-Agents.",
+      "begruendungen": [
+        "Richtig.",
+        "Ein Step ist ein einzelner Befehl innerhalb eines Jobs, eher wie ein `sh` in Jenkins.",
+        "Ein Workflow entspricht einem Jenkinsfile."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Aufbau eines Workflows",
+      "text": "Workflows liegen als YAML-Dateien in `.github/workflows/`. `on:` legt fest, wann sie laufen. Ein Workflow besteht aus **Jobs**, die standardmässig **parallel** und jeweils auf einem **frischen** Runner laufen. Jeder Job hat **Steps**: entweder ein Befehl (`run:`) oder eine fertige **Action** (`uses:`).",
+      "code": {
+        "sprache": "yaml",
+        "datei": ".github/workflows/ci.yml",
+        "zeilen": [
+          "name: CI",
+          "on: [push, pull_request]",
+          "jobs:",
+          "  build:",
+          "    runs-on: ubuntu-latest",
+          "    steps:",
+          "      - uses: actions/checkout@v4",
+          "      - run: cmake -S . -B build -G Ninja",
+          "      - run: cmake --build build",
+          "      - run: ctest --test-dir build --output-on-failure"
+        ],
+        "anmerkungen": [
+          {
+            "zeile": 2,
+            "text": "Bei jedem Push und jedem Pull Request."
+          },
+          {
+            "zeile": 7,
+            "text": "Eine fertige Action, die das Repository auscheckt. In Jenkins macht das `checkout scm`."
+          }
+        ]
+      }
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Was entspricht sich in Jenkins und GitHub Actions?",
+      "paare": [
+        {
+          "links": "Jenkinsfile",
+          "rechts": "Workflow-Datei in `.github/workflows/`"
+        },
+        {
+          "links": "Agent mit Label",
+          "rechts": "Runner, gewählt mit `runs-on`"
+        },
+        {
+          "links": "`parallel { … }`",
+          "rechts": "Mehrere Jobs ohne `needs`"
+        },
+        {
+          "links": "Shared Library",
+          "rechts": "Wiederverwendbarer Workflow oder eigene Action"
+        },
+        {
+          "links": "`withCredentials`",
+          "rechts": "`${{ secrets.NAME }}`"
+        }
+      ],
+      "erklaerung": "Der grösste Unterschied: In GitHub Actions ist jeder Job standardmässig isoliert. Er teilt kein Dateisystem mit anderen Jobs. Daten gibt man über Artefakte oder Caches weiter."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Welche Jobs starten sofort, wenn der Workflow beginnt?",
+      "code": {
+        "sprache": "yaml",
+        "zeilen": [
+          "jobs:",
+          "  build:",
+          "    runs-on: ubuntu-latest",
+          "  lint:",
+          "    runs-on: ubuntu-latest",
+          "  test:",
+          "    needs: build",
+          "    runs-on: ubuntu-latest"
+        ]
+      },
+      "optionen": [
+        "`build` und `lint` parallel, `test` erst nach erfolgreichem `build`",
+        "Alle drei nacheinander in der angegebenen Reihenfolge",
+        "Nur `build`, die anderen warten"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Ohne `needs` starten Jobs sofort und parallel. `needs` bildet die Abhängigkeiten und damit die Reihenfolge. So entsteht derselbe Graph, den man in Jenkins mit Stages und `parallel` baut.",
+      "begruendungen": [
+        "Richtig.",
+        "Die Reihenfolge in der Datei spielt keine Rolle.",
+        "`lint` hat keine Abhängigkeit und startet sofort."
+      ]
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze den Workflow: Er soll bei Pushes auf `main` und bei Pull Requests laufen und zuerst das Repository auschecken.",
+      "code": {
+        "sprache": "yaml",
+        "zeilen": [
+          "on:",
+          "  {{?}}:",
+          "    branches: [main]",
+          "  pull_request:",
+          "jobs:",
+          "  test:",
+          "    runs-on: ubuntu-latest",
+          "    steps:",
+          "      - uses: actions/{{?}}@v4",
+          "      - run: cmake -S . -B build && cmake --build build && ctest --test-dir build"
+        ]
+      },
+      "luecken": [
+        {
+          "loesungen": [
+            "push"
+          ]
+        },
+        {
+          "loesungen": [
+            "checkout"
+          ]
+        }
+      ],
+      "auswahl": [
+        "push",
+        "checkout",
+        "pull",
+        "clone"
+      ],
+      "erklaerung": "Ohne `actions/checkout` ist der Runner leer. Anders als Jenkins checkt GitHub Actions das Repository nicht automatisch aus."
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Isolation und Wiederverwendung",
+      "text": "- Ergebnisse zwischen Jobs übergibt man mit `actions/upload-artifact` und `actions/download-artifact`.\n- Wiederkehrende Daten wie Abhängigkeiten oder `ccache` speichert `actions/cache` zwischen Läufen.\n- **Wiederverwendbare Workflows** (`on: workflow_call`) und **eigene Actions** spielen die Rolle einer Shared Library.\n- **Secrets** werden pro Repository oder Organisation hinterlegt und in Logs automatisch maskiert."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Warum empfiehlt GitHub, fremde Actions auf einen vollständigen Commit-Hash festzulegen (`uses: firma/action@3f9c2ab…`) statt auf `@main`?",
+      "optionen": [
+        "Ein Branch oder Tag kann später auf anderen Code zeigen. Ein kompromittiertes Repository könnte so Schadcode in deine Pipeline bringen",
+        "Hashes werden schneller geladen",
+        "Mit `@main` funktioniert die Action nicht"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Eine Action läuft mit Zugriff auf deinen Code und oft auf Secrets. Das ist ein **Lieferketten-Risiko**: Wird das Repository der Action übernommen, kann ein verschobener Tag beliebigen Code einschleusen. Das ist bereits passiert. Ein Commit-Hash ist unveränderlich. Tools wie Dependabot halten ihn aktuell.",
+      "begruendungen": [
+        "Richtig.",
+        "Die Geschwindigkeit ist gleich.",
+        "`@main` funktioniert, ist aber ein Sicherheitsrisiko."
+      ]
+    }
+  ],
+  "praxis": "Viele Teams haben gleichzeitig Jenkins (für Hardware und interne Systeme) und GitHub Actions oder GitLab CI (für Open Source und Cloud). Wer die Konzepte kennt (Trigger, Jobs, Abhängigkeiten, Runner, Artefakte, Secrets), findet sich in jedem System schnell zurecht. Im Review achtest du bei Workflows auf feste Versionen von Actions, minimale Rechte (`permissions:`) und darauf, dass Secrets nicht in Pull Requests aus Forks gelangen.",
+  "labor": {
+    "titel": "Einen Workflow lokal testen",
+    "anleitung": "Mit dem Werkzeug `act` lassen sich GitHub-Actions-Workflows lokal in Docker ausführen. Lege den Workflow aus der Lektion an und führe ihn aus.",
+    "befehle": [
+      "act -l",
+      "act push -j build"
+    ],
+    "beobachtung": "`act -l` listet alle Jobs mit ihren Abhängigkeiten. Nicht alles verhält sich genau wie bei GitHub, für schnelle Versuche ist es aber sehr nützlich."
+  },
+  "begriffe": [
+    {
+      "begriff": "Workflow",
+      "englisch": "workflow",
+      "erklaerung": "YAML-Datei in `.github/workflows/`, die festlegt, wann welche Jobs laufen."
+    },
+    {
+      "begriff": "Runner",
+      "englisch": "runner",
+      "erklaerung": "Maschine, auf der ein Job läuft. Von GitHub bereitgestellt oder selbst betrieben."
+    },
+    {
+      "begriff": "Action",
+      "englisch": "action",
+      "erklaerung": "Wiederverwendbarer Baustein für einen Step, eingebunden mit `uses:`."
+    },
+    {
+      "begriff": "Lieferketten-Angriff",
+      "englisch": "supply chain attack",
+      "erklaerung": "Angriff über eine Abhängigkeit, z. B. eine Bibliothek oder Action, statt direkt auf das eigene System."
+    }
+  ],
+  "weiterlesen": [
+    {
+      "titel": "GitHub Docs: Understanding GitHub Actions",
+      "url": "https://docs.github.com/en/actions/about-github-actions/understanding-github-actions"
+    },
+    {
+      "titel": "GitHub Docs: Security hardening for GitHub Actions",
+      "url": "https://docs.github.com/en/actions/security-for-github-actions/security-guides/security-hardening-for-github-actions"
+    }
+  ]
+}

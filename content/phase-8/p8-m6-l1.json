@@ -1,0 +1,164 @@
+{
+  "id": "p8-m6-l1",
+  "phase": 8,
+  "modul": "8.6 Git im Team",
+  "titel": "Branching-Strategien",
+  "lernziele": [
+    "Trunk-based Development, GitHub Flow und GitFlow unterscheiden",
+    "Fixes für ausgelieferte Versionen auf Release-Branches übertragen",
+    "Begründen, warum kleine Pull Requests besser sind"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Welche Branching-Strategie passt am besten zu Continuous Integration?",
+      "optionen": [
+        "Trunk-based Development: sehr kurzlebige Branches, mindestens täglich in `main` integriert",
+        "Feature-Branches, die bis zur Fertigstellung des ganzen Features leben",
+        "Ein eigener Branch pro Entwickler, der einmal pro Monat gemergt wird"
+      ],
+      "korrekt": 0,
+      "erklaerung": "CI heisst häufig integrieren. Das geht nur mit Branches, die Stunden bis wenige Tage leben. Grössere Funktionen werden in kleine Schritte zerlegt und bei Bedarf hinter einem Feature Flag versteckt.",
+      "begruendungen": [
+        "Richtig.",
+        "Je länger ein Branch lebt, desto teurer wird das Zusammenführen.",
+        "Das ist das Gegenteil von Continuous Integration."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Gängige Strategien",
+      "text": "- **Trunk-based Development**: Alle arbeiten auf `main` oder mit Branches, die höchstens ein bis zwei Tage leben. Unfertiges wird per Feature Flag verborgen.\n- **GitHub Flow**: kurze Feature-Branches, Pull Request mit Review, Merge nach `main`, von dort wird ausgeliefert.\n- **GitFlow**: dauerhafte Branches `main` und `develop`, dazu `feature/*`, `release/*` und `hotfix/*`. Gedacht für geplante Releases, heute oft als zu schwerfällig angesehen.\n- **Release-Branches**: Für Software, deren alte Versionen jahrelang gepflegt werden (typisch bei Geräten), zweigt man pro Version einen Branch `release/2.3` ab und überträgt Fixes gezielt dorthin."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Ordne die Strategien zu.",
+      "paare": [
+        {
+          "links": "Trunk-based Development",
+          "rechts": "Alle integrieren mehrmals täglich in den Hauptzweig, Unfertiges hinter Feature Flags"
+        },
+        {
+          "links": "GitHub Flow",
+          "rechts": "Kurzer Feature-Branch, Pull Request mit Review, Merge nach `main`"
+        },
+        {
+          "links": "GitFlow",
+          "rechts": "Dauerhafte Branches `main` und `develop` mit Feature-, Release- und Hotfix-Branches"
+        },
+        {
+          "links": "Release-Branch",
+          "rechts": "Pflegt eine ausgelieferte Version, während `main` weiterentwickelt wird"
+        }
+      ],
+      "erklaerung": "Die meisten modernen Teams nutzen GitHub Flow oder trunk-based Development, ergänzt um Release-Branches, wenn alte Versionen gepflegt werden müssen."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Kunden nutzen Version 2.3. Auf `main` wird gerade 2.5 entwickelt. In 2.3 wird ein Sicherheitsfehler gefunden. Wie gehst du vor?",
+      "optionen": [
+        "Fix auf `main` umsetzen und per `cherry-pick` auf `release/2.3` übernehmen (oder umgekehrt), dann von dort 2.3.1 bauen",
+        "Allen Kunden den aktuellen Stand von `main` ausliefern",
+        "Den Fix nur auf `release/2.3` umsetzen, `main` braucht ihn nicht"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Der Fix muss in **beide** Linien, sonst taucht der Fehler in 2.5 wieder auf. Viele Teams fixen zuerst auf `main` (*upstream first*) und übertragen dann. So geht kein Fix verloren. `main` an Kunden auszuliefern, bringt ungetestete neue Funktionen mit.",
+      "begruendungen": [
+        "Richtig.",
+        "`main` enthält unfertige und ungetestete Änderungen für 2.5.",
+        "Dann käme der Fehler mit 2.5 zurück."
+      ]
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze die Befehle, um den Fix `3f9c2ab` von `main` auf den Release-Branch zu übernehmen.",
+      "code": {
+        "sprache": "bash",
+        "zeilen": [
+          "git {{?}} release/2.3",
+          "git {{?}} -x 3f9c2ab",
+          "git tag v2.3.1 && git push origin release/2.3 v2.3.1"
+        ]
+      },
+      "luecken": [
+        {
+          "loesungen": [
+            "switch"
+          ]
+        },
+        {
+          "loesungen": [
+            "cherry-pick"
+          ]
+        }
+      ],
+      "auswahl": [
+        "switch",
+        "cherry-pick",
+        "merge",
+        "rebase"
+      ],
+      "erklaerung": "`cherry-pick` kopiert einen einzelnen Commit auf den aktuellen Branch. `-x` fügt in die Commit-Nachricht einen Hinweis auf den Original-Commit ein. So lässt sich später nachvollziehen, woher der Fix kam. Ein `merge` von `main` würde alle Änderungen für 2.5 mitbringen."
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Kleine Pull Requests",
+      "text": "Studien und Erfahrung zeigen dasselbe: Je grösser ein Pull Request, desto oberflächlicher das Review. Bei 50 Zeilen findet man Fehler, bei 2000 Zeilen schreibt man „sieht gut aus“. Gute Richtwerte sind ein paar hundert Zeilen und ein klar umrissenes Thema pro PR. Grosse Vorhaben zerlegt man in eine Folge kleiner, einzeln lauffähiger Schritte: erst die Schnittstelle, dann die Implementierung hinter einem Flag, dann die Umstellung, dann das Aufräumen."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Ein Branch lebt seit sechs Wochen und hat 3000 geänderte Zeilen. Welche Probleme sind zu erwarten?",
+      "optionen": [
+        "Viele Konflikte beim Mergen, ein kaum noch sinnvoll prüfbares Review und spät entdeckte Integrationsfehler",
+        "Keine, Git kann jede Änderung automatisch zusammenführen",
+        "Nur, dass der Branch-Name veraltet ist"
+      ],
+      "korrekt": 0,
+      "erklaerung": "In sechs Wochen hat sich `main` stark verändert. Konflikte, semantische Fehler und ein Review, das niemand gründlich machen kann, sind die Folge. Besser wäre es gewesen, früh Teilstücke zu integrieren. Jetzt hilft oft nur noch, den Branch nachträglich in kleinere Pull Requests zu zerlegen.",
+      "begruendungen": [
+        "Richtig.",
+        "Git merkt textuelle Konflikte, aber keine semantischen.",
+        "Der Name ist das kleinste Problem."
+      ]
+    }
+  ],
+  "praxis": "Die Branching-Strategie bestimmt, wie gut CI funktioniert. Wenn du in einem Team die Wahl hast, schlage kurze Branches und kleine Pull Requests vor. Bei Produkten mit gepflegten Altversionen gehört eine klare Regel dazu, wie Fixes übertragen werden, sonst verschwindet irgendwann ein Sicherheitsfix aus einer Version.",
+  "labor": {
+    "titel": "Einen Fix übertragen",
+    "anleitung": "Lege in einem Test-Repository einen Tag `v2.3.0` und einen Branch `release/2.3` an. Mache auf `main` mehrere Commits, darunter einen Fix. Übertrage nur den Fix auf den Release-Branch.",
+    "befehle": [
+      "git log --oneline main",
+      "git switch release/2.3 && git cherry-pick -x <hash>",
+      "git log --oneline --graph --all"
+    ],
+    "beobachtung": "Der übertragene Commit hat einen neuen Hash, aber in der Nachricht steht `(cherry picked from commit …)`. Die Grafik zeigt, dass `release/2.3` nur den Fix enthält, nicht die übrigen Commits von `main`."
+  },
+  "begriffe": [
+    {
+      "begriff": "Trunk-based Development",
+      "englisch": "trunk-based development",
+      "erklaerung": "Alle integrieren sehr häufig in einen Hauptzweig. Branches leben höchstens wenige Tage."
+    },
+    {
+      "begriff": "Release-Branch",
+      "englisch": "release branch",
+      "erklaerung": "Branch, auf dem eine ausgelieferte Version gepflegt wird."
+    },
+    {
+      "begriff": "Cherry-Pick",
+      "englisch": "cherry-pick",
+      "erklaerung": "Einen einzelnen Commit auf einen anderen Branch kopieren."
+    }
+  ],
+  "weiterlesen": [
+    {
+      "titel": "trunkbaseddevelopment.com",
+      "url": "https://trunkbaseddevelopment.com/"
+    },
+    {
+      "titel": "Git: git-cherry-pick",
+      "url": "https://git-scm.com/docs/git-cherry-pick"
+    }
+  ]
+}

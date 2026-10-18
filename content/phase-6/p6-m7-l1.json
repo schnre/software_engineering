@@ -1,0 +1,162 @@
+{
+  "id": "p6-m7-l1",
+  "phase": 6,
+  "modul": "6.7 Start, Updates und Zuverlässigkeit",
+  "titel": "Vom Reset bis main()",
+  "lernziele": [
+    "Den Startablauf eines Cortex-M Schritt für Schritt beschreiben",
+    "Die Aufgaben von Startcode und Linkerskript verstehen",
+    "Fehler rund um statische Initialisierung erkennen"
+  ],
+  "dauerMinuten": 7,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Ein Cortex-M kommt aus dem Reset. Was liest er als Allererstes?",
+      "optionen": [
+        "Die ersten zwei Wörter der Vektortabelle: den Startwert des Stackpointers und die Adresse des Reset-Handlers",
+        "Die Funktion `main`",
+        "Den Bootloader aus dem RAM"
+      ],
+      "korrekt": 0,
+      "erklaerung": "An Adresse 0 (oder an der per Boot-Pins gewählten Stelle, meist auf den Flash-Anfang gespiegelt) steht die **Vektortabelle**. Wort 0 ist der initiale Stackpointer, Wort 1 die Adresse von `Reset_Handler`. Die Hardware lädt beides und springt los. Bis `main` passiert danach noch einiges.",
+      "begruendungen": [
+        "Richtig.",
+        "`main` ruft erst der Startcode auf.",
+        "Das RAM ist nach dem Reset nicht initialisiert."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Was der Startcode erledigt",
+      "text": "Der **Reset-Handler** (oft in `startup_xxx.s` oder `startup.cpp`) bereitet die C++-Welt vor:\n\n1. **`.data` kopieren**: Initialisierte globale Variablen liegen mit ihren Startwerten im Flash und werden ins RAM kopiert.\n2. **`.bss` nullen**: Globale Variablen ohne Startwert werden auf 0 gesetzt.\n3. **`SystemInit`**: Takt, FPU, oft auch der Ort der Vektortabelle.\n4. **Statische Konstruktoren** aufrufen (`__libc_init_array`).\n5. `main()` aufrufen.\n\nDas Linkerskript liefert dafür Symbole wie `_sidata` (Quelle im Flash), `_sdata`/`_edata` und `_sbss`/`_ebss`."
+    },
+    {
+      "typ": "reihenfolge",
+      "frage": "Bringe den Startablauf in die richtige Reihenfolge.",
+      "elemente": [
+        "Hardware lädt Stackpointer und Reset-Vektor",
+        "`.data` aus dem Flash ins RAM kopieren",
+        "`.bss` mit Nullen füllen",
+        "Takt und FPU einrichten (`SystemInit`)",
+        "Konstruktoren globaler Objekte aufrufen",
+        "`main()` aufrufen"
+      ],
+      "erklaerung": "Die Reihenfolge von 2 bis 4 variiert je nach Hersteller etwas, zum Beispiel ruft der ST-Startcode `SystemInit` vor dem Kopieren auf. Entscheidend ist: Globale Konstruktoren laufen erst, wenn `.data` und `.bss` stehen."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Was macht diese Schleife im Reset-Handler?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "extern uint32_t _sidata, _sdata, _edata;",
+          "",
+          "const uint32_t* quelle = &_sidata;",
+          "for (uint32_t* ziel = &_sdata; ziel < &_edata; ) {",
+          "    *ziel++ = *quelle++;",
+          "}"
+        ]
+      },
+      "optionen": [
+        "Sie kopiert die Startwerte initialisierter globaler Variablen vom Flash ins RAM",
+        "Sie löscht das RAM",
+        "Sie kopiert das ganze Programm ins RAM"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Eine Variable wie `int zaehler = 42;` braucht im RAM den Wert 42. Das RAM ist nach dem Einschalten zufällig, also liegt die 42 im Flash und wird hier kopiert. Die Symbole sind keine Variablen, sondern Adressen, die der Linker festlegt. Darum wird immer ihre Adresse mit `&` verwendet.",
+      "begruendungen": [
+        "Richtig.",
+        "Das Nullen ist die zweite Schleife für `.bss`.",
+        "Nur der `.data`-Abschnitt wird kopiert, der Code läuft direkt aus dem Flash."
+      ]
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "In welchem Abschnitt landet was?",
+      "paare": [
+        { "links": "`.text`", "rechts": "Maschinencode, im Flash" },
+        { "links": "`.rodata`", "rechts": "Konstanten wie `constexpr`-Tabellen und String-Literale, im Flash" },
+        { "links": "`.data`", "rechts": "Globale Variablen mit Startwert, im RAM mit Kopie im Flash" },
+        { "links": "`.bss`", "rechts": "Globale Variablen ohne Startwert, im RAM, beim Start genullt" }
+      ],
+      "erklaerung": "Darum lohnt sich `const` und `constexpr` auf Mikrocontrollern doppelt: Eine konstante Tabelle bleibt in `.rodata` und belegt kein RAM. Eine nicht konstante Tabelle belegt Flash und RAM."
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Diese Firmware stürzt manchmal schon vor `main` ab, je nachdem, in welcher Reihenfolge die Dateien gelinkt werden. Welche Zeile ist die Ursache?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "// logger.cpp",
+          "Logger logger{uart1};",
+          "",
+          "// sensor.cpp",
+          "Sensor sensor{};   // Konstruktor schreibt: logger.info(\"Sensor bereit\")"
+        ]
+      },
+      "fehlerZeile": 5,
+      "erklaerung": "Das ist das **Static Initialization Order Fiasco**: Die Reihenfolge der Konstruktoren globaler Objekte aus verschiedenen Übersetzungseinheiten ist nicht festgelegt. Läuft `sensor` vor `logger`, benutzt er ein noch nicht konstruiertes Objekt. Abhilfe: keine Abhängigkeiten zwischen globalen Konstruktoren, `constinit`/`constexpr`-Konstruktoren oder eine Funktion mit lokalem statischen Objekt. Noch besser auf Mikrocontrollern: Objekte in `main` erzeugen und explizit verdrahten."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Warum markiert man ein globales Objekt in Embedded-Code gern als `constinit`?",
+      "optionen": [
+        "Der Compiler garantiert dann, dass es zur Übersetzungszeit initialisiert wird. Es braucht keinen Konstruktoraufruf beim Start und kann nicht in das Reihenfolge-Problem geraten",
+        "Damit es im Flash statt im RAM landet",
+        "Damit es nach dem Start nicht mehr geändert werden kann"
+      ],
+      "korrekt": 0,
+      "erklaerung": "`constinit` (C++20) erzwingt konstante Initialisierung, das Objekt liegt dann einfach mit seinem Startwert in `.data` oder `.bss`. Anders als `const` bleibt es veränderbar. Ist die Initialisierung nicht konstant möglich, meldet der Compiler einen Fehler.",
+      "begruendungen": [
+        "Richtig.",
+        "Das bewirkt `const` bzw. `constexpr`, nicht `constinit`.",
+        "`constinit`-Objekte bleiben veränderbar."
+      ]
+    },
+    {
+      "typ": "terminal-deuten",
+      "frage": "Nach dem Build gibt `arm-none-eabi-size` Folgendes aus. Wie viel RAM belegen die globalen Variablen?",
+      "terminal": {
+        "befehl": "arm-none-eabi-size firmware.elf",
+        "ausgabe": [
+          "   text    data     bss     dec     hex filename",
+          "  48212     812    9340   58364    e3fc firmware.elf"
+        ]
+      },
+      "optionen": [
+        "812 + 9340 = 10 152 Byte, ohne Stack und Heap",
+        "48 212 Byte",
+        "58 364 Byte"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Im RAM liegen `.data` und `.bss`. Der Flash-Bedarf ist `text + data` = 49 024 Byte, weil die Startwerte von `.data` auch im Flash stehen. Stack und Heap kommen im RAM noch dazu.",
+      "begruendungen": [
+        "Richtig.",
+        "Das ist der Code im Flash.",
+        "Die Summe mischt Flash und RAM und ist so nicht aussagekräftig."
+      ]
+    }
+  ],
+  "praxis": "Wer den Startablauf kennt, findet Fehler, die andere für Hexerei halten: Variablen, die nach einem Software-Reset nicht ihre Startwerte haben, globale Objekte, die je nach Linker-Reihenfolge funktionieren, ein HardFault vor `main`. In Projekten mit eigenem Board-Support gehören Startcode und Linkerskript zum Code, den man im Team verstehen und reviewen muss.",
+  "labor": {
+    "titel": "Ein ELF zerlegen",
+    "anleitung": "Baue ein Beispielprojekt für einen Cortex-M und sieh dir die Abschnitte und Symbole an.",
+    "befehle": [
+      "arm-none-eabi-objdump -h firmware.elf",
+      "arm-none-eabi-nm -n firmware.elf | grep -E '_sidata|_sdata|_edata|_sbss|_ebss|Reset_Handler'",
+      "arm-none-eabi-objdump -s -j .isr_vector firmware.elf | head"
+    ],
+    "beobachtung": "Die ersten beiden Wörter der Vektortabelle sind das Stackende im RAM (z. B. `0x20020000`) und die Adresse des Reset-Handlers mit gesetztem niederwertigstem Bit, das für den Thumb-Modus steht."
+  },
+  "begriffe": [
+    { "begriff": "Reset-Handler", "englisch": "reset handler", "erklaerung": "Erste Funktion nach dem Reset, bereitet Speicher und Laufzeitumgebung vor." },
+    { "begriff": "Linkerskript", "englisch": "linker script", "erklaerung": "Beschreibt Speicherbereiche und legt fest, wo welche Abschnitte landen." },
+    { "begriff": ".bss", "englisch": "block started by symbol", "erklaerung": "Abschnitt für globale Variablen ohne Startwert, beim Start genullt." },
+    { "begriff": "Static Initialization Order Fiasco", "englisch": "static initialization order fiasco", "erklaerung": "Unbestimmte Konstruktionsreihenfolge globaler Objekte aus verschiedenen Übersetzungseinheiten." }
+  ],
+  "weiterlesen": [
+    { "titel": "Interrupt (Memfault): From Zero to main() – Bare metal C", "url": "https://interrupt.memfault.com/blog/zero-to-main-1" },
+    { "titel": "cppreference: constinit", "url": "https://en.cppreference.com/w/cpp/language/constinit" }
+  ]
+}

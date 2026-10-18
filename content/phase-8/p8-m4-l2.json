@@ -1,112 +1,185 @@
 {
   "id": "p8-m4-l2",
   "phase": 8,
-  "modul": "8.4 Kommunikation und Mentoring",
-  "titel": "Andere weiterbringen",
+  "modul": "8.4 Jenkins Shared Libraries",
+  "titel": "Eigene Pipeline-Bausteine schreiben",
   "lernziele": [
-    "Die passende Form der Unterstützung für eine Situation wählen",
-    "Fehler im Team konstruktiv und ohne Schuldzuweisung aufarbeiten",
-    "Beschreiben, woran man einen guten Senior im Team erkennt"
+    "Gute Schritte für eine Shared Library entwerfen",
+    "Typische Sicherheitsfehler im Pipeline-Code vermeiden",
+    "Änderungen an einer Library sicher ausrollen"
   ],
   "dauerMinuten": 6,
   "schritte": [
     {
       "typ": "multiple-choice",
-      "frage": "Ein Junior fragt dich, wie er einen Fehler beheben soll. Du kennst die Lösung und könntest sie in zwei Minuten sagen. Es ist kein Notfall. Was bringt ihn langfristig am meisten weiter?",
+      "frage": "Was macht einen guten Schritt in einer Shared Library aus?",
       "optionen": [
-        "Mit Fragen zur Lösung führen oder kurz gemeinsam daran arbeiten, sodass er sie selbst findet",
-        "Die Lösung direkt sagen, das spart Zeit",
-        "Ihn allein suchen lassen, so lernt er am meisten"
+        "Er macht eine Sache, hat einen klaren Namen, Parameter mit sinnvollen Standardwerten und klare Fehlermeldungen",
+        "Er erledigt möglichst alles auf einmal, damit Jenkinsfiles kurz bleiben",
+        "Er liest seine Konfiguration aus globalen Variablen, damit man keine Parameter übergeben muss"
       ],
       "korrekt": 0,
-      "erklaerung": "Wer die Lösung selbst findet, lernt das Vorgehen, nicht nur das Ergebnis, und fragt beim nächsten ähnlichen Problem nicht mehr. Fragen wie „Was sagt der Backtrace?“ oder „Wo wird dieser Wert zuletzt geschrieben?“ zeigen, wie ein erfahrener Mensch denkt.",
+      "erklaerung": "Für Pipeline-Schritte gelten dieselben Regeln wie für Funktionen: eine Aufgabe, ein klarer Vertrag, keine versteckten Abhängigkeiten. Ein Monster-Schritt mit 30 Parametern wird zur Falle, weil niemand mehr weiss, welche Kombinationen funktionieren.",
       "begruendungen": [
         "Richtig.",
-        "Bei echten Notfällen ja. Sonst lernt er dabei wenig.",
-        "Ganz ohne Unterstützung verliert er womöglich Stunden und den Mut."
+        "Dafür kann es zusätzlich eine Vorlage geben, die mehrere kleine Schritte kombiniert.",
+        "Versteckte Abhängigkeiten machen Schritte schwer verständlich und testbar."
       ]
     },
     {
       "typ": "erklaerung",
-      "titel": "Formen der Unterstützung",
-      "text": "Gutes Mentoring passt die Unterstützung an Person und Situation an:\n\n- **Pair Programming**: gemeinsam an einer Aufgabe, um Denkweise und Werkzeuge zu zeigen\n- **Leitende Fragen**: wenn jemand nah an der Lösung ist\n- **Direkt sagen**: bei Notfällen oder wenn Wissen fehlt, das man nicht herleiten kann\n- **Delegieren mit Sicherheitsnetz**: Verantwortung übergeben, mit festen Punkten für Rückfragen\n- **Reviews als Lerngelegenheit**: erklären, warum, nicht nur was\n\nDazu gehört, Kontext zu teilen: Warum ist das Projekt so aufgebaut? Was ist dem Kunden wichtig? Wer den Zusammenhang kennt, trifft bessere eigene Entscheidungen."
+      "titel": "Bewährte Praktiken",
+      "text": "- **Groovy dünn halten**: Die eigentliche Logik in Shell- oder Python-Skripte unter `resources/` legen, mit `libraryResource` laden und auf dem Agent ausführen.\n- **Parameter prüfen** und mit `error 'Klartext'` abbrechen, wenn etwas fehlt.\n- **Dokumentieren**: eine `.txt`-Datei neben jedem Schritt in `vars/` erscheint als Hilfe in Jenkins.\n- **Versionieren** nach Semantic Versioning, mit Changelog.\n- **Testen**: mit JenkinsPipelineUnit oder in einer Test-Instanz, bevor eine Version freigegeben wird."
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Jenkins zeigt bei diesem Schritt eine Warnung zu einem möglichen Leck von Geheimnissen. Welche Zeile ist das Problem?",
+      "code": {
+        "sprache": "groovy",
+        "datei": "vars/publishArtifact.groovy",
+        "zeilen": [
+          "def call(Map cfg) {",
+          "    withCredentials([string(credentialsId: 'artefakt-token', variable: 'TOKEN')]) {",
+          "        sh \"curl -H 'Authorization: Bearer ${TOKEN}' -T ${cfg.datei} https://artefakte.firma.ch/\"",
+          "    }",
+          "}"
+        ]
+      },
+      "fehlerZeile": 3,
+      "erklaerung": "In doppelten Anführungszeichen setzt **Groovy** den Wert von `TOKEN` ein, bevor die Shell startet. Das Geheimnis landet so im Befehlstext, ist für andere Prozesse auf dem Agent sichtbar und kann in Logs auftauchen. Richtig sind einfache Anführungszeichen, damit erst die **Shell** die Variable auflöst: `sh 'curl -H \"Authorization: Bearer $TOKEN\" -T \"$DATEI\" https://…'`, wobei `DATEI` z. B. mit `withEnv` gesetzt wird. Das verhindert zugleich, dass ein Dateiname mit Sonderzeichen den Befehl verändert."
     },
     {
       "typ": "zuordnen",
-      "frage": "Welche Form passt zu welcher Situation?",
+      "frage": "Welche Praxis bringt welchen Nutzen?",
       "paare": [
-        { "links": "Pair Programming", "rechts": "Eine komplexe Aufgabe, bei der man die eigene Denkweise zeigen will" },
-        { "links": "Leitende Fragen", "rechts": "Die Person ist nah an der Lösung und soll sie selbst finden" },
-        { "links": "Direkt sagen", "rechts": "Ein Fehler in Produktion, keine Zeit zum Lernen" },
-        { "links": "Delegieren mit Rückfragen", "rechts": "Die Person soll Verantwortung übernehmen, mit Sicherheitsnetz" }
+        {
+          "links": "Semantic Versioning der Library",
+          "rechts": "Teams entscheiden selbst, wann sie auf eine neue Hauptversion wechseln"
+        },
+        {
+          "links": "Logik in Skripten unter `resources/`",
+          "rechts": "Lokal testbar und entlastet den Controller"
+        },
+        {
+          "links": "Parameter mit Standardwerten und Prüfung",
+          "rechts": "Klare Fehlermeldungen statt rätselhafter Abbrüche"
+        },
+        {
+          "links": "Unit-Tests mit JenkinsPipelineUnit",
+          "rechts": "Fehler fallen auf, bevor eine neue Version ausgerollt wird"
+        }
       ],
-      "erklaerung": "Nach einem Notfall lohnt sich oft eine kurze Nachbesprechung: „Wie hätten wir das schneller gefunden?“ So wird auch aus der direkten Lösung noch eine Lerngelegenheit."
+      "erklaerung": "Eine Shared Library ist eine Abhängigkeit für viele Teams. Ein Fehler darin trifft alle gleichzeitig. Deshalb lohnt sich hier mehr Sorgfalt als in einem einzelnen Jenkinsfile."
     },
     {
-      "typ": "multiple-choice",
-      "frage": "Ein Junior hat eine fehlerhafte Konfiguration ausgeliefert, die bei Kunden zu Ausfällen führte. Wie gehst du damit um?",
+      "typ": "code-lesen",
+      "frage": "Ein Jenkinsfile ruft `cmakePaket()` ohne Parameter auf. Was passiert?",
+      "code": {
+        "sprache": "groovy",
+        "datei": "vars/cmakePaket.groovy",
+        "zeilen": [
+          "def call(Map cfg = [:]) {",
+          "    if (!cfg.produkt) {",
+          "        error 'cmakePaket: Parameter \"produkt\" fehlt, z. B. cmakePaket(produkt: \"sensor-fw\")'",
+          "    }",
+          "    sh \"cpack -G TGZ -D CPACK_PACKAGE_NAME=${cfg.produkt}\"",
+          "}"
+        ]
+      },
       "optionen": [
-        "Gemeinsam beheben, dann in einer Nachbesprechung fragen, warum das System den Fehler durchgelassen hat, und eine Prüfung ergänzen",
-        "In der Teamrunde deutlich machen, wer den Fehler gemacht hat, damit es nicht wieder passiert",
-        "Ihm die Berechtigung zum Ausliefern entziehen"
+        "Der Build bricht mit der Meldung aus Zeile 3 ab und wird als fehlgeschlagen markiert",
+        "`cpack` läuft mit einem leeren Paketnamen",
+        "Jenkins fragt nach dem fehlenden Parameter"
       ],
       "korrekt": 0,
-      "erklaerung": "Wenn ein einzelner Fehler eines Menschen zu einem Ausfall führen kann, ist das ein Fehler im **System**: Es fehlt eine Prüfung, ein Review, ein Test. Wer Schuldige sucht, erreicht vor allem, dass Fehler künftig verschwiegen werden. Kritik am Einzelnen gehört, wenn überhaupt, unter vier Augen.",
+      "erklaerung": "`error` beendet den Build sofort mit der angegebenen Meldung. Die Meldung nennt den Schritt, den fehlenden Parameter und ein Beispiel. Wer sie liest, weiss sofort, was zu tun ist. Ohne die Prüfung käme ein schwer verständlicher Fehler von `cpack`.",
       "begruendungen": [
         "Richtig.",
-        "Öffentliche Schuldzuweisung zerstört Vertrauen, und künftige Fehler werden versteckt.",
-        "Das bekämpft das Symptom, nicht die fehlende Prüfung."
+        "Genau das verhindert die Prüfung.",
+        "Pipelines laufen ohne Benutzerinteraktion."
       ]
     },
     {
       "typ": "erklaerung",
-      "titel": "Psychologische Sicherheit",
-      "text": "Googles Studie *Project Aristotle* fand, dass der wichtigste Faktor für erfolgreiche Teams **psychologische Sicherheit** ist: das Gefühl, Fragen stellen, Fehler zugeben und Bedenken äussern zu können, ohne bestraft oder belächelt zu werden.\n\nSeniors prägen das stark durch ihr eigenes Verhalten: „Das weiss ich nicht, lass uns nachsehen“ sagen, eigene Fehler offen ansprechen, Fragen ernst nehmen, Lob öffentlich und Kritik unter vier Augen. Nach Vorfällen hilft ein **Blameless Postmortem**: eine Nachbesprechung, die nach Ursachen im System sucht, nicht nach Schuldigen."
+      "titel": "Änderungen sicher ausrollen",
+      "text": "Neue Funktionen testet man, indem man die Library in einer Test-Pipeline von einem Branch lädt: `@Library('firma-pipeline@feature/neuer-schritt') _`. Ist alles gut, wird ein Tag erstellt. Rückwärtskompatible Erweiterungen bekommen eine neue Minor-Version, inkompatible Änderungen eine neue Major-Version. Die alte Major-Version pflegt man eine Weile weiter, damit Teams in Ruhe wechseln können."
     },
     {
       "typ": "multiple-choice",
-      "frage": "Woran erkennt man einen guten Senior im Team?",
+      "frage": "Du willst den Parameter `buildType` von `cmakeBuild` in `konfiguration` umbenennen. Wie rollst du das aus?",
       "optionen": [
-        "Andere werden durch ihn oder sie besser",
-        "Teilt Wissen aktiv, über Dokumentation, Reviews und Pairing",
-        "Ist die einzige Person, die die kritischen Teile des Systems versteht",
-        "Übernimmt Verantwortung für das Ergebnis des ganzen Teams, nicht nur für eigene Aufgaben"
+        "Neue Major-Version, oder vorübergehend beide Namen akzeptieren und bei `buildType` eine Warnung ausgeben",
+        "Umbenennen und denselben Tag `v2.3.0` neu setzen",
+        "Umbenennen auf dem Hauptbranch, die Teams merken es dann schon"
       ],
-      "korrekt": [0, 1, 3],
-      "erklaerung": "Seniorität zeigt sich weniger an der eigenen Produktivität als an der Wirkung auf andere. Wer der einzige Wissensträger ist, ist für das Team ein Risiko, nicht ein Vorbild. Der *Bus-Faktor* aus Modul 5.2 lässt grüssen.",
+      "korrekt": 0,
+      "erklaerung": "Eine Umbenennung bricht alle bestehenden Aufrufe. Ein sanfter Übergang (*deprecation*) akzeptiert beide Namen und warnt beim alten. So können Teams migrieren, ohne dass ihre Builds plötzlich rot werden. Einen bestehenden Tag zu verschieben, zerstört die Reproduzierbarkeit.",
       "begruendungen": [
         "Richtig.",
-        "Richtig.",
-        "Das ist ein Risiko. Ein guter Senior verteilt dieses Wissen.",
-        "Richtig."
+        "Ein Tag muss für immer auf denselben Stand zeigen.",
+        "So bricht man auf einen Schlag viele Builds."
       ]
     },
     {
       "typ": "lueckentext",
-      "frage": "Ergänze den Begriff.",
-      "text": "Eine Nachbesprechung eines Vorfalls, die nach Ursachen im System statt nach Schuldigen sucht, heisst {{?}} Postmortem.",
-      "luecken": [{ "loesungen": ["blameless"] }],
-      "auswahl": ["blameless", "formales", "technisches", "geheimes"],
-      "erklaerung": "Das Ergebnis eines guten Postmortems sind konkrete Verbesserungen: ein neuer Test, eine zusätzliche Prüfung in der Pipeline, eine bessere Warnung. Dann hat der Vorfall das System stärker gemacht."
+      "frage": "Ergänze die Pipeline-Schritte.",
+      "text": "Mit {{?}} bricht ein Schritt den Build mit einer klaren Fehlermeldung ab. Den Inhalt einer Datei aus dem Ordner `resources/` der Library lädt {{?}}.",
+      "luecken": [
+        {
+          "loesungen": [
+            "error"
+          ]
+        },
+        {
+          "loesungen": [
+            "libraryResource"
+          ]
+        }
+      ],
+      "auswahl": [
+        "error",
+        "libraryResource",
+        "echo",
+        "readFile"
+      ],
+      "erklaerung": "`readFile` liest dagegen eine Datei aus dem Workspace auf dem Agent, also aus dem gebauten Projekt. `libraryResource` liest aus der Library selbst. Typisch ist die Kombination: `writeFile file: 'tidy.yaml', text: libraryResource('ch/firma/clang-tidy.yaml')`."
     }
   ],
-  "praxis": "Damit schliesst sich der Kreis dieser App: Vom Linker über Tests, Nebenläufigkeit und Architektur bis zu Entscheidungen und Kommunikation hast du die Werkzeuge kennengelernt, die einen Senior C++-Entwickler ausmachen. Der letzte Schritt passiert nicht hier, sondern im Team: Teile, was du gelernt hast, erkläre es anderen, lass dich reviewen, und hilf anderen, besser zu werden. Wiederhole hier regelmässig, damit das Wissen bleibt.",
+  "praxis": "Pipeline-Code verdient dieselbe Qualität wie Produktcode, weil Fehler darin alle Teams treffen. Wer eine Shared Library pflegt, denkt an Rückwärtskompatibilität, klare Fehlermeldungen, Sicherheit beim Umgang mit Zugangsdaten und Dokumentation. Im Review achtest du besonders auf Groovy-Interpolation in `sh`-Befehlen, die Geheimnisse oder Eingaben von aussen enthält.",
   "labor": {
-    "titel": "Wissen teilen",
-    "anleitung": "Wähle ein Thema aus dieser App, das in deinem Team wenig bekannt ist, z. B. Sanitizer, ADRs oder Link-Reihenfolge, und bereite eine kurze Vorführung von 15 Minuten vor, mit einem echten Beispiel aus eurem Code.",
+    "titel": "Einen Schritt testen",
+    "anleitung": "Schreibe für `cmakeBuild` einen Unit-Test mit JenkinsPipelineUnit, der prüft, dass bei `buildType: 'Debug'` der richtige `cmake`-Aufruf erzeugt wird.",
     "befehle": [
-      "git switch -c doku/sanitizer-einfuehrung",
-      "mkdir -p docs/wissen && $EDITOR docs/wissen/sanitizer.md"
+      "gradle init --type groovy-library",
+      "gradle test"
     ],
-    "beobachtung": "Beim Vorbereiten merkst du schnell, wo dein eigenes Verständnis noch Lücken hat. Erklären ist eine der wirksamsten Arten zu lernen, und das Team profitiert gleich mit."
+    "beobachtung": "JenkinsPipelineUnit simuliert Schritte wie `sh` und zeichnet die Aufrufe auf. Der Test läuft in Sekunden lokal, ganz ohne Jenkins-Server."
   },
   "begriffe": [
-    { "begriff": "Mentoring", "englisch": "mentoring", "erklaerung": "Gezielte Unterstützung einer weniger erfahrenen Person beim Lernen und Wachsen." },
-    { "begriff": "Psychologische Sicherheit", "englisch": "psychological safety", "erklaerung": "Das Gefühl im Team, Fragen, Fehler und Bedenken ohne negative Folgen äussern zu können." },
-    { "begriff": "Blameless Postmortem", "englisch": "blameless postmortem", "erklaerung": "Nachbesprechung eines Vorfalls, die Ursachen im System statt Schuldige sucht." }
+    {
+      "begriff": "Semantic Versioning",
+      "englisch": "semantic versioning",
+      "erklaerung": "Versionsschema MAJOR.MINOR.PATCH: Major für inkompatible Änderungen, Minor für Erweiterungen, Patch für Fehlerbehebungen."
+    },
+    {
+      "begriff": "Deprecation",
+      "englisch": "deprecation",
+      "erklaerung": "Eine alte Schnittstelle bleibt vorerst nutzbar, wird aber als veraltet markiert und später entfernt."
+    },
+    {
+      "begriff": "String-Interpolation",
+      "englisch": "string interpolation",
+      "erklaerung": "Einsetzen von Variablenwerten in einen Text. In Groovy bei doppelten Anführungszeichen mit `${…}`."
+    }
   ],
   "weiterlesen": [
-    { "titel": "Google re:Work: Understand team effectiveness", "url": "https://rework.withgoogle.com/en/guides/understanding-team-effectiveness" },
-    { "titel": "Google SRE Book: Postmortem Culture", "url": "https://sre.google/sre-book/postmortem-culture/" }
+    {
+      "titel": "Jenkins: String interpolation (Sicherheitshinweise)",
+      "url": "https://www.jenkins.io/doc/book/pipeline/jenkinsfile/#string-interpolation"
+    },
+    {
+      "titel": "JenkinsPipelineUnit",
+      "url": "https://github.com/jenkinsci/JenkinsPipelineUnit"
+    }
   ]
 }

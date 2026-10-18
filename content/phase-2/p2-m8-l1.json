@@ -35,11 +35,26 @@
       "typ": "zuordnen",
       "frage": "Welches Werkzeug beantwortet welche Frage?",
       "paare": [
-        { "links": "`rg 'exportiere\\(' src/`", "rechts": "Wo im Code wird die Funktion überhaupt erwähnt?" },
-        { "links": "IDE: *Call Hierarchy*", "rechts": "Wer ruft die Funktion auf, über mehrere Ebenen?" },
-        { "links": "gdb: `break exportiere` und `bt`", "rechts": "Über welchen Pfad wird sie zur Laufzeit wirklich aufgerufen?" },
-        { "links": "`git log -p --follow export.cpp`", "rechts": "Warum sieht der Code so aus, und wer hat ihn geändert?" },
-        { "links": "`compile_commands.json` für clangd", "rechts": "Damit Sprünge zur Definition in der IDE korrekt funktionieren" }
+        {
+          "links": "`rg 'exportiere\\(' src/`",
+          "rechts": "Wo im Code wird die Funktion überhaupt erwähnt?"
+        },
+        {
+          "links": "IDE: *Call Hierarchy*",
+          "rechts": "Wer ruft die Funktion auf, über mehrere Ebenen?"
+        },
+        {
+          "links": "gdb: `break exportiere` und `bt`",
+          "rechts": "Über welchen Pfad wird sie zur Laufzeit wirklich aufgerufen?"
+        },
+        {
+          "links": "`git log -p --follow export.cpp`",
+          "rechts": "Warum sieht der Code so aus, und wer hat ihn geändert?"
+        },
+        {
+          "links": "`compile_commands.json` für clangd",
+          "rechts": "Damit Sprünge zur Definition in der IDE korrekt funktionieren"
+        }
       ],
       "erklaerung": "Statische Werkzeuge (Suche, IDE) zeigen, was *möglich* ist, der Debugger zeigt, was *tatsächlich* passiert. Die Git-Historie erklärt das *Warum*. Erst die Kombination ergibt ein verlässliches Bild."
     },
@@ -116,12 +131,30 @@
     "beobachtung": "Die Namespace-Version (`v11`) kann je nach Stand des Repositorys anders lauten. Finde sie mit `rg 'inline namespace v' include/`. Der Backtrace zeigt dir den Weg vom Test bis in die Bibliothek."
   },
   "begriffe": [
-    { "begriff": "Einstiegspunkt", "englisch": "entry point", "erklaerung": "Stelle, an der ein Ablauf beginnt: `main`, Thread-Funktion, Callback, Interrupt-Handler." },
-    { "begriff": "Call Graph", "englisch": "call graph", "erklaerung": "Graph, der zeigt, welche Funktion welche andere aufruft." },
-    { "begriff": "Backtrace", "englisch": "backtrace, stack trace", "erklaerung": "Liste der aktiven Funktionsaufrufe an einer Stelle, innerste Funktion zuerst." }
+    {
+      "begriff": "Einstiegspunkt",
+      "englisch": "entry point",
+      "erklaerung": "Stelle, an der ein Ablauf beginnt: `main`, Thread-Funktion, Callback, Interrupt-Handler."
+    },
+    {
+      "begriff": "Call Graph",
+      "englisch": "call graph",
+      "erklaerung": "Graph, der zeigt, welche Funktion welche andere aufruft."
+    },
+    {
+      "begriff": "Backtrace",
+      "englisch": "backtrace, stack trace",
+      "erklaerung": "Liste der aktiven Funktionsaufrufe an einer Stelle, innerste Funktion zuerst."
+    }
   ],
   "weiterlesen": [
-    { "titel": "GDB: Backtraces", "url": "https://sourceware.org/gdb/current/onlinedocs/gdb.html/Backtrace.html" },
-    { "titel": "ripgrep User Guide", "url": "https://github.com/BurntSushi/ripgrep/blob/master/GUIDE.md" }
+    {
+      "titel": "GDB: Backtraces",
+      "url": "https://sourceware.org/gdb/current/onlinedocs/gdb.html/Backtrace.html"
+    },
+    {
+      "titel": "ripgrep User Guide",
+      "url": "https://github.com/BurntSushi/ripgrep/blob/master/GUIDE.md"
+    }
   ]
 }

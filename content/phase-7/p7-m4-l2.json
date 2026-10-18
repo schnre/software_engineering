@@ -1,143 +1,144 @@
 {
   "id": "p7-m4-l2",
   "phase": 7,
-  "modul": "7.4 Entwurfsmuster",
-  "titel": "Observer und Strategy",
+  "modul": "7.4 C++ auf Mikrocontrollern",
+  "titel": "Zero-Cost-Abstraktionen für Hardware",
   "lernziele": [
-    "Mit dem Observer-Muster Benachrichtigungen entkoppeln",
-    "Lebenszeitprobleme bei Beobachtern vermeiden",
-    "Algorithmen mit dem Strategy-Muster austauschbar machen"
+    "Hardwarezugriffe mit Templates und `constexpr` typsicher und ohne Laufzeitkosten formulieren",
+    "Konfigurationsfehler zur Übersetzungszeit erkennen",
+    "Die Grenzen solcher Abstraktionen einschätzen"
   ],
-  "dauerMinuten": 6,
+  "dauerMinuten": 7,
   "schritte": [
     {
-      "typ": "multiple-choice",
-      "frage": "Ein Temperatursensor soll die Anzeige, das Protokoll und den Alarm über neue Werte informieren, ohne diese drei zu kennen. Welches Muster passt?",
-      "optionen": ["Observer", "Singleton", "Facade"],
+      "typ": "code-lesen",
+      "frage": "Welchen Maschinencode erzeugt der Aufruf `LedRot::ein()` mit `-O2` etwa?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "template <uint32_t Basis, uint8_t Pin>",
+          "struct GpioPin {",
+          "    static void ein() { reinterpret_cast<volatile uint32_t*>(Basis + 0x18)[0] = 1u << Pin; }",
+          "    static void aus() { reinterpret_cast<volatile uint32_t*>(Basis + 0x18)[0] = 1u << (Pin + 16); }",
+          "};",
+          "",
+          "using LedRot = GpioPin<0x40020C00, 14>;   // GPIOD, Pin 14"
+        ]
+      },
+      "optionen": [
+        "Eine Konstante laden und einen einzigen Speicherbefehl ausführen, wie von Hand geschrieben",
+        "Einen Funktionsaufruf über eine vtable",
+        "Eine Schleife über alle Pins"
+      ],
       "korrekt": 0,
-      "erklaerung": "Beim **Observer**-Muster melden sich Interessenten beim Subjekt an. Bei einer Änderung benachrichtigt das Subjekt alle angemeldeten Beobachter, ohne zu wissen, wer sie sind. Neue Beobachter kommen hinzu, ohne den Sensor zu ändern (Open/Closed).",
+      "erklaerung": "Adresse und Bitmaske sind zur Übersetzungszeit bekannt, die Funktion wird eingebettet (*inline*). Übrig bleibt `str r1, [r0]` mit vorher geladenen Konstanten. Ein Aufruf über einen Zeiger oder eine virtuelle Funktion wäre teurer. Auf `reinterpret_cast` in `constexpr`-Kontext muss man übrigens verzichten, darum steht hier keine `constexpr`-Variable.",
       "begruendungen": [
         "Richtig.",
-        "Ein Singleton regelt, wie viele Instanzen es gibt, nicht die Benachrichtigung.",
-        "Eine Facade vereinfacht den Zugang zu einem Teilsystem."
+        "Es gibt keine virtuelle Funktion, alles ist statisch.",
+        "Der Pin steht als Template-Parameter fest."
       ]
     },
     {
       "typ": "erklaerung",
-      "titel": "Observer in modernem C++",
-      "text": "Statt einer Klassenhierarchie mit `IBeobachter` nimmt man heute oft `std::function`: Der Sensor speichert eine Liste von Callbacks und ruft sie bei jedem neuen Wert auf.\n\nDie Tücken liegen in den Details:\n- **Lebenszeit**: Wird ein Beobachter zerstört, ohne sich abzumelden, ruft der Sensor einen hängenden Callback auf.\n- **Reentrancy**: Meldet sich ein Beobachter im Callback ab oder neu an, ändert sich die Liste während der Iteration.\n- **Threads**: Callbacks unter einer Sperre aufzurufen, lädt zu Deadlocks ein (Modul 4.1).\n\nBewährt hat sich: `registriere` gibt ein **Abmelde-Token** zurück, ein RAII-Objekt, das im Destruktor automatisch abmeldet."
+      "titel": "Abstraktion ohne Kosten",
+      "text": "**Zero-Cost-Abstraktion** heisst: Der lesbare, typsichere Code erzeugt denselben Maschinencode wie handgeschriebener Registerzugriff. Werkzeuge dafür:\n\n- **Template-Parameter** für alles, was zur Übersetzungszeit feststeht (Port, Pin, Kanal)\n- **`constexpr`/`consteval`**-Funktionen für Berechnungen wie Prescaler oder Baudratenteiler\n- **`static_assert`** für Konfigurationsprüfungen\n- **Starke Typen** (Modul 10.6) für Einheiten wie Hertz oder Millisekunden\n- **Concepts** (Modul 3.1), um Treiber gegen eine Schnittstelle zu prüfen, ohne Laufzeitpolymorphie\n\nBibliotheken wie modm, Kvasir oder die Ansätze in Zephyrs C++-Unterstützung arbeiten so."
     },
     {
       "typ": "code-lesen",
-      "frage": "Was passiert in der letzten Zeile?",
+      "frage": "Was passiert, wenn jemand `Uart<115200, 16'000'000>` mit einem Takt verwendet, der zu keiner sinnvollen Baudrate führt?",
       "code": {
         "sprache": "cpp",
         "zeilen": [
-          "Sensor sensor;",
-          "{",
-          "    Anzeige anzeige;",
-          "    sensor.registriere([&anzeige](double t) { anzeige.zeige(t); });",
-          "}",
-          "sensor.neuerWert(21.5);"
-        ]
-      },
-      "optionen": [
-        "Undefined Behavior: Der Callback benutzt `anzeige`, die am Ende des Blocks schon zerstört wurde",
-        "Die Anzeige zeigt 21.5 an",
-        "Nichts, der Callback wurde automatisch entfernt"
-      ],
-      "korrekt": 0,
-      "erklaerung": "Der Callback hat eine Referenz auf `anzeige` gefangen, nicht die Anzeige selbst. Der Sensor kann nicht wissen, dass sie nicht mehr existiert. Mit einem Abmelde-Token als Member der Anzeige wäre der Callback beim Zerstören der Anzeige automatisch entfernt worden.",
-      "begruendungen": [
-        "Richtig.",
-        "Die Anzeige existiert nicht mehr.",
-        "`std::function` kennt die Lebenszeit der gefangenen Objekte nicht."
-      ]
-    },
-    {
-      "typ": "erklaerung",
-      "titel": "Strategy",
-      "text": "Beim **Strategy**-Muster wird ein Algorithmus austauschbar: Ein `Regler` bekommt eine Regelstrategie (Zweipunkt, PI, PID) übergeben, statt sie fest einzubauen. Umsetzen lässt sich das mit einer Schnittstelle, mit `std::function` oder mit einem Template-Parameter.",
-      "code": {
-        "sprache": "cpp",
-        "zeilen": [
-          "class Regler {",
-          "public:",
-          "    using Strategie = std::function<double(double ist, double soll)>;",
-          "    explicit Regler(Strategie s) : strategie_(std::move(s)) {}",
-          "    double stellgroesse(double ist) const { return strategie_(ist, soll_); }",
-          "private:",
-          "    Strategie strategie_;",
-          "    double soll_ = 21.0;",
-          "};",
-          "",
-          "Regler zweipunkt([](double ist, double soll) { return ist < soll ? 1.0 : 0.0; });"
-        ]
-      }
-    },
-    {
-      "typ": "zuordnen",
-      "frage": "Ordne zu.",
-      "paare": [
-        { "links": "Observer", "rechts": "Viele Interessenten werden über eine Änderung informiert, ohne dass das Subjekt sie kennt" },
-        { "links": "Strategy", "rechts": "Ein Algorithmus wird austauschbar hinter einer Schnittstelle" },
-        { "links": "Abmelde-Token", "rechts": "Meldet einen Beobachter automatisch ab, wenn er zerstört wird" },
-        { "links": "`std::function`", "rechts": "Leichtgewichtige Umsetzung beider Muster ohne eigene Klassenhierarchie" }
-      ],
-      "erklaerung": "Viele klassische Entwurfsmuster sind in modernem C++ kleiner geworden: Wo früher eine Schnittstelle mit einer Methode und mehrere Klassen nötig waren, reicht heute oft ein Lambda."
-    },
-    {
-      "typ": "lueckentext",
-      "frage": "Ergänze die Strategy mit `std::function`.",
-      "code": {
-        "sprache": "cpp",
-        "zeilen": [
-          "class Regler {",
-          "public:",
-          "    using Strategie = std::{{?}}<double(double ist, double soll)>;",
-          "    explicit Regler(Strategie s) : strategie_(std::{{?}}(s)) {}",
-          "private:",
-          "    Strategie strategie_;",
+          "template <uint32_t Baud, uint32_t Takt>",
+          "struct Uart {",
+          "    static constexpr uint32_t teiler = (Takt + Baud / 2) / Baud;",
+          "    static constexpr uint32_t ist = Takt / teiler;",
+          "    static constexpr uint32_t abweichung_promille =",
+          "        (ist > Baud ? ist - Baud : Baud - ist) * 1000 / Baud;",
+          "    static_assert(abweichung_promille <= 20, \"Baudrate weicht mehr als 2 % ab\");",
           "};"
         ]
       },
-      "luecken": [{ "loesungen": ["function"] }, { "loesungen": ["move"] }],
-      "auswahl": ["function", "move", "vector", "forward"],
-      "erklaerung": "Der Parameter wird als Wert übernommen und dann ins Member verschoben, das Sink-Parameter-Muster aus Modul 4.4. `std::forward` ist nur in Templates mit Weiterleitungsreferenzen sinnvoll."
+      "optionen": [
+        "Der Build scheitert mit der Meldung aus `static_assert`, bevor überhaupt Firmware entsteht",
+        "Die UART läuft mit falscher Baudrate",
+        "Zur Laufzeit wird ein Fehler gemeldet"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Bei 16 MHz und 115 200 Baud ist der Teiler 139, die tatsächliche Baudrate 115 108, eine Abweichung von 0,8 ‰. Das passt. Mit einem unglücklichen Takt würde die Prüfung beim Übersetzen anschlagen. Jeder Fehler, den der Compiler findet, muss nicht im Labor gesucht werden.",
+      "begruendungen": [
+        "Richtig.",
+        "Genau das verhindert die Prüfung.",
+        "Alles wird zur Übersetzungszeit berechnet. Zur Laufzeit gibt es keine Prüfung mehr."
+      ]
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Diese Abstraktion sollte keine Laufzeitkosten haben, doch das Binary wird bei jedem neuen Pin grösser und langsamer. Welche Zeile ist die Ursache?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "class IPin {",
+          "public:",
+          "    virtual void setze(bool an) = 0;",
+          "};",
+          "",
+          "class Pin : public IPin {",
+          "public:",
+          "    Pin(GPIO_TypeDef* port, uint8_t nr) : port_{port}, nr_{nr} {}",
+          "    void setze(bool an) override { port_->BSRR = an ? (1u << nr_) : (1u << (nr_ + 16)); }",
+          "private:",
+          "    GPIO_TypeDef* port_; uint8_t nr_;",
+          "};"
+        ]
+      },
+      "fehlerZeile": 3,
+      "erklaerung": "Die virtuelle Funktion erzwingt einen indirekten Aufruf und verhindert das Einbetten. Port und Pin stehen zur Laufzeit im Objekt statt als Konstanten im Code. Das ist kein Fehler im eigentlichen Sinn: Für austauschbare Treiber und Tests ist ein Interface oft genau richtig. Wo aber jedes Takt zählt (Bit-Banging, schnelle ISRs), ist die statische Variante besser. Modul 10.5 vergleicht beide Wege."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Wann passt welche Technik?",
+      "paare": [
+        { "links": "Template-Parameter", "rechts": "Pin und Port stehen fest und ändern sich nie" },
+        { "links": "Virtuelles Interface", "rechts": "Treiber soll im Test durch einen Mock ersetzt werden, Laufzeit ist unkritisch" },
+        { "links": "Concept", "rechts": "Generischer Code soll prüfen, ob ein Treiber die nötigen Funktionen hat" },
+        { "links": "`static_assert`", "rechts": "Eine Konfiguration ist ungültig und soll den Build stoppen" }
+      ],
+      "erklaerung": "Auch statische Abstraktionen lassen sich testen: Der Test instanziiert die Templates mit einer Fake-Hardware statt mit echten Registeradressen."
     },
     {
       "typ": "multiple-choice",
-      "frage": "Wann nimmt man für eine Strategie besser einen Template-Parameter statt `std::function`?",
+      "frage": "Was ist der wichtigste Nachteil stark templatisierter Hardware-Abstraktionen?",
       "optionen": [
-        "Wenn sie in einer heissen Schleife läuft und schon beim Kompilieren feststeht. `std::function` kostet einen indirekten Aufruf und kann Heap-Speicher anfordern",
-        "Immer, `std::function` sollte man nie verwenden",
-        "Wenn die Strategie zur Laufzeit gewechselt werden soll"
+        "Lange, schwer lesbare Fehlermeldungen und höhere Einstiegshürde für das Team. Concepts und gute Namen mildern das",
+        "Sie sind langsamer als C-Code",
+        "Sie verbrauchen mehr RAM"
       ],
       "korrekt": 0,
-      "erklaerung": "`std::function` verbirgt den genauen Typ (*type erasure*). Das ist bequem, verhindert aber Inlining, und grosse Lambdas landen auf dem Heap. Ein Template wie `template <typename Strategie> class Regler` kennt den Typ, der Compiler kann alles inlinen. Dafür lässt sich die Strategie zur Laufzeit nicht wechseln. Das Thema vertieft Modul 7.5.",
+      "erklaerung": "Die Kosten liegen nicht in der Laufzeit, sondern beim Menschen: Lesbarkeit, Kompilierzeit, Fehlermeldungen, Einarbeitung. Senior-Entwickler wägen das bewusst ab. Eine elegante Template-Bibliothek, die niemand im Team versteht, ist ein Wartungsrisiko.",
       "begruendungen": [
         "Richtig.",
-        "Für die meisten Fälle ist `std::function` gut und lesbar.",
-        "Gerade dann ist `std::function` oder eine Schnittstelle die richtige Wahl."
+        "Richtig angewendet erzeugen sie denselben Code.",
+        "Konstanten in Template-Parametern belegen gar kein RAM."
       ]
     }
   ],
-  "praxis": "Observer begegnet dir überall: Signale und Slots in Qt, Callbacks in Netzwerkbibliotheken, Ereignisse in Steuerungen. Im Review fragst du immer: Wer meldet den Beobachter wann ab? Was passiert, wenn ein Callback eine Exception wirft oder länger dauert? Wird er unter einer Sperre aufgerufen? Für Strategy prüfst du, ob die Austauschbarkeit wirklich gebraucht wird oder nur auf Vorrat eingebaut ist.",
+  "praxis": "In der Praxis kombiniert man beides: Statische Abstraktionen für die unterste Ebene (Register, Pins, Takte) und schlanke Interfaces für Treiber, die man im Test austauschen will. Der Prüfstein: Auf Compiler Explorer den erzeugten Code ansehen. Wer behauptet, eine Abstraktion koste nichts, sollte es zeigen können.",
   "labor": {
-    "titel": "Ein Abmelde-Token bauen",
-    "anleitung": "Schreibe ein `Subjekt` mit `registriere`, das ein `Abo`-Objekt zurückgibt. `Abo` meldet im Destruktor ab und ist nur verschiebbar. Teste das Beispiel aus der Lektion damit unter AddressSanitizer.",
+    "titel": "Auf Compiler Explorer vergleichen",
+    "anleitung": "Öffne godbolt.org, wähle „ARM GCC (none)“ mit `-O2 -mcpu=cortex-m4 -mthumb` und vergleiche drei Varianten: direkter Registerzugriff, Template-Pin, virtuelles Interface.",
     "befehle": [
-      "g++ -std=c++20 -g -fsanitize=address observer.cpp -o observer && ./observer"
+      "https://godbolt.org"
     ],
-    "beobachtung": "Ohne Token meldet ASan `stack-use-after-scope` beim Aufruf des Callbacks. Mit Token als Member der Anzeige ist der Callback beim Verlassen des Blocks entfernt, und ASan bleibt still."
+    "beobachtung": "Die ersten beiden Varianten erzeugen identischen Code. Die virtuelle Variante lädt den vtable-Zeiger, die Funktionsadresse und springt mit `blx`. Wenn der Compiler den konkreten Typ kennt (*devirtualization*), kann er sie manchmal ebenfalls einbetten."
   },
   "begriffe": [
-    { "begriff": "Observer", "englisch": "observer pattern", "erklaerung": "Beobachter melden sich bei einem Subjekt an und werden über Änderungen benachrichtigt." },
-    { "begriff": "Strategy", "englisch": "strategy pattern", "erklaerung": "Ein austauschbarer Algorithmus wird von aussen übergeben." },
-    { "begriff": "Type Erasure", "englisch": "type erasure", "erklaerung": "Verbergen des konkreten Typs hinter einer einheitlichen Schnittstelle, z. B. bei `std::function`." }
+    { "begriff": "Zero-Cost-Abstraktion", "englisch": "zero-cost abstraction", "erklaerung": "Abstraktion, die keinen zusätzlichen Maschinencode gegenüber handgeschriebenem Code erzeugt." },
+    { "begriff": "static_assert", "englisch": "static assertion", "erklaerung": "Prüfung zur Übersetzungszeit, die bei Verletzung den Build abbricht." },
+    { "begriff": "Devirtualisierung", "englisch": "devirtualization", "erklaerung": "Optimierung, bei der der Compiler einen virtuellen Aufruf durch einen direkten ersetzt." }
   ],
   "weiterlesen": [
-    { "titel": "cppreference: std::function", "url": "https://en.cppreference.com/w/cpp/utility/functional/function" },
-    { "titel": "refactoring.guru: Observer", "url": "https://refactoring.guru/design-patterns/observer" }
+    { "titel": "modm: A modular C++23 library generator for barebone embedded programming", "url": "https://modm.io/" },
+    { "titel": "Compiler Explorer", "url": "https://godbolt.org/" }
   ]
 }

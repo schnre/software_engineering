@@ -19,7 +19,11 @@
         "Header und Bibliotheken des Zielsystems",
         "Der Editor oder die IDE"
       ],
-      "korrekt": [0, 1, 2],
+      "korrekt": [
+        0,
+        1,
+        2
+      ],
       "erklaerung": "Eine **Toolchain** ist alles, was nötig ist, um aus Quelltext ein lauffähiges Programm für ein bestimmtes Zielsystem zu machen. Die IDE ist bequem, aber austauschbar. Sie ruft die Toolchain nur auf.",
       "begruendungen": [
         "Richtig. Unter Linux kommen Assembler und Linker aus den GNU Binutils.",
@@ -37,10 +41,22 @@
       "typ": "zuordnen",
       "frage": "Ordne die Target-Triples zu.",
       "paare": [
-        { "links": "`x86_64-linux-gnu`", "rechts": "PC oder Server mit Linux und glibc" },
-        { "links": "`aarch64-linux-gnu`", "rechts": "64-Bit-ARM mit Linux, z. B. Raspberry Pi mit 64-Bit-OS" },
-        { "links": "`arm-none-eabi`", "rechts": "ARM-Mikrocontroller ohne Betriebssystem" },
-        { "links": "`x86_64-w64-mingw32`", "rechts": "Windows-Programme, gebaut mit MinGW" }
+        {
+          "links": "`x86_64-linux-gnu`",
+          "rechts": "PC oder Server mit Linux und glibc"
+        },
+        {
+          "links": "`aarch64-linux-gnu`",
+          "rechts": "64-Bit-ARM mit Linux, z. B. Raspberry Pi mit 64-Bit-OS"
+        },
+        {
+          "links": "`arm-none-eabi`",
+          "rechts": "ARM-Mikrocontroller ohne Betriebssystem"
+        },
+        {
+          "links": "`x86_64-w64-mingw32`",
+          "rechts": "Windows-Programme, gebaut mit MinGW"
+        }
       ],
       "erklaerung": "`none` heisst: kein Betriebssystem (bare metal). `eabi` ist die Embedded-ABI von ARM. `gnu` am Ende bedeutet Linux mit glibc. Mit musl hiesse es z. B. `x86_64-linux-musl`."
     },
@@ -96,8 +112,29 @@
       "typ": "lueckentext",
       "frage": "Ergänze die Namen der Standardbibliotheken.",
       "text": "Die C++-Standardbibliothek von GCC heisst {{?}}, die von LLVM heisst {{?}}. Die C-Bibliothek auf den meisten Linux-Systemen ist {{?}}.",
-      "luecken": [{ "loesungen": ["libstdc++"] }, { "loesungen": ["libc++"] }, { "loesungen": ["glibc"] }],
-      "auswahl": ["libstdc++", "libc++", "glibc", "newlib"],
+      "luecken": [
+        {
+          "loesungen": [
+            "libstdc++"
+          ]
+        },
+        {
+          "loesungen": [
+            "libc++"
+          ]
+        },
+        {
+          "loesungen": [
+            "glibc"
+          ]
+        }
+      ],
+      "auswahl": [
+        "libstdc++",
+        "libc++",
+        "glibc",
+        "newlib"
+      ],
       "erklaerung": "newlib findest du vor allem in Toolchains für Mikrocontroller wie `arm-none-eabi`. Dort gibt es keine glibc, weil kein Linux läuft."
     }
   ],
@@ -114,12 +151,30 @@
     "beobachtung": "Du siehst Target-Triple, Compiler-, Linker- und glibc-Version. Mit `clang++ -stdlib=libc++` statt `g++` liefert der letzte Befehl `__1`, sofern libc++ installiert ist."
   },
   "begriffe": [
-    { "begriff": "Toolchain", "englisch": "toolchain", "erklaerung": "Compiler, Binutils, C- und C++-Standardbibliothek und Zielsystem-Dateien, die zusammen ein Programm für ein Ziel erzeugen." },
-    { "begriff": "Target-Triple", "englisch": "target triple", "erklaerung": "Beschreibung des Zielsystems wie `aarch64-linux-gnu`: Architektur, Hersteller, Betriebssystem, ABI." },
-    { "begriff": "Binutils", "englisch": "GNU binary utilities", "erklaerung": "Werkzeuge rund um Object-Files: `as`, `ld`, `ar`, `nm`, `objdump`, `readelf`, `strip`." }
+    {
+      "begriff": "Toolchain",
+      "englisch": "toolchain",
+      "erklaerung": "Compiler, Binutils, C- und C++-Standardbibliothek und Zielsystem-Dateien, die zusammen ein Programm für ein Ziel erzeugen."
+    },
+    {
+      "begriff": "Target-Triple",
+      "englisch": "target triple",
+      "erklaerung": "Beschreibung des Zielsystems wie `aarch64-linux-gnu`: Architektur, Hersteller, Betriebssystem, ABI."
+    },
+    {
+      "begriff": "Binutils",
+      "englisch": "GNU binary utilities",
+      "erklaerung": "Werkzeuge rund um Object-Files: `as`, `ld`, `ar`, `nm`, `objdump`, `readelf`, `strip`."
+    }
   ],
   "weiterlesen": [
-    { "titel": "Clang: Cross-compilation using Clang (Target Triple)", "url": "https://clang.llvm.org/docs/CrossCompilation.html" },
-    { "titel": "libstdc++: Dual ABI", "url": "https://gcc.gnu.org/onlinedocs/libstdc++/manual/using_dual_abi.html" }
+    {
+      "titel": "Clang: Cross-compilation using Clang (Target Triple)",
+      "url": "https://clang.llvm.org/docs/CrossCompilation.html"
+    },
+    {
+      "titel": "libstdc++: Dual ABI",
+      "url": "https://gcc.gnu.org/onlinedocs/libstdc++/manual/using_dual_abi.html"
+    }
   ]
 }

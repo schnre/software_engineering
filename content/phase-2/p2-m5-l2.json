@@ -44,11 +44,26 @@
       "typ": "zuordnen",
       "frage": "Ordne zu.",
       "paare": [
-        { "links": "`constexpr int n = 8;`", "rechts": "Wert steht beim Kompilieren fest" },
-        { "links": "`constexpr int f(int)`", "rechts": "Läuft zur Kompilierzeit oder zur Laufzeit" },
-        { "links": "`consteval int g(int)`", "rechts": "Muss zur Kompilierzeit laufen" },
-        { "links": "`constinit int zaehler = 0;`", "rechts": "Statisch initialisiert, danach veränderbar" },
-        { "links": "`static_assert(sizeof(int) == 4);`", "rechts": "Bricht den Build ab, wenn die Bedingung falsch ist" }
+        {
+          "links": "`constexpr int n = 8;`",
+          "rechts": "Wert steht beim Kompilieren fest"
+        },
+        {
+          "links": "`constexpr int f(int)`",
+          "rechts": "Läuft zur Kompilierzeit oder zur Laufzeit"
+        },
+        {
+          "links": "`consteval int g(int)`",
+          "rechts": "Muss zur Kompilierzeit laufen"
+        },
+        {
+          "links": "`constinit int zaehler = 0;`",
+          "rechts": "Statisch initialisiert, danach veränderbar"
+        },
+        {
+          "links": "`static_assert(sizeof(int) == 4);`",
+          "rechts": "Bricht den Build ab, wenn die Bedingung falsch ist"
+        }
       ],
       "erklaerung": "`static_assert` eignet sich hervorragend, um Annahmen festzuhalten: Grösse einer Struktur für ein Netzwerkprotokoll, Ausrichtung, Anzahl Einträge in einer Tabelle. Bricht jemand die Annahme, scheitert der Build statt das Programm im Feld."
     },
@@ -121,8 +136,24 @@
           "static_assert(quadrate[3] == {{?}});"
         ]
       },
-      "luecken": [{ "loesungen": ["constexpr"] }, { "loesungen": ["9"] }],
-      "auswahl": ["constexpr", "const", "9", "6"],
+      "luecken": [
+        {
+          "loesungen": [
+            "constexpr"
+          ]
+        },
+        {
+          "loesungen": [
+            "9"
+          ]
+        }
+      ],
+      "auswahl": [
+        "constexpr",
+        "const",
+        "9",
+        "6"
+      ],
       "erklaerung": "Das Lambda wird sofort aufgerufen (`}();`) und ist seit C++17 implizit `constexpr`. Mit `const` statt `constexpr` dürfte der Compiler die Tabelle auch zur Laufzeit berechnen, und das `static_assert` wäre ungültig."
     },
     {
@@ -153,12 +184,30 @@
     "beobachtung": "Die `constexpr`-Variante hat die 1024 Byte der Tabelle fertig in `.rodata` und keinen Initialisierungscode. Die Laufzeit-Variante hat die Schleife im Maschinencode und die Tabelle in `.bss`."
   },
   "begriffe": [
-    { "begriff": "constexpr", "englisch": "constexpr", "erklaerung": "Kennzeichnet Variablen mit Kompilierzeit-Wert und Funktionen, die zur Kompilierzeit laufen können." },
-    { "begriff": "consteval", "englisch": "immediate function", "erklaerung": "Funktion, die zwingend zur Kompilierzeit ausgewertet wird (C++20)." },
-    { "begriff": "static_assert", "englisch": "static assertion", "erklaerung": "Prüfung zur Kompilierzeit. Ist sie falsch, bricht der Build ab." }
+    {
+      "begriff": "constexpr",
+      "englisch": "constexpr",
+      "erklaerung": "Kennzeichnet Variablen mit Kompilierzeit-Wert und Funktionen, die zur Kompilierzeit laufen können."
+    },
+    {
+      "begriff": "consteval",
+      "englisch": "immediate function",
+      "erklaerung": "Funktion, die zwingend zur Kompilierzeit ausgewertet wird (C++20)."
+    },
+    {
+      "begriff": "static_assert",
+      "englisch": "static assertion",
+      "erklaerung": "Prüfung zur Kompilierzeit. Ist sie falsch, bricht der Build ab."
+    }
   ],
   "weiterlesen": [
-    { "titel": "cppreference: constexpr specifier", "url": "https://en.cppreference.com/w/cpp/language/constexpr" },
-    { "titel": "cppreference: constinit specifier", "url": "https://en.cppreference.com/w/cpp/language/constinit" }
+    {
+      "titel": "cppreference: constexpr specifier",
+      "url": "https://en.cppreference.com/w/cpp/language/constexpr"
+    },
+    {
+      "titel": "cppreference: constinit specifier",
+      "url": "https://en.cppreference.com/w/cpp/language/constinit"
+    }
   ]
 }

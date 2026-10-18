@@ -1,0 +1,141 @@
+{
+  "id": "p11-m4-l2",
+  "phase": 11,
+  "modul": "11.4 Kommunikation zwischen Prozessen",
+  "titel": "Serialisierung und Byte-Reihenfolge",
+  "lernziele": [
+    "Daten plattformunabhängig serialisieren",
+    "Little und Big Endian sicher behandeln",
+    "Serialisierungsformate wie Protobuf, CBOR und FlatBuffers einordnen"
+  ],
+  "dauerMinuten": 7,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Ein Cortex-M schreibt den Wert `0x12345678` als `uint32_t` mit `memcpy` in einen Puffer. In welcher Reihenfolge liegen die Bytes?",
+      "optionen": ["`78 56 34 12`", "`12 34 56 78`", "Das ist zufällig"],
+      "korrekt": 0,
+      "fest": true,
+      "erklaerung": "Cortex-M und x86 sind **Little Endian**: Das niederwertigste Byte liegt an der niedrigsten Adresse. Netzwerkprotokolle (TCP/IP) und viele Feldbusse sind **Big Endian**, auch *network byte order* genannt. CAN-Signale können beides sein, das steht in der DBC-Datei.",
+      "begruendungen": [
+        "Richtig.",
+        "Das wäre Big Endian.",
+        "Die Reihenfolge ist durch die Architektur festgelegt."
+      ]
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Warum ist diese Funktion unabhängig von der Byte-Reihenfolge der CPU korrekt?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "constexpr void schreibeBE32(std::span<uint8_t, 4> ziel, uint32_t w) {",
+          "    ziel[0] = static_cast<uint8_t>(w >> 24);",
+          "    ziel[1] = static_cast<uint8_t>(w >> 16);",
+          "    ziel[2] = static_cast<uint8_t>(w >> 8);",
+          "    ziel[3] = static_cast<uint8_t>(w);",
+          "}"
+        ]
+      },
+      "optionen": [
+        "Schiebeoperationen arbeiten auf dem Wert, nicht auf seiner Speicherdarstellung. Das Ergebnis ist auf jeder CPU gleich",
+        "Weil `std::span` die Reihenfolge umdreht",
+        "Sie ist nur auf Little-Endian-CPUs korrekt"
+      ],
+      "korrekt": 0,
+      "erklaerung": "`w >> 24` liefert immer das höchstwertige Byte, egal wie die CPU es speichert. Der Compiler erkennt das Muster und erzeugt auf ARM eine einzige `rev`-Instruktion plus Speicherbefehl. Seit C++23 gibt es zusätzlich `std::byteswap` und mit `std::endian::native` kann man die Reihenfolge abfragen.",
+      "begruendungen": [
+        "Richtig.",
+        "`span` ist nur eine Sicht, es ändert nichts.",
+        "Gerade weil sie auf Werten arbeitet, ist sie portabel."
+      ]
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Diese Nachricht wird zwischen einem ARM-Gerät und einem PC-Programm ausgetauscht. Nach einem Compiler-Update auf einer Seite kommt Unsinn an. Welche Zeile ist das Grundproblem?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "struct Status {",
+          "    uint8_t  zustand;",
+          "    uint32_t fehlercode;",
+          "    float    temperatur;",
+          "};",
+          "",
+          "socket.sende(&status, sizeof(Status));"
+        ]
+      },
+      "fehlerZeile": 7,
+      "erklaerung": "Das rohe Senden einer Struktur macht ihr Speicherlayout zum Protokoll: Padding (Modul 3.5), Byte-Reihenfolge, Ausrichtung und `sizeof` hängen von Compiler, Optionen und Architektur ab. Ein Protokoll muss explizit definiert sein: Feld für Feld, mit festgelegter Byte-Reihenfolge, oder mit einem Serialisierungsformat und Schema. Dazu gehört eine Versionsnummer, damit beide Seiten sich weiterentwickeln können."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Ordne die Serialisierungsformate zu.",
+      "paare": [
+        { "links": "Protocol Buffers", "rechts": "Schema in `.proto`, kompaktes Binärformat, gute Abwärtskompatibilität, nanopb für Mikrocontroller" },
+        { "links": "FlatBuffers / Cap'n Proto", "rechts": "Zugriff auf Felder ohne Deserialisieren (*zero copy*)" },
+        { "links": "CBOR / MessagePack", "rechts": "Binäres JSON, selbstbeschreibend, ohne Schema nutzbar" },
+        { "links": "JSON", "rechts": "Textformat, gut lesbar, grösser und langsamer zu parsen" }
+      ],
+      "erklaerung": "Für Embedded-Geräte mit wenig Speicher sind nanopb (Protobuf) und CBOR (z. B. mit zcbor in Zephyr) beliebt. Zwischen Prozessen auf leistungsfähigen Systemen und für grosse Daten passt FlatBuffers. Für Konfigurationsdateien und Web-Schnittstellen JSON."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Ein älteres Gerät kennt Feld 4 noch nicht. Was passiert, wenn es diese neue Nachricht empfängt?",
+      "code": {
+        "sprache": "text",
+        "datei": "status.proto",
+        "zeilen": [
+          "syntax = \"proto3\";",
+          "message Status {",
+          "  uint32 zustand = 1;",
+          "  uint32 fehlercode = 2;",
+          "  float temperatur = 3;",
+          "  uint32 laufzeit_s = 4;   // neu in Version 2",
+          "}"
+        ]
+      },
+      "optionen": [
+        "Es überspringt das unbekannte Feld und liest die anderen korrekt",
+        "Es stürzt ab",
+        "Es liest `laufzeit_s` als `temperatur`"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Protobuf kodiert jedes Feld mit seiner Nummer und seinem Typ. Unbekannte Nummern werden übersprungen. Die Regeln für Kompatibilität: Feldnummern nie wiederverwenden oder ändern, gelöschte Felder als `reserved` markieren, Typen nur kompatibel ändern. So können Gerät und Server unabhängig aktualisiert werden.",
+      "begruendungen": [
+        "Richtig.",
+        "Das Format ist darauf ausgelegt, unbekannte Felder zu tolerieren.",
+        "Die Feldnummer verhindert Verwechslungen."
+      ]
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze.",
+      "text": "Cortex-M ist {{?}} Endian, die Netzwerk-Byte-Reihenfolge ist {{?}} Endian.",
+      "luecken": [{ "loesungen": ["Little"] }, { "loesungen": ["Big"] }],
+      "auswahl": ["Little", "Big", "Middle"],
+      "erklaerung": "Manche ARM-Kerne könnten technisch auch Big Endian arbeiten, praktisch laufen fast alle Little Endian."
+    }
+  ],
+  "praxis": "Jede Schnittstelle zwischen Geräten, Prozessen oder Versionen ist ein Vertrag, und das Datenformat ist sein wichtigster Teil. Senior-Entwickler achten darauf: Ist das Format explizit spezifiziert? Gibt es eine Versionierung? Wird jede empfangene Länge geprüft (Modul 12.3)? Gibt es Tests mit echten, aufgezeichneten Nachrichten von älteren Versionen?",
+  "labor": {
+    "titel": "Protobuf mit nanopb",
+    "anleitung": "Generiere aus `status.proto` C-Code mit nanopb, kodiere eine Nachricht in einem Testprogramm auf dem PC und dekodiere sie mit dem Python-Protobuf-Paket.",
+    "befehle": [
+      "pip install nanopb protobuf",
+      "nanopb_generator status.proto",
+      "gcc -I. status.pb.c pb_encode.c pb_common.c test_encode.c -o test_encode && ./test_encode > status.bin",
+      "protoc --decode=Status status.proto < status.bin"
+    ],
+    "beobachtung": "Die kodierte Nachricht ist nur wenige Bytes gross. Felder mit Wert 0 werden in proto3 gar nicht übertragen. `protoc --decode` zeigt die Werte lesbar an, ein praktisches Debug-Werkzeug."
+  },
+  "begriffe": [
+    { "begriff": "Endianness", "englisch": "endianness", "erklaerung": "Reihenfolge, in der die Bytes eines mehrbytigen Werts im Speicher liegen." },
+    { "begriff": "Serialisierung", "englisch": "serialization", "erklaerung": "Umwandlung von Daten in eine übertragbare Bytefolge." },
+    { "begriff": "Protocol Buffers", "englisch": "protocol buffers", "erklaerung": "Schemabasiertes binäres Serialisierungsformat von Google." }
+  ],
+  "weiterlesen": [
+    { "titel": "Protocol Buffers: Language Guide (proto3)", "url": "https://protobuf.dev/programming-guides/proto3/" },
+    { "titel": "nanopb", "url": "https://jpa.kapsi.fi/nanopb/" }
+  ]
+}

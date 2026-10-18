@@ -1,130 +1,200 @@
 {
   "id": "p5-m1-l1",
   "phase": 5,
-  "modul": "5.1 Continuous Integration und Deployment",
-  "titel": "Was Continuous Integration wirklich bedeutet",
+  "modul": "5.1 Threads und Data Races",
+  "titel": "std::thread und std::jthread",
   "lernziele": [
-    "CI als Arbeitsweise erklären, nicht nur als Werkzeug",
-    "Die Praktiken nennen, die CI ausmachen",
-    "Erklären, warum zwei grüne Pull Requests zusammen einen roten Build ergeben können"
+    "Threads starten und korrekt beenden",
+    "Lebenszeit-Fehler bei Threads erkennen",
+    "Mit dem Gesetz von Amdahl den möglichen Gewinn abschätzen"
   ],
-  "dauerMinuten": 5,
+  "dauerMinuten": 6,
   "schritte": [
     {
-      "typ": "multiple-choice",
-      "frage": "Ein Team arbeitet je drei Wochen auf eigenen Feature-Branches. Das Zusammenführen dauert danach jedes Mal mehrere Tage. Welche Beschreibung trifft **Continuous Integration**?",
+      "typ": "code-lesen",
+      "frage": "Was passiert am Ende von `main`?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "void arbeite() { std::cout << \"fertig\\n\"; }",
+          "",
+          "int main() {",
+          "    std::thread t(arbeite);",
+          "}"
+        ]
+      },
       "optionen": [
-        "Alle integrieren kleine Änderungen mindestens täglich in den Hauptzweig, und jede Integration wird automatisch gebaut und getestet",
-        "Ein Jenkins-Server baut jede Nacht alle Feature-Branches",
-        "Am Ende jedes Sprints werden alle Branches zusammengeführt und getestet"
+        "Das Programm wird mit `std::terminate` beendet, weil `t` beim Zerstören noch nicht `join`ed wurde",
+        "`main` wartet automatisch auf den Thread und gibt `fertig` aus",
+        "Compilerfehler"
       ],
       "korrekt": 0,
-      "erklaerung": "CI ist zuerst eine **Arbeitsweise**: oft und in kleinen Schritten integrieren, damit Konflikte klein bleiben und sofort auffallen. Der CI-Server ist nur das Werkzeug, das jede Integration prüft. Wer einen Server hat, aber wochenlang getrennt arbeitet, macht kein CI.",
+      "erklaerung": "Ein `std::thread`, der noch *joinable* ist, ruft in seinem Destruktor `std::terminate` auf. Der Standard zwingt dich so, dich zu entscheiden: warten (`join`) oder loslassen (`detach`). Ob vorher noch `fertig` erscheint, ist Zufall.",
       "begruendungen": [
         "Richtig.",
-        "Damit baut man Branches, integriert aber nicht.",
-        "Das ist genau das Muster, das zu tagelangen Zusammenführungen führt."
+        "Das macht erst `std::jthread` (C++20).",
+        "Der Code kompiliert. Der Fehler passiert zur Laufzeit."
       ]
     },
     {
       "typ": "erklaerung",
-      "titel": "Die Idee",
-      "text": "Je länger Code getrennt entwickelt wird, desto teurer wird das Zusammenführen: Konflikte häufen sich, und Fehler zeigen sich erst spät, wenn niemand mehr weiss, welche Änderung sie verursacht hat. **Continuous Integration** dreht das um:\n\n- kleine Änderungen, mindestens täglich in den Hauptzweig (*mainline*, *trunk*)\n- jede Änderung löst automatisch Build und Tests aus\n- ein roter Build hat Vorrang vor neuer Arbeit\n- schnelle Rückmeldung, idealerweise in unter zehn Minuten"
+      "titel": "Threads in C++",
+      "text": "`std::thread t(f, args...)` startet sofort einen neuen Thread, der `f(args...)` ausführt. Die Argumente werden **kopiert**. Für Referenzen braucht es `std::ref(x)`.\n\nVor dem Ende der Lebenszeit muss man `t.join()` (warten) oder `t.detach()` (loslassen) aufrufen. `detach` ist selten richtig: Der Thread läuft dann weiter, auch wenn die Objekte, die er benutzt, längst zerstört sind.\n\n`std::jthread` (C++20) ist die bessere Wahl. Er ruft im Destruktor selbst `join` auf (RAII) und unterstützt kooperatives Beenden über ein `std::stop_token`."
     },
     {
-      "typ": "multiple-choice",
-      "frage": "Welche Praktiken gehören zu Continuous Integration?",
-      "optionen": [
-        "Kleine Änderungen mindestens täglich in den Hauptzweig integrieren",
-        "Jeder Commit löst automatisch Build und Tests aus",
-        "Ein roter Build wird sofort behoben, bevor neue Arbeit dazukommt",
-        "Langlebige Feature-Branches, die kurz vor dem Release zusammengeführt werden"
+      "typ": "lueckentext",
+      "frage": "Ergänze: Ein Hintergrund-Thread soll arbeiten, bis er zum Aufhören aufgefordert wird, und beim Zerstören automatisch beendet werden.",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "std::{{?}} t([](std::stop_token st) {",
+          "    while (!st.{{?}}()) {",
+          "        verarbeiteNaechstes();",
+          "    }",
+          "});",
+          "// ... später, z. B. im Destruktor des Besitzers:",
+          "t.request_stop();"
+        ]
+      },
+      "luecken": [
+        {
+          "loesungen": [
+            "jthread"
+          ]
+        },
+        {
+          "loesungen": [
+            "stop_requested"
+          ]
+        }
       ],
-      "korrekt": [0, 1, 2],
-      "erklaerung": "Die ersten drei Punkte sind der Kern. Langlebige Branches sind das Gegenteil von CI. Unfertige Funktionen integriert man trotzdem, versteckt sie aber hinter einem **Feature Flag**, bis sie fertig sind.",
+      "auswahl": [
+        "jthread",
+        "stop_requested",
+        "thread",
+        "join"
+      ],
+      "erklaerung": "Der `jthread` übergibt das `stop_token` automatisch, wenn die Funktion eines als ersten Parameter erwartet. Im Destruktor ruft er erst `request_stop()` und dann `join()` auf. Der explizite Aufruf am Ende ist deshalb nur nötig, wenn man früher anhalten will."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Was ist hier das Problem?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "void starte() {",
+          "    std::string name = \"Sensor 1\";",
+          "    std::thread t([&] { log(name); });",
+          "    t.detach();",
+          "}"
+        ]
+      },
+      "optionen": [
+        "Undefined Behavior: `starte()` kann enden und `name` zerstören, bevor der Thread `name` benutzt",
+        "`detach` beendet den Thread sofort",
+        "Kein Problem, das Lambda hält `name` am Leben"
+      ],
+      "korrekt": 0,
+      "erklaerung": "`[&]` fängt `name` per Referenz. Nach `detach` läuft der Thread unabhängig weiter, `starte()` kehrt zurück, und `name` ist weg. Die Referenz im Thread hängt. Abhilfe: per Wert fangen (`[name]`) und auf `detach` verzichten, sodass jemand für das Ende des Threads verantwortlich bleibt.",
       "begruendungen": [
         "Richtig.",
-        "Richtig.",
-        "Richtig. Ein dauerhaft roter Build macht CI wertlos.",
-        "Das ist der Gegenentwurf zu CI."
+        "`detach` trennt nur die Verbindung zum `std::thread`-Objekt. Der Thread läuft weiter.",
+        "Ein Lambda mit `[&]` hält gar nichts am Leben, es speichert nur Referenzen."
       ]
     },
     {
       "typ": "zuordnen",
-      "frage": "Ordne die Begriffe zu.",
+      "frage": "Was macht was?",
       "paare": [
-        { "links": "Mainline / Trunk", "rechts": "Gemeinsamer Hauptzweig, aus dem released wird" },
-        { "links": "Roter Build", "rechts": "Der Hauptzweig baut nicht oder Tests schlagen fehl" },
-        { "links": "Feedback-Zeit", "rechts": "Dauer vom Push bis zum Ergebnis der Prüfungen" },
-        { "links": "Merge-Hölle", "rechts": "Integrationsprobleme nach langer getrennter Entwicklung" }
+        {
+          "links": "`join()`",
+          "rechts": "Wartet, bis der Thread fertig ist"
+        },
+        {
+          "links": "`detach()`",
+          "rechts": "Thread läuft unabhängig weiter, warten ist nicht mehr möglich"
+        },
+        {
+          "links": "`joinable()`",
+          "rechts": "Prüft, ob noch `join` oder `detach` nötig ist"
+        },
+        {
+          "links": "`request_stop()`",
+          "rechts": "Bittet einen `jthread`, kooperativ aufzuhören"
+        },
+        {
+          "links": "`std::thread::hardware_concurrency()`",
+          "rechts": "Hinweis auf die Anzahl gleichzeitig laufender Hardware-Threads"
+        }
       ],
-      "erklaerung": "Die Feedback-Zeit entscheidet, ob CI im Alltag funktioniert. Dauert die Pipeline zwei Stunden, wartet niemand auf das Ergebnis. Dann häufen sich Änderungen, und ein Fehler lässt sich nicht mehr einem Commit zuordnen."
+      "erklaerung": "„Kooperativ“ heisst: Der Thread muss selbst regelmässig nachsehen. C++ kann Threads nicht von aussen abbrechen. Das wäre auch gefährlich, weil sie dabei Sperren halten oder Daten halb geschrieben zurücklassen könnten."
     },
     {
       "typ": "erklaerung",
-      "titel": "Grün einzeln, rot zusammen",
-      "text": "Pull Request A benennt das Member `timeout` in `zeitlimit` um. Pull Request B, gleichzeitig entstanden, verwendet `timeout` an einer neuen Stelle. Beide PRs werden für sich gegen den alten Stand von `main` geprüft: beide grün. Nach dem Mergen beider ist `main` rot.\n\nAbhilfe: Die CI prüft das **Ergebnis des Zusammenführens** und nicht nur den Branch, und eine **Merge Queue** führt PRs nacheinander zusammen und prüft jede Kombination, bevor sie auf `main` landet."
-    },
-    {
-      "typ": "terminal-deuten",
-      "frage": "Beide Pull Requests waren grün. Direkt nach dem Mergen des zweiten schlägt der Build auf `main` fehl. Was ist passiert?",
-      "terminal": {
-        "befehl": "cmake --build build",
-        "ausgabe": [
-          "[41/120] Building CXX object src/CMakeFiles/netz.dir/verbindung.cpp.o",
-          "FAILED: src/CMakeFiles/netz.dir/verbindung.cpp.o",
-          "src/verbindung.cpp:57:22: error: 'struct Konfig' has no member named 'timeout'",
-          "   57 |     auto t = konfig.timeout;",
-          "      |                     ^~~~~~~"
-        ]
-      },
-      "optionen": [
-        "Ein PR hat `timeout` umbenannt, der andere verwendet es neu. Jeder war für sich korrekt, zusammen nicht",
-        "Der CI-Server hat einen Fehler",
-        "Ein Entwickler hat ungetesteten Code gepusht"
-      ],
-      "korrekt": 0,
-      "erklaerung": "Ein **semantischer Konflikt**: Git sieht keinen Textkonflikt, weil die Änderungen in verschiedenen Dateien liegen. Erst der Compiler bemerkt ihn. Je kürzer Branches leben, desto seltener passiert das. Merge Queues verhindern es ganz.",
-      "begruendungen": [
-        "Richtig.",
-        "Der Server hat korrekt gemeldet, was kaputt ist.",
-        "Beide PRs wurden getestet, nur nicht in Kombination."
-      ]
+      "titel": "Threads sind nicht gratis",
+      "text": "Jeder Thread braucht einen eigenen Stack (unter Linux standardmässig 8 MB reserviert), und das Erzeugen kostet einige Mikrosekunden. Für viele kleine Aufgaben nimmt man deshalb einen **Thread-Pool**: eine feste Zahl von Threads, die Aufgaben aus einer Warteschlange abarbeiten.\n\nWie viel Parallelisierung überhaupt bringen kann, beschreibt das **Gesetz von Amdahl**: Ist ein Anteil *s* des Programms zwingend sequenziell, ist die Beschleunigung auf höchstens 1/*s* begrenzt, egal wie viele Kerne man hat."
     },
     {
       "typ": "multiple-choice",
-      "frage": "Der Build auf `main` ist rot. Wer behebt ihn, und wann?",
+      "frage": "20 % eines Programms lassen sich nicht parallelisieren. Wie viel schneller kann es mit beliebig vielen Kernen höchstens werden?",
       "optionen": [
-        "Wer ihn verursacht hat, sofort, notfalls durch Zurücknehmen der Änderung (`git revert`)",
-        "Das QA-Team am Ende der Woche",
-        "Niemand gezielt, der nächste grüne Build löst das Problem"
+        "5-mal",
+        "20-mal",
+        "unbegrenzt",
+        "1,25-mal"
       ],
       "korrekt": 0,
-      "erklaerung": "Solange `main` rot ist, kann niemand sicher integrieren, und neue Fehler verstecken sich hinter dem alten. Die Regel „rot hat Vorrang“ ist eine Team-Vereinbarung. Ein schneller `revert` ist keine Niederlage, sondern gute Praxis: erst wieder grün, dann in Ruhe reparieren.",
+      "fest": true,
+      "erklaerung": "Selbst wenn die übrigen 80 % auf null Zeit schrumpfen, bleiben 20 % der ursprünglichen Laufzeit, also höchstens Faktor 1/0,2 = 5. In der Praxis kommen Kosten für Synchronisation und Datenaustausch hinzu. Deshalb lohnt es sich oft mehr, den sequenziellen Teil zu verkleinern, als weitere Kerne einzusetzen.",
       "begruendungen": [
-        "Richtig.",
-        "Eine Woche mit rotem Hauptzweig blockiert das ganze Team.",
-        "Ein Build wird nicht von selbst grün."
+        "Richtig: 1 / 0,2 = 5.",
+        "20 ist der sequenzielle Anteil in Prozent, nicht der Faktor.",
+        "Der sequenzielle Teil begrenzt den Gewinn.",
+        "1,25 wäre der Faktor, wenn nur der sequenzielle Teil wegfiele."
       ]
     }
   ],
-  "praxis": "Wenn du in ein Team kommst, schau dir an: Wie lange leben Branches? Wie lange dauert die Pipeline? Wie oft ist `main` rot, und wie schnell wird es wieder grün? Diese drei Zahlen sagen mehr über die Qualität der Zusammenarbeit als jedes Werkzeug. Als Senior kannst du hier viel bewegen, z. B. mit kleineren PRs, schnelleren Pipelines und einer Merge Queue.",
+  "praxis": "Im Review fallen bei Threads immer wieder dieselben Muster auf: `detach` (wer ist verantwortlich für das Ende?), Lambdas mit `[&]`, die an Threads gehen, und Threads ohne Möglichkeit zum sauberen Beenden. Ein Programm, das sich nicht in wenigen Millisekunden geordnet herunterfahren lässt, hat fast immer einen dieser Fehler.",
   "labor": {
-    "titel": "Einen semantischen Konflikt nachstellen",
-    "anleitung": "Lege in einem Test-Repository zwei Branches an: Einer benennt eine Funktion um, der andere ruft sie an einer neuen Stelle auf. Merge beide nacheinander in `main`.",
+    "titel": "Threads beobachten",
+    "anleitung": "Starte vier `jthread`s, die je eine Sekunde rechnen, und beobachte sie im System.",
     "befehle": [
-      "git switch -c umbenennen && git commit -am 'Benenne timeout in zeitlimit um'",
-      "git switch main && git switch -c neuer-aufruf && git commit -am 'Nutze timeout im Verbindungsaufbau'",
-      "git switch main && git merge umbenennen && git merge neuer-aufruf && cmake --build build"
+      "g++ -std=c++20 -O2 -pthread threads.cpp -o threads && ./threads &",
+      "ps -L -p $! -o pid,lwp,pcpu,comm",
+      "gdb -p $! -batch -ex 'info threads'"
     ],
-    "beobachtung": "Git meldet keinen Konflikt, beide Merges gelingen. Erst der Build schlägt fehl."
+    "beobachtung": "`ps -L` zeigt jeden Thread mit eigener ID (LWP). Mit `pthread_setname_np` kannst du Threads benennen. Dann erscheinen die Namen in `ps`, `top` und im Debugger, was das Debugging enorm erleichtert."
   },
   "begriffe": [
-    { "begriff": "Continuous Integration", "englisch": "continuous integration, CI", "erklaerung": "Arbeitsweise, bei der alle häufig in den Hauptzweig integrieren und jede Integration automatisch geprüft wird." },
-    { "begriff": "Merge Queue", "englisch": "merge queue", "erklaerung": "Warteschlange, die Pull Requests nacheinander zusammenführt und jede Kombination vor dem Mergen prüft." },
-    { "begriff": "Feature Flag", "englisch": "feature flag, feature toggle", "erklaerung": "Schalter, mit dem unfertiger Code integriert, aber noch nicht aktiviert werden kann." }
+    {
+      "begriff": "Thread",
+      "englisch": "thread",
+      "erklaerung": "Ausführungsstrang innerhalb eines Prozesses mit eigenem Stack, teilt sich den Speicher mit den anderen Threads."
+    },
+    {
+      "begriff": "join",
+      "englisch": "join",
+      "erklaerung": "Auf das Ende eines Threads warten."
+    },
+    {
+      "begriff": "Thread-Pool",
+      "englisch": "thread pool",
+      "erklaerung": "Feste Menge von Threads, die Aufgaben aus einer Warteschlange abarbeiten."
+    },
+    {
+      "begriff": "Gesetz von Amdahl",
+      "englisch": "Amdahl's law",
+      "erklaerung": "Der sequenzielle Anteil eines Programms begrenzt die mögliche Beschleunigung durch Parallelisierung."
+    }
   ],
   "weiterlesen": [
-    { "titel": "Martin Fowler: Continuous Integration", "url": "https://martinfowler.com/articles/continuousIntegration.html" }
+    {
+      "titel": "cppreference: std::jthread",
+      "url": "https://en.cppreference.com/w/cpp/thread/jthread"
+    },
+    {
+      "titel": "C++ Core Guidelines: CP – Concurrency and parallelism",
+      "url": "https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#S-concurrency"
+    }
   ]
 }

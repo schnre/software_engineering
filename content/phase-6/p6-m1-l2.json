@@ -1,137 +1,139 @@
 {
   "id": "p6-m1-l2",
   "phase": 6,
-  "modul": "6.1 Modularisierung und Separation of Concerns",
-  "titel": "Module schneiden",
+  "modul": "6.1 Der Mikrocontroller",
+  "titel": "Memory-mapped I/O und volatile",
   "lernziele": [
-    "Kriterien für sinnvolle Modulgrenzen anwenden",
-    "Information Hiding erklären und umsetzen",
-    "Ein Modul in CMake mit öffentlicher und interner Seite aufbauen"
+    "Erklären, wie Software über Speicheradressen Hardware steuert",
+    "Wissen, was `volatile` garantiert und was nicht",
+    "Fallen bei Lese-Ändere-Schreibe-Zugriffen auf Register erkennen"
   ],
   "dauerMinuten": 6,
   "schritte": [
     {
-      "typ": "multiple-choice",
-      "frage": "Nach welchem Kriterium schneidet man ein grosses System am besten in Module?",
+      "typ": "code-lesen",
+      "frage": "Die Schleife soll warten, bis der Sendepuffer des UART frei ist (Bit 7 im Statusregister). Was kann der Optimierer mit `-O2` daraus machen?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "std::uint32_t* const status = reinterpret_cast<std::uint32_t*>(0x40011000);",
+          "",
+          "while ((*status & (1u << 7)) == 0) {",
+          "}"
+        ]
+      },
       "optionen": [
-        "Nach fachlichen Aufgaben mit klarer Verantwortung, z. B. Telemetrie, Fahrprofil, Diagnose, die ihre Details hinter einer Schnittstelle verbergen",
-        "Nach Dateityp: alle Header in ein Modul, alle `.cpp` in ein anderes",
-        "So, dass jedes Modul ungefähr gleich viele Zeilen hat"
+        "Das Register nur einmal lesen und bei 0 für immer in der Schleife bleiben",
+        "Bei jedem Durchlauf neu lesen, wie geschrieben",
+        "Die Schleife gar nicht übersetzen, weil Zeiger auf feste Adressen verboten sind"
       ],
       "korrekt": 0,
-      "erklaerung": "Ein gutes Modul hat eine Aufgabe, die man in einem Satz erklären kann, und eine Schnittstelle, die viel kleiner ist als seine Implementierung. Technische Schichten (Treiber, Dienste, Oberfläche) sind eine zweite, ergänzende Achse. Mehr dazu in Phase 7.",
+      "erklaerung": "Für den Compiler ist `*status` normaler Speicher, den in der Schleife niemand ändert. Also darf er den Wert einmal lesen und das Ergebnis wiederverwenden. Dass die **Hardware** den Wert ändert, weiss er nicht. Genau dafür gibt es `volatile`.",
       "begruendungen": [
-        "Richtig.",
-        "Header und Implementierung gehören zusammen zu einem Modul.",
-        "Gleich grosse Module ohne fachliche Grenze haben keine klare Verantwortung."
+        "Richtig. Ein typischer Fehler, der nur mit Optimierung auftritt.",
+        "Das ist nur mit `volatile` garantiert.",
+        "Zeiger auf feste Adressen sind in Embedded-Code normal."
       ]
     },
     {
       "typ": "erklaerung",
-      "titel": "Information Hiding",
-      "text": "David Parnas hat 1972 beschrieben, was ein gutes Modul ausmacht: Es verbirgt eine **Entscheidung, die sich wahrscheinlich ändern wird**, hinter einer Schnittstelle. Das kann ein Datenformat, ein Algorithmus, eine Hardware oder ein Protokoll sein.\n\nÄndert sich diese Entscheidung, ist nur ein Modul betroffen. Gute Modulgrenzen entstehen deshalb aus der Frage: Was wird sich hier vermutlich ändern? Und wie halte ich den Rest des Systems davon fern?"
+      "titel": "Hardware über Adressen steuern",
+      "text": "Bei **Memory-mapped I/O** liegen die Register jeder Peripherie an festen Adressen. Schreibt die CPU an `0x4002 0018`, schaltet ein Pin um. Liest sie von `0x4001 1004`, holt sie ein empfangenes Byte aus dem UART. Solche Zugriffe haben **Seiteneffekte**: Lesen kann ein Flag löschen, Schreiben eine Übertragung starten.\n\n`volatile` sagt dem Compiler: Jeder Zugriff auf dieses Objekt ist beobachtbar. Er muss genau so oft und in der Reihenfolge stattfinden, wie er im Code steht, relativ zu anderen `volatile`-Zugriffen. Nichts weglassen, nichts zusammenfassen, nichts zwischenspeichern."
     },
     {
-      "typ": "erklaerung",
-      "titel": "Ein Modul in CMake",
+      "typ": "lueckentext",
+      "frage": "Ergänze die Deklaration so, dass jeder Zugriff tatsächlich auf das Register geht.",
       "code": {
-        "sprache": "text",
-        "zeilen": [
-          "telemetrie/",
-          "├── CMakeLists.txt",
-          "├── include/telemetrie/",
-          "│   └── telemetrie.h        // öffentliche Schnittstelle",
-          "└── src/",
-          "    ├── telemetrie.cpp",
-          "    ├── kodierung.h         // intern",
-          "    └── kodierung.cpp"
-        ]
+        "sprache": "cpp",
+        "zeilen": ["{{?}} std::uint32_t* const sr = reinterpret_cast<{{?}} std::uint32_t*>(0x40011000);"]
       },
-      "text": "Das Modul ist ein CMake-Target. Nur `include/` ist `PUBLIC`, `src/` bleibt privat. Nutzer schreiben `#include <telemetrie/telemetrie.h>` und können `kodierung.h` gar nicht einbinden. Der Präfix-Ordner `telemetrie/` verhindert Namenskollisionen zwischen Modulen."
+      "luecken": [{ "loesungen": ["volatile"] }, { "loesungen": ["volatile"] }],
+      "auswahl": ["volatile", "volatile", "const", "static"],
+      "erklaerung": "`volatile` gehört zum Typ, auf den gezeigt wird: `volatile std::uint32_t*`. Das `const` nach dem Stern macht den Zeiger selbst unveränderlich, die Adresse ist ja fest. In der Praxis benutzt man fertige Register-Definitionen des Herstellers (CMSIS), die genau so gebaut sind."
     },
     {
       "typ": "zuordnen",
-      "frage": "Ordne zu.",
+      "frage": "Was gilt?",
       "paare": [
-        { "links": "Information Hiding", "rechts": "Entscheidungen, die sich ändern könnten, hinter einer Schnittstelle verbergen" },
-        { "links": "Öffentlicher Header unter `include/`", "rechts": "Vertrag des Moduls mit seinen Nutzern" },
-        { "links": "Interner Header unter `src/`", "rechts": "Implementierungsdetail, für andere Module unsichtbar" },
-        { "links": "`target_link_libraries`", "rechts": "Macht Abhängigkeiten zwischen Modulen ausdrücklich" }
+        { "links": "`volatile` garantiert", "rechts": "Jeder Zugriff findet statt, in Programmreihenfolge relativ zu anderen volatile-Zugriffen" },
+        { "links": "`volatile` garantiert nicht", "rechts": "Dass ein Lese-Ändere-Schreibe-Zugriff unteilbar ist" },
+        { "links": "Lesen eines Statusregisters", "rechts": "Kann einen Seiteneffekt haben, z. B. ein Flag löschen" },
+        { "links": "`std::atomic`", "rechts": "Für Daten, die zwischen Threads oder zwischen ISR und Hauptprogramm geteilt werden" }
       ],
-      "erklaerung": "Wenn die Build-Konfiguration die Modulgrenzen abbildet, kann man sie nicht versehentlich umgehen. Ein Modul, das ein anderes benutzt, muss das ausdrücklich in `target_link_libraries` schreiben. Das sieht jeder im Review."
+      "erklaerung": "Merke: `volatile` ist für Hardware-Register, `std::atomic` für geteilte Daten (Modul 5.3 und 6.4). Die beiden lösen verschiedene Probleme, und das eine ersetzt das andere nicht."
     },
     {
       "typ": "multiple-choice",
-      "frage": "Ein Modul speichert Messwerte. Welche Entscheidung sollte es im Sinne von Information Hiding **verbergen**?",
+      "frage": "`*odr |= (1u << 5);` setzt Pin 5 eines Ports. Gleichzeitig ändert eine Interrupt-Routine Pin 3 desselben Ports. Was kann schiefgehen?",
       "optionen": [
-        "Das Speicherformat: JSON-Dateien, Binärformat oder Datenbank",
-        "Dass es Messwerte speichern und wieder laden kann",
-        "Welche Daten ein Messwert enthält (Zeit, Wert, Einheit)"
+        "Der Interrupt kommt zwischen Lesen und Schreiben. Danach überschreibt das Hauptprogramm die Änderung an Pin 3 mit dem alten Wert",
+        "Nichts, `|=` ist ein einziger Befehl",
+        "Der Pin wird doppelt gesetzt"
       ],
       "korrekt": 0,
-      "erklaerung": "Was gespeichert wird und dass es geht, ist der Zweck des Moduls und gehört in die Schnittstelle. **Wie** gespeichert wird, ist eine Entscheidung, die sich wahrscheinlich ändert: erst JSON, dann aus Leistungsgründen binär, später eine Datenbank. Nutzer sollten davon nichts merken.",
+      "erklaerung": "`|=` ist auf Maschinenebene drei Schritte: lesen, ändern, schreiben. Ein Interrupt dazwischen geht verloren. Viele Mikrocontroller bieten deshalb Set- und Reset-Register wie `BSRR` beim STM32: Ein einziger Schreibzugriff setzt oder löscht genau die gewünschten Bits, ohne vorher zu lesen.",
       "begruendungen": [
         "Richtig.",
-        "Das ist der Zweck des Moduls, also Teil der Schnittstelle.",
-        "Der Messwert ist der Datentyp, den Nutzer brauchen. Er gehört zur Schnittstelle."
+        "Im Quelltext ja, in der Hardware nicht.",
+        "Das Problem ist nicht Pin 5, sondern der verlorene Wert von Pin 3."
       ]
     },
     {
-      "typ": "terminal-deuten",
-      "frage": "Du suchst nach relativen Includes. Was zeigt das Ergebnis?",
-      "terminal": {
-        "befehl": "rg -n '#include \"(\\.\\./)+' src/",
-        "ausgabe": [
-          "src/ui/anzeige.cpp:4:#include \"../../drivers/can/src/register.h\"",
-          "src/app/start.cpp:9:#include \"../core/src/intern.h\""
+      "typ": "erklaerung",
+      "titel": "Register haben Eigenheiten",
+      "text": "Das Referenzhandbuch beschreibt für jedes Bit die Zugriffsart:\n\n- **rw**: lesen und schreiben\n- **r**: nur lesen, Schreiben wirkt nicht\n- **w**: nur schreiben, Lesen liefert z. B. 0\n- **rc_w1**: Schreiben einer 1 löscht das Bit (*write 1 to clear*). Mit `|=` löscht man so versehentlich auch andere gesetzte Flags.\n- **reserviert**: Wert beim Schreiben erhalten bzw. auf den Reset-Wert setzen\n\nWer diese Spalte nicht liest, verbringt Stunden mit Fehlern, die kein Debugger erklärt."
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Diese Sendefunktion hängt mit `-O2` manchmal für immer. Welche Zeile ist die Ursache?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "struct UartRegs { std::uint32_t SR; std::uint32_t DR; };",
+          "auto* const uart = reinterpret_cast<UartRegs*>(0x40011000);",
+          "",
+          "void sende(char c) {",
+          "    while (!(uart->SR & (1u << 7))) {}",
+          "    uart->DR = static_cast<std::uint8_t>(c);",
+          "}"
         ]
       },
-      "optionen": [
-        "Zwei Module greifen über relative Pfade auf interne Header anderer Module zu und umgehen deren Schnittstelle",
-        "Relative Includes sind schneller, das ist eine Optimierung",
-        "Nichts Auffälliges"
-      ],
-      "korrekt": 0,
-      "erklaerung": "`../../drivers/can/src/register.h` ist ein interner Header des CAN-Treibers, und ausgerechnet die Oberfläche benutzt ihn. Damit hängt die UI von Registerdetails ab. Mit sauberen CMake-Targets und nur `include/` als `PUBLIC` wäre das nicht kompiliert. Solche Funde sind ein guter Ausgangspunkt für ein Aufräum-Ticket.",
-      "begruendungen": [
-        "Richtig.",
-        "Es gibt keinen Geschwindigkeitsvorteil.",
-        "Das ist ein klarer Verstoss gegen die Modulgrenzen."
-      ]
+      "fehlerZeile": 1,
+      "erklaerung": "Die Member der Struktur sind nicht `volatile`. Der Compiler darf `SR` deshalb einmal lesen und in einem Register behalten. Richtig: `struct UartRegs { volatile std::uint32_t SR; volatile std::uint32_t DR; };`, genau wie in den CMSIS-Headern der Hersteller. Zeile 5 ist nur der Ort, an dem sich der Fehler zeigt."
     },
     {
       "typ": "multiple-choice",
-      "frage": "Wann ist ein Modul zu klein geschnitten?",
+      "frage": "C++20 hat `reg++` und `reg += 1` auf `volatile`-Objekten als veraltet markiert. Warum?",
       "optionen": [
-        "Wenn es fast immer zusammen mit einem bestimmten anderen Modul geändert werden muss",
-        "Wenn es weniger als 1000 Zeilen hat",
-        "Wenn es nur von einem Team bearbeitet wird"
+        "Sie sehen wie ein Zugriff aus, sind aber ein Lesen und ein Schreiben. Das verschleiert Lese-Ändere-Schreibe-Probleme",
+        "Weil `volatile` in C++20 abgeschafft wurde",
+        "Weil diese Operatoren auf Mikrocontrollern zu langsam sind"
       ],
       "korrekt": 0,
-      "erklaerung": "Module, die sich immer gemeinsam ändern, sind in Wahrheit eines. Die Grenze zwischen ihnen kostet nur Aufwand (Schnittstellen pflegen, zwei Targets), ohne etwas zu verbergen. Kleine Module mit klarer Aufgabe sind dagegen kein Problem.",
+      "erklaerung": "Die Absicht war, Code ehrlicher zu machen: `reg = reg + 1;` zeigt beide Zugriffe. Nach Rückmeldungen aus der Embedded-Welt hat C++23 die bitweisen Varianten `|=`, `&=` und `^=` wieder erlaubt, weil sie in Register-Code allgegenwärtig sind. `++` und `+=` auf `volatile` bleiben veraltet.",
       "begruendungen": [
         "Richtig.",
-        "Die Zeilenzahl sagt wenig. Ein CRC-Modul mit 80 Zeilen ist ein sinnvolles Modul.",
-        "Das ist eher normal und sogar wünschenswert."
+        "`volatile` gibt es weiterhin, es ist für Register unverzichtbar.",
+        "Die Geschwindigkeit ist gleich, es geht um Klarheit."
       ]
     }
   ],
-  "praxis": "Gute Modulgrenzen merkt man im Alltag daran, dass Änderungen klein bleiben, Tests pro Modul laufen und neue Teammitglieder ein Modul verstehen können, ohne das ganze System zu kennen. Wenn du neue Module anlegst, beginne mit der Frage, welche Entscheidung sie verbergen. Und richte das CMake-Target so ein, dass nur die öffentliche Schnittstelle sichtbar ist.",
+  "praxis": "Ein fehlendes `volatile` ist ein Klassiker: Im Debug-Build funktioniert alles, im Release-Build hängt das Gerät. Umgekehrt ist `volatile` für Variablen, die zwischen ISR und Hauptprogramm geteilt werden, oft nicht genug. Im Review fragst du deshalb bei jedem `volatile`: Ist das ein Hardware-Register? Wenn nicht, ist `std::atomic` oder ein kritischer Abschnitt meist die richtige Wahl.",
   "labor": {
-    "titel": "Modulgrenzen prüfen",
-    "anleitung": "Suche in einem Projekt nach Includes, die in die `src/`-Ordner anderer Module zeigen, und erzeuge den Abhängigkeitsgraphen der Targets.",
+    "titel": "Den Unterschied im Assembler sehen",
+    "anleitung": "Übersetze die Warteschleife einmal mit und einmal ohne `volatile` für Cortex-M4 und vergleiche den erzeugten Code. Am bequemsten geht das im Compiler Explorer (godbolt.org) mit „ARM GCC“.",
     "befehle": [
-      "rg -n '#include \"\\.\\./' src/ | head",
-      "cmake -S . -B build --graphviz=build/deps.dot && dot -Tsvg build/deps.dot -o deps.svg"
+      "arm-none-eabi-g++ -mcpu=cortex-m4 -mthumb -O2 -S warten.cpp -o -"
     ],
-    "beobachtung": "Vergleiche die Includes mit dem Graphen. Gibt es Includes zwischen Modulen, die im Graphen nicht als Abhängigkeit auftauchen, umgeht jemand die Modulgrenzen."
+    "beobachtung": "Ohne `volatile` steht das `ldr` (Lesen) vor der Schleife, und die Schleife springt auf sich selbst. Mit `volatile` steht das `ldr` in der Schleife und wird bei jedem Durchlauf ausgeführt."
   },
   "begriffe": [
-    { "begriff": "Information Hiding", "englisch": "information hiding", "erklaerung": "Ein Modul verbirgt eine Entscheidung, die sich ändern könnte, hinter einer stabilen Schnittstelle." },
-    { "begriff": "Schnittstelle", "englisch": "interface", "erklaerung": "Der Teil eines Moduls, den andere sehen und benutzen dürfen." },
-    { "begriff": "Shotgun Surgery", "englisch": "shotgun surgery", "erklaerung": "Eine einzige fachliche Änderung erfordert Anpassungen an vielen Stellen im Code." }
+    { "begriff": "Memory-mapped I/O", "englisch": "memory-mapped I/O, MMIO", "erklaerung": "Peripherie-Register liegen im Adressraum und werden wie Speicher gelesen und geschrieben." },
+    { "begriff": "volatile", "englisch": "volatile", "erklaerung": "Jeder Zugriff auf das Objekt ist beobachtbar und muss genau wie im Code stattfinden. Nicht atomar." },
+    { "begriff": "Lese-Ändere-Schreibe", "englisch": "read-modify-write", "erklaerung": "Lesen, Ändern und Zurückschreiben eines Werts in getrennten Schritten, die unterbrochen werden können." }
   ],
   "weiterlesen": [
-    { "titel": "D. L. Parnas: On the Criteria To Be Used in Decomposing Systems into Modules (1972)", "url": "https://dl.acm.org/doi/10.1145/361598.361623" }
+    { "titel": "cppreference: cv (const and volatile) type qualifiers", "url": "https://en.cppreference.com/w/cpp/language/cv" },
+    { "titel": "P2327: De-deprecating volatile compound operations", "url": "https://www.open-std.org/jtc1/sc22/wg21/docs/papers/2021/p2327r1.pdf" }
   ]
 }

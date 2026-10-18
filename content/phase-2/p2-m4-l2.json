@@ -57,8 +57,19 @@
           "};"
         ]
       },
-      "luecken": [{ "loesungen": ["virtual"] }],
-      "auswahl": ["virtual", "static", "inline", "explicit"],
+      "luecken": [
+        {
+          "loesungen": [
+            "virtual"
+          ]
+        }
+      ],
+      "auswahl": [
+        "virtual",
+        "static",
+        "inline",
+        "explicit"
+      ],
       "erklaerung": "`virtual ~Basis() = default;` reicht. Er macht nichts Besonderes, sorgt aber dafür, dass `delete` den Destruktor der tatsächlichen Klasse findet. Beachte: Damit unterdrückt man die impliziten Move-Operationen (Rule of Five). Bei polymorphen Basisklassen ist das meist egal, weil man sie ohnehin nicht als Wert kopiert, wie die nächste Übung zeigt."
     },
     {
@@ -83,7 +94,11 @@
           "int main() { Katze k; drucke(k); }"
         ]
       },
-      "optionen": ["`...`", "`Miau`", "Compilerfehler"],
+      "optionen": [
+        "`...`",
+        "`Miau`",
+        "Compilerfehler"
+      ],
       "korrekt": 0,
       "fest": true,
       "erklaerung": "`drucke` nimmt `Tier` **als Wert**. Beim Aufruf wird aus `k` ein neues `Tier` kopiert, und das ist eben ein `Tier`, keine `Katze`. Mit `void drucke(const Tier& t)` wäre die Ausgabe `Miau`.",
@@ -137,11 +152,25 @@
     "beobachtung": "Der Compiler warnt vor dem nicht-virtuellen Destruktor. ASan meldet beim `delete p` einen `new-delete-type-mismatch` und am Ende ein Leck für den String `pfad`."
   },
   "begriffe": [
-    { "begriff": "Virtueller Destruktor", "englisch": "virtual destructor", "erklaerung": "Destruktor, der beim `delete` über einen Basis-Zeiger den Destruktor der tatsächlichen Klasse aufruft." },
-    { "begriff": "Object Slicing", "englisch": "object slicing", "erklaerung": "Beim Kopieren eines abgeleiteten Objekts in ein Basis-Objekt geht der abgeleitete Teil verloren." }
+    {
+      "begriff": "Virtueller Destruktor",
+      "englisch": "virtual destructor",
+      "erklaerung": "Destruktor, der beim `delete` über einen Basis-Zeiger den Destruktor der tatsächlichen Klasse aufruft."
+    },
+    {
+      "begriff": "Object Slicing",
+      "englisch": "object slicing",
+      "erklaerung": "Beim Kopieren eines abgeleiteten Objekts in ein Basis-Objekt geht der abgeleitete Teil verloren."
+    }
   ],
   "weiterlesen": [
-    { "titel": "C++ Core Guidelines: C.35 – A base class destructor should be either public and virtual, or protected and non-virtual", "url": "https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#Rc-dtor-virtual" },
-    { "titel": "C++ Core Guidelines: C.67 – A polymorphic class should suppress public copy/move", "url": "https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#Rc-copy-virtual" }
+    {
+      "titel": "C++ Core Guidelines: C.35 – A base class destructor should be either public and virtual, or protected and non-virtual",
+      "url": "https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#Rc-dtor-virtual"
+    },
+    {
+      "titel": "C++ Core Guidelines: C.67 – A polymorphic class should suppress public copy/move",
+      "url": "https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#Rc-copy-virtual"
+    }
   ]
 }

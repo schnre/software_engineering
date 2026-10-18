@@ -1,136 +1,248 @@
 {
   "id": "p4-m3-l1",
   "phase": 4,
-  "modul": "4.3 Atomics und Speichermodell",
-  "titel": "std::atomic",
+  "modul": "4.3 Debugging",
+  "titel": "gdb-Grundlagen",
   "lernziele": [
-    "Einzelne Variablen mit `std::atomic` thread-sicher machen",
-    "Erkennen, wann Atomics nicht reichen",
-    "Eine Schleife mit `compare_exchange` lesen"
+    "Ein Programm in gdb starten, anhalten und schrittweise ausführen",
+    "Variablen und den Aufrufstapel untersuchen",
+    "Bedingte Haltepunkte und Watchpoints einsetzen"
   ],
   "dauerMinuten": 6,
   "schritte": [
     {
       "typ": "multiple-choice",
-      "frage": "Mehrere Threads zählen Anfragen in einem gemeinsamen Zähler. Was ist die einfachste korrekte Lösung?",
-      "optionen": ["`std::atomic<long> anfragen;`", "`volatile long anfragen;`", "`long anfragen;` mit einem Kommentar „nur von einem Thread schreiben“"],
+      "frage": "Ein Programm stürzt mit `Segmentation fault` ab. Was ist der schnellste Weg zur Absturzstelle?",
+      "optionen": [
+        "Mit `-g` bauen und im Debugger laufen lassen: Er hält an der Absturzstelle an",
+        "Überall `printf` einfügen und schauen, welche Ausgabe zuletzt kommt",
+        "Den Code von oben bis unten durchlesen"
+      ],
       "korrekt": 0,
-      "erklaerung": "Eine Operation auf einem `std::atomic` ist **unteilbar**: Kein anderer Thread kann einen halb fertigen Zustand sehen, und `++anfragen` geht nie verloren. Für einen einfachen Zähler ist das billiger und einfacher als ein Mutex.",
+      "erklaerung": "Der Debugger hält genau dort an, wo das Signal ausgelöst wird, und zeigt Zeile, Variablen und Aufrufstapel. `printf`-Debugging hat seinen Platz, ist hier aber langsamer. Ausgaben bleiben zudem gepuffert, und beim Absturz gehen die letzten oft verloren.",
       "begruendungen": [
         "Richtig.",
-        "`volatile` macht nichts atomar und synchronisiert keine Threads.",
-        "Kommentare verhindern keine Data Races."
+        "Funktioniert, ist aber langsam. Gepufferte Ausgaben können beim Absturz verloren gehen.",
+        "Bei grossen Programmen aussichtslos."
       ]
     },
     {
       "typ": "erklaerung",
-      "titel": "Atomare Operationen",
-      "text": "`std::atomic<T>` gibt es für ganze Zahlen, Zeiger, `bool` und mit Einschränkungen für andere triviale Typen. Die wichtigsten Operationen: `load`, `store`, `fetch_add` (und `++`, `+=`), `exchange` und `compare_exchange_weak`/`_strong`.\n\nFür kleine Typen setzt der Compiler dafür spezielle CPU-Befehle ein, ganz ohne Sperre (*lock-free*). Ob das der Fall ist, verrät `std::atomic<T>::is_always_lock_free`. Bei grösseren Typen nimmt die Bibliothek intern doch einen Mutex."
-    },
-    {
-      "typ": "code-lesen",
-      "frage": "Zwei Threads führen je 100 000 Mal `a++` aus. Was gibt das Programm danach aus?",
-      "code": {
-        "sprache": "cpp",
+      "titel": "Die wichtigsten Befehle",
+      "text": "Gebaut wird mit Debug-Informationen: `-g`, am besten mit `-O0` oder `-Og`. Gestartet wird mit `gdb ./app`, dann `run` (mit Argumenten: `run --port 8080`).",
+      "tabelle": {
+        "kopf": [
+          "Befehl",
+          "Kurz",
+          "Wirkung"
+        ],
         "zeilen": [
-          "std::atomic<int> a{0};",
-          "",
-          "void zaehle() { for (int i = 0; i < 100'000; ++i) a++; }",
-          "",
-          "// zwei Threads mit zaehle(), dann join()",
-          "std::cout << a.load();"
+          [
+            "`break datei.cpp:42`",
+            "`b`",
+            "Haltepunkt setzen"
+          ],
+          [
+            "`run`",
+            "`r`",
+            "Programm starten"
+          ],
+          [
+            "`next`",
+            "`n`",
+            "Nächste Zeile, Funktionsaufrufe überspringen"
+          ],
+          [
+            "`step`",
+            "`s`",
+            "In die aufgerufene Funktion hinein"
+          ],
+          [
+            "`finish`",
+            "",
+            "Bis zum Ende der aktuellen Funktion"
+          ],
+          [
+            "`continue`",
+            "`c`",
+            "Weiterlaufen bis zum nächsten Haltepunkt"
+          ],
+          [
+            "`print x`",
+            "`p`",
+            "Wert anzeigen"
+          ],
+          [
+            "`backtrace`",
+            "`bt`",
+            "Aufrufstapel anzeigen"
+          ],
+          [
+            "`frame 2`",
+            "`f`",
+            "In einen anderen Frame wechseln"
+          ]
         ]
-      },
-      "optionen": ["Immer `200000`", "Meist weniger als `200000`", "Undefined Behavior"],
-      "korrekt": 0,
-      "fest": true,
-      "erklaerung": "`a++` auf einem `std::atomic<int>` ist ein einziger unteilbarer Lese-Ändere-Schreibe-Vorgang, auf x86 z. B. `lock xadd`. Keine Erhöhung geht verloren, und es gibt kein Data Race.",
-      "begruendungen": [
-        "Richtig.",
-        "Das wäre bei `int` ohne `atomic` so.",
-        "Zugriffe auf Atomics sind nie ein Data Race."
-      ]
+      }
     },
     {
-      "typ": "code-lesen",
-      "frage": "Ein anderer Thread prüft regelmässig `belegt + frei == 100` und sieht manchmal `101`. Warum?",
-      "code": {
-        "sprache": "cpp",
-        "zeilen": [
-          "std::atomic<int> belegt{0};",
-          "std::atomic<int> frei{100};",
-          "",
-          "void reserviere() {",
-          "    belegt++;",
-          "    frei--;",
-          "}"
+      "typ": "zuordnen",
+      "frage": "Welcher Befehl tut was?",
+      "paare": [
+        {
+          "links": "`next`",
+          "rechts": "Nächste Zeile, Aufrufe werden als Ganzes ausgeführt"
+        },
+        {
+          "links": "`step`",
+          "rechts": "In die Funktion hineinspringen, die in der Zeile aufgerufen wird"
+        },
+        {
+          "links": "`finish`",
+          "rechts": "Bis zum Return der aktuellen Funktion laufen und den Rückgabewert zeigen"
+        },
+        {
+          "links": "`watch x`",
+          "rechts": "Anhalten, sobald sich `x` ändert"
+        },
+        {
+          "links": "`info locals`",
+          "rechts": "Alle lokalen Variablen des aktuellen Frames anzeigen"
+        }
+      ],
+      "erklaerung": "In der Praxis wechselt man ständig zwischen `next` (ich vertraue dieser Funktion) und `step` (hier will ich hinein). Mit `finish` kommt man schnell wieder heraus, wenn man aus Versehen in eine Standardbibliotheks-Funktion gesprungen ist."
+    },
+    {
+      "typ": "terminal-deuten",
+      "frage": "Was ist die Ursache des Absturzes?",
+      "terminal": {
+        "befehl": "gdb ./app",
+        "ausgabe": [
+          "(gdb) run",
+          "Program received signal SIGSEGV, Segmentation fault.",
+          "0x0000555555555189 in Sensor::wert (this=0x0) at sensor.cpp:12",
+          "12\t    return messwert_;"
         ]
       },
       "optionen": [
-        "Jede Operation ist atomar, die beiden zusammen aber nicht: Dazwischen kann ein anderer Thread lesen",
-        "`std::atomic` ist bei mehreren Variablen fehlerhaft",
-        "Der Compiler vertauscht die beiden Zeilen"
+        "`wert()` wurde über einen Nullzeiger aufgerufen: `this=0x0`",
+        "`messwert_` ist nicht initialisiert",
+        "Zeile 12 enthält einen Syntaxfehler"
       ],
       "korrekt": 0,
-      "erklaerung": "Atomics schützen **einzelne** Variablen. Gehören mehrere Werte zu einer Invariante, braucht es einen Mutex, der beide Änderungen zu einem kritischen Abschnitt zusammenfasst. Oder man speichert nur einen Wert: Hier reicht `belegt`, denn `frei` ist immer `100 - belegt`.",
+      "erklaerung": "`this=0x0` heisst: Das Objekt, auf dem `wert()` aufgerufen wurde, ist ein Nullzeiger. Der Zugriff auf das Member `messwert_` liest dann von einer Adresse nahe 0 und stürzt ab. Der Fehler liegt also beim **Aufrufer**. Mit `bt` und `frame 1` findest du ihn.",
       "begruendungen": [
         "Richtig.",
-        "Jedes Atomic tut genau, was es verspricht.",
-        "Mit der Standard-Speicherordnung bleibt die Reihenfolge erhalten. Das Problem ist das Fenster zwischen den beiden Operationen."
+        "Ein nicht initialisierter Wert führt zu falschen Ergebnissen, nicht zu einem Absturz beim Lesen.",
+        "Syntaxfehler findet der Compiler, nicht der Debugger."
       ]
     },
     {
       "typ": "lueckentext",
-      "frage": "Ergänze die Funktion, die ein gemeinsames Maximum ohne Mutex aktualisiert.",
+      "frage": "Ergänze die Befehle: Anhalten in Zeile 12, aber nur beim Sensor mit der `id` 7, dann den Messwert anzeigen.",
       "code": {
-        "sprache": "cpp",
+        "sprache": "bash",
         "zeilen": [
-          "void aktualisiereMaximum(std::atomic<int>& maximum, int wert) {",
-          "    int bisher = maximum.load();",
-          "    while (bisher < wert && !maximum.{{?}}(bisher, wert)) {",
-          "        // bisher enthält jetzt den aktuellen Wert, nochmals versuchen",
-          "    }",
-          "}"
+          "(gdb) {{?}} sensor.cpp:12 if id_ == 7",
+          "(gdb) run",
+          "(gdb) {{?}} messwert_"
         ]
       },
-      "luecken": [{ "loesungen": ["compare_exchange_weak"] }],
-      "auswahl": ["compare_exchange_weak", "fetch_add", "store", "exchange"],
-      "erklaerung": "`compare_exchange_weak(erwartet, neu)` setzt `neu` nur, wenn der aktuelle Wert noch `erwartet` ist. Sonst schreibt es den aktuellen Wert nach `erwartet` und liefert `false`. Die Schleife versucht es, bis entweder der eigene Wert drin ist oder ein anderer Thread schon einen grösseren geschrieben hat. Die `weak`-Variante darf gelegentlich ohne Grund scheitern, ist in Schleifen aber auf manchen CPUs schneller."
+      "luecken": [
+        {
+          "loesungen": [
+            "break"
+          ]
+        },
+        {
+          "loesungen": [
+            "print"
+          ]
+        }
+      ],
+      "auswahl": [
+        "break",
+        "print",
+        "watch",
+        "step"
+      ],
+      "erklaerung": "Ein **bedingter Haltepunkt** spart viel Zeit, wenn ein Fehler erst beim tausendsten Durchlauf oder bei einem bestimmten Objekt auftritt. `print` versteht C++-Ausdrücke, z. B. `print v.size()` oder `print *this`."
     },
     {
       "typ": "erklaerung",
-      "titel": "Lock-free ist nicht automatisch schnell",
-      "text": "Atomics sind sehr günstig, solange nur ein Thread zugreift. Schreiben viele Kerne auf dieselbe Variable, muss die Cache-Zeile ständig zwischen den Kernen wandern. Dann kann ein Atomic langsamer sein als lokale Zähler pro Thread, die man am Ende addiert.\n\nUnd: Lock-freie Datenstrukturen mit mehreren Atomics (Listen, Warteschlangen) sind extrem schwer korrekt zu bauen. Im Alltag nimmt man dafür bewährte Bibliotheken, nicht eigene Experimente."
+      "titel": "Debuggen optimierter Builds",
+      "text": "Mit `-O2` darf der Compiler Variablen in Registern halten, Zeilen umsortieren und Funktionen inlinen. Im Debugger springt die aktuelle Zeile dann scheinbar wild hin und her, und Variablen zeigen `<optimized out>`. Für die Fehlersuche gibt es zwei Auswege: `-Og` (optimiert, aber debugfreundlich) oder `RelWithDebInfo` in CMake. Bei einem Fehler, der nur mit Optimierung auftritt, ist UB der Hauptverdächtige, also lieber zuerst die Sanitizer laufen lassen."
     },
     {
-      "typ": "zuordnen",
-      "frage": "Was macht welche Operation?",
-      "paare": [
-        { "links": "`load()`", "rechts": "Wert lesen" },
-        { "links": "`store(x)`", "rechts": "Wert schreiben" },
-        { "links": "`fetch_add(n)`", "rechts": "Unteilbar addieren und den alten Wert liefern" },
-        { "links": "`exchange(x)`", "rechts": "Neuen Wert setzen und den alten liefern" },
-        { "links": "`compare_exchange_strong(e, x)`", "rechts": "Nur setzen, wenn der aktuelle Wert gleich `e` ist" }
+      "typ": "terminal-deuten",
+      "frage": "Warum zeigt gdb den Wert nicht an?",
+      "terminal": {
+        "ausgabe": [
+          "(gdb) print summe",
+          "$1 = <optimized out>"
+        ]
+      },
+      "optionen": [
+        "Das Programm ist optimiert gebaut. Die Variable existiert an dieser Stelle nur in einem Register oder gar nicht mehr",
+        "`summe` ist nicht initialisiert",
+        "gdb kann keine `int`-Variablen anzeigen"
       ],
-      "erklaerung": "`exchange` ist praktisch für Flags, die genau einmal ausgewertet werden sollen: `if (!bereitsGestartet.exchange(true)) starte();` startet garantiert nur einmal, auch wenn viele Threads gleichzeitig ankommen."
+      "korrekt": 0,
+      "erklaerung": "Der Optimierer hat entschieden, dass `summe` an dieser Stelle nicht mehr gebraucht wird, oder sie mit einer anderen Berechnung verschmolzen. Mit `-Og` oder `-O0` neu bauen. Oder eine Stelle wählen, an der der Wert noch gebraucht wird.",
+      "begruendungen": [
+        "Richtig.",
+        "Dann würde gdb einen zufälligen Wert zeigen, nicht `<optimized out>`.",
+        "gdb kann alle Typen anzeigen, für die Debug-Informationen vorliegen."
+      ]
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Eine Member-Variable bekommt irgendwann einen falschen Wert. Du weisst nicht, wo im Code das passiert. Was hilft am meisten?",
+      "optionen": [
+        "Ein Watchpoint: `watch obj.zustand_` hält an, sobald jemand den Wert ändert",
+        "Haltepunkte in allen Funktionen der Klasse",
+        "Das Programm mehrmals laufen lassen und hoffen"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Ein **Watchpoint** wird von der CPU unterstützt und hält genau bei dem Schreibzugriff an, auch wenn er von ganz woanders kommt, z. B. durch einen Pufferüberlauf in einem Nachbarobjekt. gdb zeigt alten und neuen Wert und mit `bt` den Täter.",
+      "begruendungen": [
+        "Richtig.",
+        "Ein Schreibzugriff über einen falschen Zeiger kommt oft gar nicht aus der Klasse selbst.",
+        "Hoffen ist keine Strategie."
+      ]
     }
   ],
-  "praxis": "Typische, gute Einsatzorte für Atomics: Zähler und Statistiken, ein Flag zum Beenden (`std::atomic<bool> laufen`), ein Zeiger, der einmal gesetzt und dann nur gelesen wird. Im Review bist du skeptisch, sobald jemand mehrere Atomics zu einer eigenen lock-freien Struktur kombiniert: Hier ist die Gefahr subtiler Fehler sehr gross, und ein Mutex ist fast immer schnell genug.",
+  "praxis": "Ein Debugger gehört zum täglichen Handwerk, auch in der IDE: VS Code, CLion und Visual Studio nutzen im Hintergrund gdb, lldb oder den MSVC-Debugger. Die Befehle hier helfen dir auch dann, wenn du nur per SSH auf einem Embedded-Gerät oder in einem Container arbeitest. Dort gibt es oft nur `gdb` oder `gdbserver`.",
   "labor": {
-    "titel": "Atomic gegen lokale Zähler",
-    "anleitung": "Lass 8 Threads je 10 Millionen Mal einen gemeinsamen `std::atomic<long>` erhöhen. Vergleiche mit einer Variante, in der jeder Thread lokal zählt und am Ende einmal addiert.",
+    "titel": "Einen Absturz jagen",
+    "anleitung": "Schreibe ein Programm, das über einen `std::vector<Sensor*>` iteriert, in dem ein Eintrag `nullptr` ist. Finde den Fehler mit gdb.",
     "befehle": [
-      "g++ -std=c++20 -O2 -pthread zaehler.cpp -o zaehler && ./zaehler",
-      "perf stat -e cache-misses ./zaehler"
+      "g++ -g -O0 sensoren.cpp -o sensoren",
+      "gdb -q ./sensoren -ex run -ex bt -ex 'frame 1' -ex 'info locals'"
     ],
-    "beobachtung": "Die Variante mit lokalen Zählern ist oft um ein Vielfaches schneller. `perf stat` zeigt beim gemeinsamen Atomic deutlich mehr Cache-Misses, weil die Cache-Zeile zwischen den Kernen hin- und herwandert."
+    "beobachtung": "Frame 0 zeigt `this=0x0` in der Sensor-Methode, Frame 1 die Schleife mit dem Index, bei dem es passiert. `info locals` zeigt den Index direkt."
   },
   "begriffe": [
-    { "begriff": "Atomare Operation", "englisch": "atomic operation", "erklaerung": "Operation, die unteilbar ist: Kein anderer Thread kann einen halb fertigen Zustand sehen." },
-    { "begriff": "Lock-free", "englisch": "lock-free", "erklaerung": "Ohne Sperren umgesetzt: Mindestens ein Thread kommt immer voran." },
-    { "begriff": "Compare-and-Swap", "englisch": "compare-and-swap, CAS", "erklaerung": "Setzt einen Wert nur, wenn der aktuelle Wert dem erwarteten entspricht. Grundlage vieler lock-freier Algorithmen." }
+    {
+      "begriff": "Haltepunkt",
+      "englisch": "breakpoint",
+      "erklaerung": "Stelle im Code, an der der Debugger das Programm anhält."
+    },
+    {
+      "begriff": "Watchpoint",
+      "englisch": "watchpoint",
+      "erklaerung": "Der Debugger hält an, sobald sich ein bestimmter Speicherinhalt ändert."
+    },
+    {
+      "begriff": "Segmentation fault",
+      "englisch": "segmentation fault, SIGSEGV",
+      "erklaerung": "Signal des Betriebssystems bei einem Zugriff auf nicht erlaubten Speicher."
+    }
   ],
   "weiterlesen": [
-    { "titel": "cppreference: std::atomic", "url": "https://en.cppreference.com/w/cpp/atomic/atomic" }
+    {
+      "titel": "GDB User Manual",
+      "url": "https://sourceware.org/gdb/current/onlinedocs/gdb.html/"
+    }
   ]
 }

@@ -1,0 +1,142 @@
+{
+  "id": "p11-m4-l1",
+  "phase": 11,
+  "modul": "11.4 Kommunikation zwischen Prozessen",
+  "titel": "IPC-Mechanismen",
+  "lernziele": [
+    "Die wichtigsten Mechanismen der Interprozesskommunikation unterscheiden",
+    "Für eine Aufgabe den passenden Mechanismus wählen",
+    "Die Fallen bei Shared Memory kennen"
+  ],
+  "dauerMinuten": 7,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Warum teilt man ein Embedded-Linux-System überhaupt in mehrere Prozesse auf, statt alles in einen Prozess mit Threads zu packen?",
+      "optionen": [
+        "Isolation: Ein abstürzender Prozess reisst die anderen nicht mit, Rechte lassen sich pro Prozess beschränken, und Teile können unabhängig aktualisiert werden",
+        "Weil Prozesse schneller sind als Threads",
+        "Weil Linux nur einen Thread pro Prozess erlaubt"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Jeder Prozess hat seinen eigenen Adressraum. Ein Speicherfehler in der Bedienoberfläche kann die Regelung nicht beschädigen. Der Preis ist die Kommunikation: Daten müssen über **IPC** (*inter-process communication*) ausgetauscht werden, was Kopien, Serialisierung und Latenz kostet.",
+      "begruendungen": [
+        "Richtig.",
+        "Prozesse sind eher teurer als Threads, sowohl beim Start als auch bei der Kommunikation.",
+        "Linux unterstützt viele Threads pro Prozess."
+      ]
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Ordne die Mechanismen ihren Eigenschaften zu.",
+      "paare": [
+        { "links": "Unix Domain Socket", "rechts": "Bidirektionaler Bytestrom oder Datagramme zwischen Prozessen auf demselben Rechner" },
+        { "links": "Shared Memory", "rechts": "Gemeinsamer Speicherbereich, schnellste Variante, Synchronisation selbst nötig" },
+        { "links": "POSIX Message Queue", "rechts": "Nachrichten mit Priorität, vom Kernel gepuffert" },
+        { "links": "D-Bus", "rechts": "Nachrichtenbus mit Methoden und Signalen, verbreitet für Systemdienste" },
+        { "links": "TCP/UDP-Socket", "rechts": "Auch über Rechnergrenzen, gleiche API wie lokal" }
+      ],
+      "erklaerung": "Für grosse Datenmengen (Kamerabilder, Punktwolken) ist Shared Memory unschlagbar, oft kombiniert mit einem Socket oder Eventfd für die Benachrichtigung. Für Steuerbefehle reicht ein Socket mit einem Serialisierungsformat (nächste Lektion)."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Was macht dieser Code?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "int fd = shm_open(\"/kamera\", O_CREAT | O_RDWR, 0600);",
+          "ftruncate(fd, sizeof(Bildpuffer));",
+          "auto* puffer = static_cast<Bildpuffer*>(",
+          "    mmap(nullptr, sizeof(Bildpuffer), PROT_READ | PROT_WRITE, MAP_SHARED, fd, 0));"
+        ]
+      },
+      "optionen": [
+        "Er legt ein benanntes Shared-Memory-Objekt an und blendet es in den eigenen Adressraum ein. Ein anderer Prozess kann es mit demselben Namen ebenfalls einblenden",
+        "Er schreibt das Bild in eine Datei auf der SD-Karte",
+        "Er reserviert normalen Heap-Speicher"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Unter Linux liegt `/kamera` dann in `/dev/shm`, also im RAM. Beide Prozesse sehen denselben physischen Speicher, eventuell an verschiedenen virtuellen Adressen. Darum dürfen im gemeinsamen Bereich keine Zeiger stehen, nur Offsets. Auch `std::string` oder `std::vector` funktionieren dort nicht, sie verweisen auf den Heap ihres Prozesses.",
+      "begruendungen": [
+        "Richtig.",
+        "`/dev/shm` liegt im RAM, nicht auf einem Datenträger.",
+        "Der Speicher ist gerade nicht prozesslokal."
+      ]
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Diese Struktur liegt im Shared Memory zwischen Kamera- und Auswerteprozess. Gelegentlich liest der Auswerter ein halb geschriebenes Bild. Welche Zeile ist das Problem?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "struct Bildpuffer {",
+          "    uint32_t breite, hoehe;",
+          "    bool neu;          // Kamera setzt true, Auswerter setzt false",
+          "    uint8_t pixel[1920 * 1080];",
+          "};"
+        ]
+      },
+      "fehlerZeile": 3,
+      "erklaerung": "Ein normales `bool` ist keine Synchronisation: Ohne atomare Operation und Speicherbarriere darf der Compiler oder die CPU die Schreibzugriffe umordnen. Der Auswerter kann `neu == true` sehen, bevor alle Pixel sichtbar sind (Modul 5.3). Richtig: `std::atomic<uint32_t>` als Sequenznummer mit Release/Acquire, oder ein prozessübergreifender Mutex bzw. Semaphor. Besser noch zwei oder drei Puffer, damit Schreiben und Lesen nie denselben Puffer treffen."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Ein Regelprozess muss alle 1 ms Sollwerte bekommen, ein Bedienprozess sendet sie. Was ist die wichtigste Anforderung an den IPC-Mechanismus?",
+      "optionen": [
+        "Begrenzte, vorhersagbare Latenz: Der Regelprozess darf beim Lesen nicht blockieren und keine Speicheranforderung auslösen",
+        "Möglichst hoher Durchsatz",
+        "Eine lesbare Textdarstellung der Daten"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Für Echtzeitprozesse (Modul 7.5) eignet sich ein lockfreier Ringpuffer oder ein Dreifachpuffer im Shared Memory: Der Regler nimmt immer den neuesten vollständigen Sollwert, ohne zu warten. Sockets und D-Bus sind dafür ungeeignet, weil sie Systemaufrufe und eventuell Kopien im Kernel brauchen.",
+      "begruendungen": [
+        "Richtig.",
+        "Bei wenigen Bytes pro Millisekunde ist der Durchsatz unkritisch.",
+        "Lesbarkeit kostet Parse-Zeit und ist für Echtzeitdaten unnötig."
+      ]
+    },
+    {
+      "typ": "terminal-deuten",
+      "frage": "Du untersuchst ein System. Was zeigt diese Ausgabe?",
+      "terminal": {
+        "befehl": "ss -xlp | grep steuer",
+        "ausgabe": [
+          "u_str LISTEN 0 16 /run/steuerung.sock 41231 * 0 users:((\"steuerungd\",pid=812,fd=5))"
+        ]
+      },
+      "optionen": [
+        "Der Prozess `steuerungd` wartet auf einem Unix Domain Socket unter `/run/steuerung.sock` auf Verbindungen",
+        "Ein TCP-Server auf Port 16",
+        "Eine Shared-Memory-Verbindung"
+      ],
+      "korrekt": 0,
+      "erklaerung": "`u_str` ist ein Unix-Stream-Socket, `LISTEN` heisst: Er nimmt Verbindungen an. Die Rechte der Datei `/run/steuerung.sock` bestimmen, wer sich verbinden darf. Das ist ein einfacher, oft unterschätzter Sicherheitsmechanismus.",
+      "begruendungen": [
+        "Richtig.",
+        "16 ist die maximale Länge der Warteschlange für Verbindungen, kein Port.",
+        "Shared Memory erscheint nicht in `ss`."
+      ]
+    }
+  ],
+  "praxis": "Die Prozessaufteilung ist eine zentrale Architekturentscheidung für Embedded-Linux-Produkte: Was muss isoliert werden (Sicherheit, Stabilität, Lizenzen)? Was muss schnell kommunizieren? Für viele Systeme bewährt sich: ein Echtzeitprozess mit Shared Memory für zeitkritische Daten, Systemdienste über D-Bus oder Sockets, verbunden durch ein klar dokumentiertes Nachrichtenformat.",
+  "labor": {
+    "titel": "Shared Memory mit Sequenznummer",
+    "anleitung": "Schreibe zwei Programme: Ein Schreiber aktualisiert eine Struktur im Shared Memory 1000-mal pro Sekunde, ein Leser prüft die Konsistenz. Verwende zuerst ein `bool` als Flag, dann ein Seqlock mit `std::atomic`.",
+    "befehle": [
+      "g++ -std=c++20 -O2 schreiber.cpp -o schreiber -lrt",
+      "g++ -std=c++20 -O2 leser.cpp -o leser -lrt",
+      "./schreiber & ./leser"
+    ],
+    "beobachtung": "Mit dem einfachen Flag findet der Leser auf Mehrkernsystemen gelegentlich inkonsistente Daten. Mit dem Seqlock (ungerade Sequenz während des Schreibens, Leser prüft vorher und nachher) nicht mehr."
+  },
+  "begriffe": [
+    { "begriff": "IPC", "englisch": "inter-process communication", "erklaerung": "Mechanismen zum Datenaustausch zwischen Prozessen." },
+    { "begriff": "Shared Memory", "englisch": "shared memory", "erklaerung": "Speicherbereich, der in mehrere Prozesse eingeblendet ist." },
+    { "begriff": "Unix Domain Socket", "englisch": "Unix domain socket", "erklaerung": "Socket für die Kommunikation zwischen Prozessen auf demselben Rechner, adressiert über einen Dateipfad." },
+    { "begriff": "Seqlock", "englisch": "sequence lock", "erklaerung": "Synchronisationsverfahren mit Sequenznummer, bei dem Leser nie blockieren." }
+  ],
+  "weiterlesen": [
+    { "titel": "Michael Kerrisk: The Linux Programming Interface", "url": "https://man7.org/tlpi/" },
+    { "titel": "Eclipse iceoryx: True zero-copy inter-process communication", "url": "https://iceoryx.io/" }
+  ]
+}

@@ -1,162 +1,121 @@
 {
   "id": "p3-m3-l1",
   "phase": 3,
-  "modul": "3.3 Debugging",
-  "titel": "gdb-Grundlagen",
+  "modul": "3.3 Wertsemantik und Operatoren",
+  "titel": "Reguläre Typen und der Spaceship-Operator",
   "lernziele": [
-    "Ein Programm in gdb starten, anhalten und schrittweise ausführen",
-    "Variablen und den Aufrufstapel untersuchen",
-    "Bedingte Haltepunkte und Watchpoints einsetzen"
+    "Erklären, was einen regulären Typ ausmacht",
+    "Vergleiche mit `operator<=>` und `= default` definieren",
+    "Starke und schwache Ordnungen unterscheiden"
   ],
   "dauerMinuten": 6,
   "schritte": [
     {
       "typ": "multiple-choice",
-      "frage": "Ein Programm stürzt mit `Segmentation fault` ab. Was ist der schnellste Weg zur Absturzstelle?",
+      "frage": "Was erwartet man von einem **regulären Typ** wie `int` oder `std::string`?",
       "optionen": [
-        "Mit `-g` bauen und im Debugger laufen lassen: Er hält an der Absturzstelle an",
-        "Überall `printf` einfügen und schauen, welche Ausgabe zuletzt kommt",
-        "Den Code von oben bis unten durchlesen"
+        "Er lässt sich standardkonstruieren, kopieren und vergleichen, und eine Kopie ist danach gleich dem Original und unabhängig davon",
+        "Er hat eine virtuelle Basisklasse",
+        "Er ist unveränderlich"
       ],
       "korrekt": 0,
-      "erklaerung": "Der Debugger hält genau dort an, wo das Signal ausgelöst wird, und zeigt Zeile, Variablen und Aufrufstapel. `printf`-Debugging hat seinen Platz, ist hier aber langsamer. Ausgaben bleiben zudem gepuffert, und beim Absturz gehen die letzten oft verloren.",
+      "erklaerung": "Alexander Stepanov hat reguläre Typen als Grundlage der STL beschrieben: Sie verhalten sich wie `int`. Nach `b = a` gilt `b == a`, und eine Änderung an `b` ändert `a` nicht. Solche Typen sind einfach zu verstehen, zu testen und in Containern zu verwenden. Man nennt das **Wertsemantik**.",
       "begruendungen": [
         "Richtig.",
-        "Funktioniert, ist aber langsam. Gepufferte Ausgaben können beim Absturz verloren gehen.",
-        "Bei grossen Programmen aussichtslos."
+        "Polymorphe Klassen sind meist gerade keine regulären Typen.",
+        "Reguläre Typen dürfen veränderbar sein."
       ]
     },
     {
-      "typ": "erklaerung",
-      "titel": "Die wichtigsten Befehle",
-      "text": "Gebaut wird mit Debug-Informationen: `-g`, am besten mit `-O0` oder `-Og`. Gestartet wird mit `gdb ./app`, dann `run` (mit Argumenten: `run --port 8080`).",
-      "tabelle": {
-        "kopf": ["Befehl", "Kurz", "Wirkung"],
+      "typ": "code-lesen",
+      "frage": "Welche Vergleichsoperatoren hat `Version` nach dieser Definition?",
+      "code": {
+        "sprache": "cpp",
         "zeilen": [
-          ["`break datei.cpp:42`", "`b`", "Haltepunkt setzen"],
-          ["`run`", "`r`", "Programm starten"],
-          ["`next`", "`n`", "Nächste Zeile, Funktionsaufrufe überspringen"],
-          ["`step`", "`s`", "In die aufgerufene Funktion hinein"],
-          ["`finish`", "", "Bis zum Ende der aktuellen Funktion"],
-          ["`continue`", "`c`", "Weiterlaufen bis zum nächsten Haltepunkt"],
-          ["`print x`", "`p`", "Wert anzeigen"],
-          ["`backtrace`", "`bt`", "Aufrufstapel anzeigen"],
-          ["`frame 2`", "`f`", "In einen anderen Frame wechseln"]
+          "struct Version {",
+          "    int major, minor, patch;",
+          "    auto operator<=>(const Version&) const = default;",
+          "};"
         ]
-      }
+      },
+      "optionen": [
+        "Alle sechs: `==`, `!=`, `<`, `<=`, `>`, `>=`, mit Vergleich der Member in Deklarationsreihenfolge",
+        "Nur `<=>`",
+        "Nur `<` und `>`"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Der **Drei-Wege-Vergleich** `<=>` (C++20) liefert, ob ein Wert kleiner, gleich oder grösser ist. Ein `= default` vergleicht Member für Member lexikografisch, also zuerst `major`, dann `minor`, dann `patch`. Ein vorgegebenes `<=>` erzeugt zusätzlich ein vorgegebenes `==`. Aus `<=>` und `==` leitet der Compiler alle anderen Operatoren ab.",
+      "begruendungen": [
+        "Richtig.",
+        "Die anderen Operatoren werden daraus umgeschrieben.",
+        "Auch `==` und die anderen sind verfügbar."
+      ]
     },
     {
       "typ": "zuordnen",
-      "frage": "Welcher Befehl tut was?",
+      "frage": "Ordne die Ergebnistypen von `<=>` zu.",
       "paare": [
-        { "links": "`next`", "rechts": "Nächste Zeile, Aufrufe werden als Ganzes ausgeführt" },
-        { "links": "`step`", "rechts": "In die Funktion hineinspringen, die in der Zeile aufgerufen wird" },
-        { "links": "`finish`", "rechts": "Bis zum Return der aktuellen Funktion laufen und den Rückgabewert zeigen" },
-        { "links": "`watch x`", "rechts": "Anhalten, sobald sich `x` ändert" },
-        { "links": "`info locals`", "rechts": "Alle lokalen Variablen des aktuellen Frames anzeigen" }
+        { "links": "`std::strong_ordering`", "rechts": "Gleich heisst ununterscheidbar, z. B. `int`" },
+        { "links": "`std::weak_ordering`", "rechts": "Gleichwertig, aber unterscheidbar, z. B. Strings ohne Gross-/Kleinschreibung" },
+        { "links": "`std::partial_ordering`", "rechts": "Manche Werte sind unvergleichbar, z. B. `double` mit NaN" }
       ],
-      "erklaerung": "In der Praxis wechselt man ständig zwischen `next` (ich vertraue dieser Funktion) und `step` (hier will ich hinein). Mit `finish` kommt man schnell wieder heraus, wenn man aus Versehen in eine Standardbibliotheks-Funktion gesprungen ist."
+      "erklaerung": "Bei `= default` leitet der Compiler den schwächsten Ordnungstyp der Member ab. Hat `Version` einen `double`-Member, wird das Ergebnis `partial_ordering`."
     },
     {
-      "typ": "terminal-deuten",
-      "frage": "Was ist die Ursache des Absturzes?",
-      "terminal": {
-        "befehl": "gdb ./app",
-        "ausgabe": [
-          "(gdb) run",
-          "Program received signal SIGSEGV, Segmentation fault.",
-          "0x0000555555555189 in Sensor::wert (this=0x0) at sensor.cpp:12",
-          "12\t    return messwert_;"
-        ]
-      },
-      "optionen": [
-        "`wert()` wurde über einen Nullzeiger aufgerufen: `this=0x0`",
-        "`messwert_` ist nicht initialisiert",
-        "Zeile 12 enthält einen Syntaxfehler"
-      ],
-      "korrekt": 0,
-      "erklaerung": "`this=0x0` heisst: Das Objekt, auf dem `wert()` aufgerufen wurde, ist ein Nullzeiger. Der Zugriff auf das Member `messwert_` liest dann von einer Adresse nahe 0 und stürzt ab. Der Fehler liegt also beim **Aufrufer**. Mit `bt` und `frame 1` findest du ihn.",
-      "begruendungen": [
-        "Richtig.",
-        "Ein nicht initialisierter Wert führt zu falschen Ergebnissen, nicht zu einem Absturz beim Lesen.",
-        "Syntaxfehler findet der Compiler, nicht der Debugger."
-      ]
-    },
-    {
-      "typ": "lueckentext",
-      "frage": "Ergänze die Befehle: Anhalten in Zeile 12, aber nur beim Sensor mit der `id` 7, dann den Messwert anzeigen.",
+      "typ": "fehler-finden",
+      "frage": "Diese Klasse soll Messwerte nur nach `wert` vergleichen. Der Zeitstempel soll keine Rolle spielen. Trotzdem sind zwei Messungen mit gleichem Wert nicht gleich. Welche Zeile ist falsch?",
       "code": {
-        "sprache": "bash",
+        "sprache": "cpp",
         "zeilen": [
-          "(gdb) {{?}} sensor.cpp:12 if id_ == 7",
-          "(gdb) run",
-          "(gdb) {{?}} messwert_"
+          "struct Messung {",
+          "    uint32_t zeitstempel;",
+          "    int32_t wert;",
+          "    auto operator<=>(const Messung& o) const { return wert <=> o.wert; }",
+          "    bool operator==(const Messung&) const = default;",
+          "};"
         ]
       },
-      "luecken": [{ "loesungen": ["break"] }, { "loesungen": ["print"] }],
-      "auswahl": ["break", "print", "watch", "step"],
-      "erklaerung": "Ein **bedingter Haltepunkt** spart viel Zeit, wenn ein Fehler erst beim tausendsten Durchlauf oder bei einem bestimmten Objekt auftritt. `print` versteht C++-Ausdrücke, z. B. `print v.size()` oder `print *this`."
+      "fehlerZeile": 5,
+      "erklaerung": "Ein selbst geschriebenes `<=>` erzeugt kein `==`. Das vorgegebene `==` in Zeile 5 vergleicht aber **alle** Member, also auch den Zeitstempel. Damit sind `<=>` und `==` widersprüchlich: `!(a < b) && !(b < a)`, aber `a != b`. Richtig: `bool operator==(const Messung& o) const { return wert == o.wert; }`. Ob man diesen Typ überhaupt so vergleichen sollte, ist eine Designfrage. Oft ist ein benannter Vergleich wie `nachWert` klarer."
     },
     {
       "typ": "erklaerung",
-      "titel": "Debuggen optimierter Builds",
-      "text": "Mit `-O2` darf der Compiler Variablen in Registern halten, Zeilen umsortieren und Funktionen inlinen. Im Debugger springt die aktuelle Zeile dann scheinbar wild hin und her, und Variablen zeigen `<optimized out>`. Für die Fehlersuche gibt es zwei Auswege: `-Og` (optimiert, aber debugfreundlich) oder `RelWithDebInfo` in CMake. Bei einem Fehler, der nur mit Optimierung auftritt, ist UB der Hauptverdächtige, also lieber zuerst die Sanitizer laufen lassen."
-    },
-    {
-      "typ": "terminal-deuten",
-      "frage": "Warum zeigt gdb den Wert nicht an?",
-      "terminal": {
-        "ausgabe": [
-          "(gdb) print summe",
-          "$1 = <optimized out>"
-        ]
-      },
-      "optionen": [
-        "Das Programm ist optimiert gebaut. Die Variable existiert an dieser Stelle nur in einem Register oder gar nicht mehr",
-        "`summe` ist nicht initialisiert",
-        "gdb kann keine `int`-Variablen anzeigen"
-      ],
-      "korrekt": 0,
-      "erklaerung": "Der Optimierer hat entschieden, dass `summe` an dieser Stelle nicht mehr gebraucht wird, oder sie mit einer anderen Berechnung verschmolzen. Mit `-Og` oder `-O0` neu bauen. Oder eine Stelle wählen, an der der Wert noch gebraucht wird.",
-      "begruendungen": [
-        "Richtig.",
-        "Dann würde gdb einen zufälligen Wert zeigen, nicht `<optimized out>`.",
-        "gdb kann alle Typen anzeigen, für die Debug-Informationen vorliegen."
-      ]
+      "titel": "Die Rule of Zero",
+      "text": "Ein regulärer Typ entsteht am einfachsten, wenn man **nichts** selbst schreibt: Besteht eine Klasse nur aus regulären Membern (`int`, `std::string`, `std::vector`, `std::unique_ptr` für nur verschiebbare Typen), erzeugt der Compiler Konstruktoren, Zuweisungen und den Destruktor korrekt. Das ist die **Rule of Zero** (Modul 2.2).\n\nVergleiche mit `= default` passen dazu. Nur wenn eine Klasse eine Ressource direkt verwaltet, braucht sie eigene Spezialfunktionen. Und dann am besten nur diese eine Aufgabe."
     },
     {
       "typ": "multiple-choice",
-      "frage": "Eine Member-Variable bekommt irgendwann einen falschen Wert. Du weisst nicht, wo im Code das passiert. Was hilft am meisten?",
+      "frage": "Warum verwendet man reguläre Typen gern auch für Nachrichten zwischen Tasks oder Komponenten?",
       "optionen": [
-        "Ein Watchpoint: `watch obj.zustand_` hält an, sobald jemand den Wert ändert",
-        "Haltepunkte in allen Funktionen der Klasse",
-        "Das Programm mehrmals laufen lassen und hoffen"
+        "Weil eine Kopie unabhängig ist: Sender und Empfänger teilen keinen Zustand, es braucht keine Sperren, und Tests können Nachrichten einfach mit `==` vergleichen",
+        "Weil sie weniger Speicher brauchen",
+        "Weil sie automatisch threadsicher sind, egal was sie enthalten"
       ],
       "korrekt": 0,
-      "erklaerung": "Ein **Watchpoint** wird von der CPU unterstützt und hält genau bei dem Schreibzugriff an, auch wenn er von ganz woanders kommt, z. B. durch einen Pufferüberlauf in einem Nachbarobjekt. gdb zeigt alten und neuen Wert und mit `bt` den Täter.",
+      "erklaerung": "Wertsemantik ist eine der wirksamsten Techniken gegen Nebenläufigkeitsfehler. Vorsicht: Ein Typ mit einem `shared_ptr`-Member ist zwar kopierbar, aber nicht unabhängig. Kopien teilen das Objekt dahinter. Das ist dann keine echte Wertsemantik.",
       "begruendungen": [
         "Richtig.",
-        "Ein Schreibzugriff über einen falschen Zeiger kommt oft gar nicht aus der Klasse selbst.",
-        "Hoffen ist keine Strategie."
+        "Der Speicherbedarf hängt vom Inhalt ab.",
+        "Geteilte Zeiger im Inneren machen das wieder zunichte."
       ]
     }
   ],
-  "praxis": "Ein Debugger gehört zum täglichen Handwerk, auch in der IDE: VS Code, CLion und Visual Studio nutzen im Hintergrund gdb, lldb oder den MSVC-Debugger. Die Befehle hier helfen dir auch dann, wenn du nur per SSH auf einem Embedded-Gerät oder in einem Container arbeitest. Dort gibt es oft nur `gdb` oder `gdbserver`.",
+  "praxis": "Wertsemantik ist eine Grundhaltung in modernem C++: Typen klein, regulär und vergleichbar machen, Polymorphie nur, wo sie wirklich gebraucht wird. In Reviews fallen Klassen auf, die Kopierkonstruktor und Destruktor von Hand schreiben, obwohl Member das erledigen könnten. Ebenso Vergleichsoperatoren, die nicht zusammenpassen. Mit `= default` vermeidet man beides.",
   "labor": {
-    "titel": "Einen Absturz jagen",
-    "anleitung": "Schreibe ein Programm, das über einen `std::vector<Sensor*>` iteriert, in dem ein Eintrag `nullptr` ist. Finde den Fehler mit gdb.",
+    "titel": "Versionen sortieren",
+    "anleitung": "Schreibe `struct Version` mit `<=>` und eine Funktion, die einen String wie „1.12.3“ einliest. Sortiere eine Liste von Versionen und prüfe, dass 1.10.0 nach 1.9.5 kommt.",
     "befehle": [
-      "g++ -g -O0 sensoren.cpp -o sensoren",
-      "gdb -q ./sensoren -ex run -ex bt -ex 'frame 1' -ex 'info locals'"
+      "g++ -std=c++20 -Wall version.cpp -o version && ./version"
     ],
-    "beobachtung": "Frame 0 zeigt `this=0x0` in der Sensor-Methode, Frame 1 die Schleife mit dem Index, bei dem es passiert. `info locals` zeigt den Index direkt."
+    "beobachtung": "Ein lexikografischer Vergleich der Strings würde 1.10.0 vor 1.9.5 einordnen. Der Typ mit Zahlen-Membern macht es richtig, und `<=>` erledigt die Arbeit."
   },
   "begriffe": [
-    { "begriff": "Haltepunkt", "englisch": "breakpoint", "erklaerung": "Stelle im Code, an der der Debugger das Programm anhält." },
-    { "begriff": "Watchpoint", "englisch": "watchpoint", "erklaerung": "Der Debugger hält an, sobald sich ein bestimmter Speicherinhalt ändert." },
-    { "begriff": "Segmentation fault", "englisch": "segmentation fault, SIGSEGV", "erklaerung": "Signal des Betriebssystems bei einem Zugriff auf nicht erlaubten Speicher." }
+    { "begriff": "Regulärer Typ", "englisch": "regular type", "erklaerung": "Typ, der sich wie `int` verhält: konstruierbar, kopierbar, vergleichbar, Kopien sind unabhängig." },
+    { "begriff": "Wertsemantik", "englisch": "value semantics", "erklaerung": "Objekte werden als Werte behandelt, Kopien teilen keinen Zustand." },
+    { "begriff": "Drei-Wege-Vergleich", "englisch": "three-way comparison", "erklaerung": "Der Operator `<=>`, der kleiner, gleich oder grösser in einem Ergebnis liefert." }
   ],
   "weiterlesen": [
-    { "titel": "GDB User Manual", "url": "https://sourceware.org/gdb/current/onlinedocs/gdb.html/" }
+    { "titel": "cppreference: Default comparisons", "url": "https://en.cppreference.com/w/cpp/language/default_comparisons" },
+    { "titel": "Sean Parent: Inheritance Is The Base Class of Evil (Vortrag)", "url": "https://www.youtube.com/watch?v=bIhUE5uUFOA" }
   ]
 }

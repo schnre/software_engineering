@@ -1,0 +1,133 @@
+{
+  "id": "p11-m2-l2",
+  "phase": 11,
+  "modul": "11.2 Ereignisgesteuerte Architekturen",
+  "titel": "Active Objects und hierarchische Zustandsautomaten",
+  "lernziele": [
+    "Das Active-Object-Muster beschreiben",
+    "Hierarchische Zustandsautomaten lesen und entwerfen",
+    "Begründen, warum dieses Paar viele Nebenläufigkeitsfehler verhindert"
+  ],
+  "dauerMinuten": 7,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Was ist ein **Active Object**?",
+      "optionen": [
+        "Ein Objekt mit eigener Ereignis-Queue und eigenem Ausführungskontext, das Ereignisse nacheinander verarbeitet und seinen Zustand mit niemandem teilt",
+        "Ein Objekt, das ständig in einer Schleife rechnet",
+        "Ein Objekt mit vielen öffentlichen Methoden"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Ein Active Object (auch *Actor*) kapselt Daten, Verhalten und einen eigenen Thread oder Task. Andere sprechen es nur über Ereignisse an, die in seiner Queue landen. Es verarbeitet sie einzeln bis zum Ende (*run to completion*). Weil nur es selbst seine Daten anfasst, braucht es keine Mutexe.",
+      "begruendungen": [
+        "Richtig.",
+        "Ein Active Object ist meist blockiert und wartet auf Ereignisse.",
+        "Gerade umgekehrt: Es hat praktisch keine öffentlichen Methoden ausser zum Einreihen von Ereignissen."
+      ]
+    },
+    {
+      "typ": "reihenfolge",
+      "frage": "So verarbeitet ein Active Object ein Ereignis. Bringe die Schritte in die richtige Reihenfolge.",
+      "elemente": [
+        "Eine ISR oder ein anderes Active Object legt ein Ereignis in die Queue",
+        "Der Task des Active Objects wird geweckt",
+        "Er entnimmt das Ereignis und übergibt es dem Zustandsautomaten",
+        "Der Automat führt Aktionen aus und wechselt eventuell den Zustand",
+        "Der Task wartet wieder blockiert auf das nächste Ereignis"
+      ],
+      "erklaerung": "Das Framework QP von Quantum Leaps (Miro Samek) setzt dieses Muster seit Jahrzehnten in Mikrocontrollern um, auch in sicherheitskritischen Geräten. Es läuft auf einem RTOS oder auf einem eigenen, sehr kleinen Kernel."
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Hierarchische Zustandsautomaten",
+      "text": "Das Verhalten eines Active Objects beschreibt man mit einem **Zustandsautomaten**. Flache Automaten werden schnell unübersichtlich: Muss in jedem Zustand auf `Notaus` reagiert werden, braucht jeder Zustand denselben Übergang.\n\nEin **hierarchischer Zustandsautomat** (HSM, nach Harels Statecharts und UML) erlaubt verschachtelte Zustände. Ein Unterzustand erbt das Verhalten seines Oberzustands: `Notaus` wird einmal im Oberzustand `Betrieb` behandelt und gilt für alle Unterzustände wie `Aufheizen`, `Halten` und `Abkühlen`.\n\nDazu kommen **Entry-** und **Exit-Aktionen**, die beim Betreten und Verlassen eines Zustands laufen, etwa Timer starten und stoppen."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Ein Ofen ist in `Betrieb/Aufheizen`. Das Ereignis `Notaus` kommt. Was passiert in diesem HSM?",
+      "code": {
+        "sprache": "text",
+        "zeilen": [
+          "Betrieb",
+          "  entry: luefter.ein()",
+          "  exit:  luefter.aus()",
+          "  Notaus -> Gestoppt",
+          "  Aufheizen",
+          "    entry: heizung.ein()",
+          "    exit:  heizung.aus()",
+          "    SollErreicht -> Halten",
+          "  Halten",
+          "    Zeitablauf -> Abkuehlen",
+          "Gestoppt",
+          "  entry: alarm.ein()"
+        ]
+      },
+      "optionen": [
+        "`Aufheizen` behandelt `Notaus` nicht selbst, der Oberzustand `Betrieb` übernimmt. Ablauf: `heizung.aus()`, `luefter.aus()`, `alarm.ein()`",
+        "Das Ereignis wird ignoriert, weil `Aufheizen` es nicht kennt",
+        "Nur `alarm.ein()` wird ausgeführt, die Heizung bleibt an"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Beim Übergang werden zuerst die Exit-Aktionen von innen nach aussen ausgeführt, dann die Entry-Aktionen des Ziels. Weil die Exit-Aktion von `Aufheizen` die Heizung ausschaltet, kann man sie bei keinem Übergang vergessen. Das macht HSMs für sicherheitsrelevantes Verhalten so wertvoll.",
+      "begruendungen": [
+        "Richtig.",
+        "Unbehandelte Ereignisse werden an den Oberzustand weitergereicht.",
+        "Die Exit-Aktionen laufen bei jedem Verlassen eines Zustands."
+      ]
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Diese Ereignisbehandlung eines Active Objects verletzt das Muster. Welche Zeile?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "void Motorsteuerung::verarbeite(const Ereignis& e) {",
+          "    if (auto* d = std::get_if<SetzeDrehzahl>(&e)) {",
+          "        soll_ = d->upm;",
+          "        while (!regler_.eingeschwungen()) { regler_.schritt(); }",
+          "        bus.veroeffentliche(DrehzahlErreicht{soll_});",
+          "    }",
+          "}"
+        ]
+      },
+      "fehlerZeile": 4,
+      "erklaerung": "Die Schleife blockiert das Active Object, bis der Motor eingeschwungen ist, womöglich Sekunden. In dieser Zeit verarbeitet es kein Ereignis, auch kein `Notaus`. Run to completion heisst: Jede Behandlung ist kurz. Lange Abläufe werden zu Zuständen: `Beschleunigen` mit einem periodischen `Takt`-Ereignis, das einen Regelschritt ausführt und bei Erreichen in `Konstant` wechselt."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Warum gilt die Kombination aus Active Objects und Zustandsautomaten als robuste Embedded-Architektur?",
+      "optionen": [
+        "Keine geteilten Daten, also keine Race Conditions. Das Verhalten ist explizit modelliert, testbar und oft aus Diagrammen ableitbar",
+        "Weil sie keinen Speicher braucht",
+        "Weil sie ohne Ereignisse auskommt"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Statt Threads, die gemeinsam Daten bearbeiten und Mutexe brauchen, gibt es Objekte, die Nachrichten austauschen. Ein Zustandsautomat lässt sich mit Ereignisfolgen testen, auch auf dem PC. Der Preis: Queues kosten Speicher, und Abläufe sind über Zustände verteilt statt in einer Funktion.",
+      "begruendungen": [
+        "Richtig.",
+        "Queues und Zustände brauchen Speicher, aber vorhersehbar.",
+        "Ereignisse sind gerade das zentrale Element."
+      ]
+    }
+  ],
+  "praxis": "Active Objects passen besonders gut zu Steuerungen mit vielen Betriebsarten: Haushaltsgeräte, Medizingeräte, Ladestationen, Robotik. Zustandsdiagramme dienen dann als gemeinsame Sprache mit Fachexperten und Testern. In C++ gibt es dafür QP/C++, Boost.SML, `etl::hfsm` oder eine eigene kleine Implementierung mit `std::variant`.",
+  "labor": {
+    "titel": "Ein HSM mit Boost.SML",
+    "anleitung": "Modelliere den Ofen aus der Übung mit Boost.SML (eine einzelne Header-Datei) und teste die Übergänge mit einer Ereignisfolge. Prüfe insbesondere, dass nach `Notaus` die Heizung aus ist.",
+    "befehle": [
+      "curl -LO https://raw.githubusercontent.com/boost-ext/sml/master/include/boost/sml.hpp",
+      "g++ -std=c++20 -I. ofen.cpp -o ofen && ./ofen"
+    ],
+    "beobachtung": "Boost.SML erzeugt den Automaten zur Übersetzungszeit, ohne Heap. Ein Test mit einer Ereignisfolge prüft das Verhalten vollständig ohne Hardware."
+  },
+  "begriffe": [
+    { "begriff": "Active Object", "englisch": "active object / actor", "erklaerung": "Objekt mit eigener Queue und eigenem Ausführungskontext, das nur über Ereignisse angesprochen wird." },
+    { "begriff": "HSM", "englisch": "hierarchical state machine", "erklaerung": "Zustandsautomat mit verschachtelten Zuständen, die Verhalten vererben." },
+    { "begriff": "Entry-/Exit-Aktion", "englisch": "entry/exit action", "erklaerung": "Aktion beim Betreten bzw. Verlassen eines Zustands." }
+  ],
+  "weiterlesen": [
+    { "titel": "Quantum Leaps: Active Objects", "url": "https://www.state-machine.com/active-object" },
+    { "titel": "Boost.SML", "url": "https://boost-ext.github.io/sml/" }
+  ]
+}

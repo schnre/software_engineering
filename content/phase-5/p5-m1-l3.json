@@ -1,0 +1,203 @@
+{
+  "id": "p5-m1-l3",
+  "phase": 5,
+  "modul": "5.1 Threads und Data Races",
+  "titel": "Deadlocks vermeiden",
+  "lernziele": [
+    "Erklären, wie ein Deadlock entsteht",
+    "Einen Deadlock im Debugger diagnostizieren",
+    "Deadlocks durch Design verhindern"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "code-lesen",
+      "frage": "Thread 1 ruft `ueberweise(x, y, 10)` auf, gleichzeitig ruft Thread 2 `ueberweise(y, x, 5)` auf. Was kann passieren?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "void ueberweise(Konto& von, Konto& nach, int betrag) {",
+          "    std::lock_guard a(von.m);",
+          "    std::lock_guard b(nach.m);",
+          "    von.saldo -= betrag;",
+          "    nach.saldo += betrag;",
+          "}"
+        ]
+      },
+      "optionen": [
+        "Beide Threads hängen für immer: Jeder hält eine Sperre und wartet auf die des anderen",
+        "Nichts, die Sperren verhindern jedes Problem",
+        "Eine der Überweisungen geht verloren"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Thread 1 sperrt `x` und wartet auf `y`. Thread 2 sperrt `y` und wartet auf `x`. Keiner kommt weiter: ein **Deadlock**. Der Fehler tritt nur auf, wenn das Timing genau passt. Deshalb fällt er oft erst unter Last in Produktion auf.",
+      "begruendungen": [
+        "Richtig.",
+        "Die Sperren verhindern Data Races, schaffen aber eine neue Gefahr.",
+        "Die Daten bleiben konsistent. Es geht nur nichts mehr weiter."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Wie Deadlocks entstehen und wie man sie verhindert",
+      "text": "Ein Deadlock braucht einen **Wartering**: A wartet auf B, B wartet auf A (oder länger: A → B → C → A). Verhindern lässt er sich, indem man den Ring unmöglich macht:\n\n- **Feste Sperrreihenfolge**: Alle sperren Mutexe in derselben globalen Reihenfolge, z. B. nach Konto-Nummer.\n- **`std::scoped_lock(m1, m2)`**: sperrt mehrere Mutexe mit einem Algorithmus, der Deadlocks vermeidet.\n- **Keinen fremden Code unter einer Sperre aufrufen**: Callbacks, virtuelle Funktionen, Logging mit eigener Sperre.\n- **Sperren kurz halten**: nur die eigentliche Datenänderung, keine I/O."
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze die deadlock-freie Version.",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "void ueberweise(Konto& von, Konto& nach, int betrag) {",
+          "    std::{{?}} lock(von.m, nach.m);",
+          "    von.saldo -= betrag;",
+          "    nach.saldo += betrag;",
+          "}"
+        ]
+      },
+      "luecken": [
+        {
+          "loesungen": [
+            "scoped_lock"
+          ]
+        }
+      ],
+      "auswahl": [
+        "scoped_lock",
+        "lock_guard",
+        "unique_lock",
+        "mutex"
+      ],
+      "erklaerung": "`std::scoped_lock` (C++17) nimmt beliebig viele Mutexe und sperrt sie alle oder keinen, unabhängig von der Reihenfolge der Argumente. `std::lock_guard` kann nur einen Mutex sperren. Achtung bei `ueberweise(x, x, 10)`: Dann würde derselbe Mutex zweimal gesperrt. Das muss vorher geprüft werden."
+    },
+    {
+      "typ": "terminal-deuten",
+      "frage": "Das Programm hängt. Du hängst dich mit gdb an und schaust dir alle Threads an. Was ist die Diagnose?",
+      "terminal": {
+        "befehl": "gdb -p 4711 -batch -ex 'thread apply all bt 3'",
+        "ausgabe": [
+          "Thread 3 (LWP 4713):",
+          "#0  futex_wait (...) at ../sysdeps/nptl/futex-internal.h:146",
+          "#1  __lll_lock_wait (...) at ./nptl/lowlevellock.c:49",
+          "#2  ueberweise (von=..., nach=..., betrag=5) at bank.cpp:3",
+          "",
+          "Thread 2 (LWP 4712):",
+          "#0  futex_wait (...) at ../sysdeps/nptl/futex-internal.h:146",
+          "#1  __lll_lock_wait (...) at ./nptl/lowlevellock.c:49",
+          "#2  ueberweise (von=..., nach=..., betrag=10) at bank.cpp:3"
+        ]
+      },
+      "optionen": [
+        "Deadlock: Beide Threads warten in Zeile 3 auf die zweite Sperre, die jeweils der andere hält",
+        "Die Threads sind langsam, warten aber auf die Festplatte",
+        "Thread 1 ist abgestürzt"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Beide stehen in `__lll_lock_wait`, also im Warten auf einen Mutex, und zwar beide in Zeile 3, der zweiten Sperre. Mit `frame 2` und `print von` bzw. `print nach` siehst du, dass die Konten über Kreuz vertauscht sind. `thread apply all bt` ist der wichtigste Befehl bei hängenden Programmen.",
+      "begruendungen": [
+        "Richtig.",
+        "Warten auf I/O sähe anders aus, z. B. `read` oder `poll` im Stack.",
+        "Ein Absturz würde den ganzen Prozess beenden."
+      ]
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Ruft ein Beobachter in seinem Callback `registriere()` auf, hängt das Programm. Welche Zeile ist das eigentliche Problem?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "void Ereignisse::melde(const Ereignis& e) {",
+          "    std::lock_guard lock(m_);",
+          "    for (auto& beobachter : beobachter_) {",
+          "        beobachter(e);",
+          "    }",
+          "}",
+          "",
+          "void Ereignisse::registriere(Beobachter b) {",
+          "    std::lock_guard lock(m_);",
+          "    beobachter_.push_back(std::move(b));",
+          "}"
+        ]
+      },
+      "fehlerZeile": 4,
+      "erklaerung": "In Zeile 4 läuft **fremder Code**, während `m_` gesperrt ist. Will dieser Code dieselbe Sperre (über `registriere`) oder eine andere, die irgendwo in umgekehrter Reihenfolge genommen wird, ist der Deadlock da. Lösung: unter der Sperre eine Kopie der Liste machen und die Beobachter **ausserhalb** der Sperre aufrufen."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Ein Kollege schlägt vor, das Problem aus der letzten Übung mit `std::recursive_mutex` zu lösen. Was meinst du?",
+      "optionen": [
+        "Es behebt den Hänger in diesem Fall, versteckt aber das Design-Problem: Der Callback ändert die Liste, über die gerade iteriert wird",
+        "Perfekte Lösung, `recursive_mutex` ist dafür gemacht",
+        "Funktioniert nicht, `recursive_mutex` gibt es nicht"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Mit `recursive_mutex` darf derselbe Thread erneut sperren. Dann ruft `push_back` aber mitten in der Schleife über `beobachter_` auf, und der Iterator ist ungültig. Rekursive Mutexe sind fast immer ein Zeichen für unklare Verantwortung. Besser ist es, die Struktur zu ändern.",
+      "begruendungen": [
+        "Richtig.",
+        "Sie löst das Symptom und schafft hier sofort neues Undefined Behavior.",
+        "`std::recursive_mutex` existiert, sollte aber selten benutzt werden."
+      ]
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Welche Massnahme bewirkt was?",
+      "paare": [
+        {
+          "links": "Feste globale Sperrreihenfolge",
+          "rechts": "Macht einen Wartering unmöglich"
+        },
+        {
+          "links": "`std::scoped_lock` für mehrere Mutexe",
+          "rechts": "Sperrt alle oder keinen, ohne Deadlock"
+        },
+        {
+          "links": "Keinen fremden Code unter einer Sperre aufrufen",
+          "rechts": "Verhindert unerwartete verschachtelte Sperren"
+        },
+        {
+          "links": "`try_lock_for` mit Zeitlimit",
+          "rechts": "Erkennt Hänger, statt ewig zu warten"
+        }
+      ],
+      "erklaerung": "Zeitlimits verhindern Deadlocks nicht, machen sie aber sichtbar, etwa als Log-Eintrag mit Stacktrace. In sicherheitskritischen Systemen überwacht zusätzlich oft ein **Watchdog**, ob alle Threads regelmässig ein Lebenszeichen geben."
+    }
+  ],
+  "praxis": "Hängt ein Programm, gibt es eine klare Reihenfolge: Prozess finden, `gdb -p <pid>`, `thread apply all bt`. Bei Deadlocks siehst du dann zwei oder mehr Threads in `lock_wait`. Im Design-Review fragst du: Welche Mutexe gibt es, und in welcher Reihenfolge werden sie genommen? Wird unter einer Sperre geloggt, eine virtuelle Funktion oder ein Callback aufgerufen?",
+  "labor": {
+    "titel": "Einen Deadlock provozieren und finden",
+    "anleitung": "Baue `ueberweise` aus der ersten Übung und lass zwei Threads je 100 000 Mal in entgegengesetzter Richtung überweisen.",
+    "befehle": [
+      "g++ -std=c++20 -g -pthread bank.cpp -o bank && ./bank &",
+      "sleep 2 && gdb -p $! -batch -ex 'thread apply all bt 4'",
+      "g++ -std=c++20 -g -fsanitize=thread bank.cpp -o bank_tsan && ./bank_tsan"
+    ],
+    "beobachtung": "Das Programm hängt meist nach Sekundenbruchteilen. TSan meldet `lock-order-inversion (potential deadlock)`, oft sogar dann, wenn der Deadlock im Testlauf gar nicht eintritt."
+  },
+  "begriffe": [
+    {
+      "begriff": "Deadlock",
+      "englisch": "deadlock",
+      "erklaerung": "Threads warten gegenseitig auf Sperren, die der jeweils andere hält. Keiner kommt weiter."
+    },
+    {
+      "begriff": "Sperrreihenfolge",
+      "englisch": "lock ordering",
+      "erklaerung": "Feste Reihenfolge, in der alle Threads Mutexe sperren. Verhindert Warteringe."
+    },
+    {
+      "begriff": "Watchdog",
+      "englisch": "watchdog",
+      "erklaerung": "Überwachung, die eingreift, wenn ein Thread oder System kein Lebenszeichen mehr gibt."
+    }
+  ],
+  "weiterlesen": [
+    {
+      "titel": "cppreference: std::scoped_lock",
+      "url": "https://en.cppreference.com/w/cpp/thread/scoped_lock"
+    },
+    {
+      "titel": "C++ Core Guidelines: CP.22 – Never call unknown code while holding a lock",
+      "url": "https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#Rconc-unknown"
+    }
+  ]
+}

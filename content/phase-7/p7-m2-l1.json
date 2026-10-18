@@ -1,109 +1,141 @@
 {
   "id": "p7-m2-l1",
   "phase": 7,
-  "modul": "7.2 Schichten und Hardware Abstraction Layer",
-  "titel": "Schichtenarchitektur",
+  "modul": "7.2 RTOS-Grundlagen",
+  "titel": "Tasks und Scheduler",
   "lernziele": [
-    "Die typischen Schichten einer Embedded- oder Systemsoftware benennen",
-    "Verstösse gegen die Schichtung erkennen",
-    "Schichten im Build verbindlich machen"
+    "Erklären, was ein RTOS-Scheduler macht",
+    "Task-Zustände und Kontextwechsel verstehen",
+    "Stackgrössen sinnvoll festlegen und überwachen"
   ],
-  "dauerMinuten": 6,
+  "dauerMinuten": 7,
   "schritte": [
     {
       "typ": "multiple-choice",
-      "frage": "Ein System hat die Schichten Anwendung, Dienste, HAL und Treiber, von oben nach unten. Welche Abhängigkeit verletzt die Schichtung?",
+      "frage": "Was unterscheidet einen präemptiven RTOS-Scheduler von einem Superloop?",
       "optionen": [
-        "Ein Treiber ruft eine Funktion der Anwendung auf",
-        "Die Anwendung nutzt einen Dienst",
-        "Ein Dienst nutzt eine HAL-Schnittstelle"
+        "Er kann eine laufende Task jederzeit unterbrechen, wenn eine höher priorisierte bereit wird",
+        "Er führt mehrere Tasks gleichzeitig auf einem Kern aus",
+        "Er braucht keine Interrupts"
       ],
       "korrekt": 0,
-      "erklaerung": "In einer Schichtenarchitektur hängen höhere Schichten von tieferen ab, nie umgekehrt. Ein Treiber, der die Anwendung kennt, lässt sich in einem anderen Produkt nicht wiederverwenden und nicht allein testen. Muss er nach oben melden, tut er das über einen Callback oder eine Schnittstelle, die er selbst definiert.",
+      "erklaerung": "Präemptiv heisst: Der Scheduler entzieht der laufenden Task die CPU, sobald eine wichtigere bereit ist, typischerweise in einem Interrupt. So hängt die Reaktionszeit einer hochpriorisierten Task nicht davon ab, wie lange niedrigere rechnen. Gleichzeitig läuft auf einem Kern trotzdem immer nur eine Task.",
       "begruendungen": [
         "Richtig.",
-        "Das ist die erlaubte Richtung.",
-        "Ebenfalls die erlaubte Richtung."
+        "Auf einem Kern wechselt er nur sehr schnell, echte Gleichzeitigkeit gibt es nicht.",
+        "Gerade Interrupts (SysTick, PendSV) treiben den Scheduler an."
       ]
     },
     {
       "typ": "erklaerung",
-      "titel": "Typische Schichten",
-      "text": "- **Anwendung**: die eigentliche Produktlogik, z. B. Regelstrategien, Abläufe, Bedienlogik\n- **Dienste** (Middleware): wiederverwendbare Funktionen wie Kommunikation, Konfiguration, Protokollierung, Dateisystem\n- **HAL** (Hardware Abstraction Layer): Schnittstellen zur Hardware ohne Details, z. B. `IGpio`, `IUart`, `ITimer`\n- **Treiber / BSP**: konkrete Implementierungen für einen bestimmten Mikrocontroller oder ein Board\n- **Hardware**\n\nDer Nutzen: Jede Schicht ist für sich verständlich und austauschbar. Ein neuer Mikrocontroller betrifft nur die Treiber, ein neues Produkt meist nur die Anwendung."
+      "titel": "Tasks und ihre Zustände",
+      "text": "Eine **Task** ist eine Funktion mit eigenem Stack und eigener Priorität, meist eine Endlosschleife. Sie ist in einem von vier Zuständen:\n\n- **Running**: läuft gerade\n- **Ready**: könnte laufen, eine höhere Priorität ist aber dran\n- **Blocked**: wartet auf ein Ereignis, eine Queue oder eine Zeitspanne\n- **Suspended**: explizit angehalten\n\nDer Scheduler lässt immer die höchstpriorisierte Task laufen, die **Ready** ist. Bei gleicher Priorität wechselt er meist im Zeitscheibenverfahren (*round robin*). Gute Tasks verbringen die meiste Zeit **Blocked**."
     },
     {
-      "typ": "reihenfolge",
-      "frage": "Ordne die Schichten von **oben** nach **unten**.",
-      "elemente": ["Anwendung", "Dienste", "Hardware Abstraction Layer", "Treiber und Board-Support", "Hardware"],
-      "erklaerung": "Abhängigkeiten zeigen in dieser Liste nur nach unten. Ausnahmen gibt es für **querschnittliche** Belange wie Logging oder Fehlerbehandlung. Sie stehen oft neben den Schichten und dürfen von allen benutzt werden, hängen aber selbst von keiner höheren Schicht ab."
-    },
-    {
-      "typ": "zuordnen",
-      "frage": "In welche Schicht gehört was?",
-      "paare": [
-        { "links": "Regelstrategie für die Heizung", "rechts": "Anwendung" },
-        { "links": "Protokollierung, Konfiguration, Kommunikation", "rechts": "Dienste" },
-        { "links": "Schnittstelle `IUart` ohne Registerdetails", "rechts": "Hardware Abstraction Layer" },
-        { "links": "Registerzugriffe für den UART eines bestimmten Mikrocontrollers", "rechts": "Treiber" }
-      ],
-      "erklaerung": "Die Grenze zwischen HAL und Treiber ist die wichtigste: Oberhalb davon soll kein Registername, keine Chip-Bezeichnung und keine Pin-Nummer vorkommen. Dann lässt sich alles darüber auf einem PC bauen und testen."
-    },
-    {
-      "typ": "fehler-finden",
-      "frage": "Welche Zeile in dieser Anwendungsklasse verletzt die Schichtung?",
+      "typ": "code-lesen",
+      "frage": "Was macht diese FreeRTOS-Task?",
       "code": {
         "sprache": "cpp",
-        "datei": "app/heizungsregler.cpp",
         "zeilen": [
-          "void Heizungsregler::schritt() {",
-          "    double t = sensor_.lies();",
-          "    if (t < soll_) {",
-          "        *reinterpret_cast<volatile std::uint32_t*>(0x40020018) = (1u << 5);",
+          "void regelTask(void*) {",
+          "    TickType_t letzter = xTaskGetTickCount();",
+          "    for (;;) {",
+          "        regle();",
+          "        vTaskDelayUntil(&letzter, pdMS_TO_TICKS(10));",
           "    }",
           "}"
         ]
       },
-      "fehlerZeile": 4,
-      "erklaerung": "Die Anwendung schreibt direkt in ein Hardware-Register (hier das GPIO-Set-Register eines STM32). Damit ist sie an genau diesen Chip und diesen Pin gebunden und auf dem PC nicht testbar. Richtig wäre `heizung_.ein();` über eine HAL-Schnittstelle, deren Treiber das Register kennt."
+      "optionen": [
+        "Sie läuft genau alle 10 ms, unabhängig davon, wie lange `regle()` braucht, und ist dazwischen blockiert",
+        "Sie wartet nach jedem Durchlauf 10 ms, die Periode ist also 10 ms plus Laufzeit",
+        "Sie blockiert die CPU durchgehend"
+      ],
+      "korrekt": 0,
+      "erklaerung": "`vTaskDelayUntil` wartet bis zu einem absoluten Zeitpunkt, so entsteht eine feste Periode ohne Drift. `vTaskDelay(10)` würde relativ ab jetzt warten, und die Periode wüchse um die Laufzeit. Für Regelkreise ist der Unterschied entscheidend.",
+      "begruendungen": [
+        "Richtig.",
+        "Das wäre das Verhalten von `vTaskDelay`.",
+        "Während des Wartens ist die Task blockiert, andere Tasks laufen."
+      ]
     },
     {
-      "typ": "erklaerung",
-      "titel": "Strenge und lockere Schichtung",
-      "text": "Bei **strenger** Schichtung darf jede Schicht nur die direkt darunter benutzen. Das ist sauber, erzeugt aber manchmal reine Durchreich-Funktionen. Bei **lockerer** Schichtung darf eine Schicht alle tieferen benutzen. Wichtig ist bei beiden nur: **nie nach oben**.\n\nMeldungen nach oben (ein Byte ist angekommen, ein Fehler ist aufgetreten) laufen über Callbacks oder Schnittstellen, die die tiefere Schicht definiert und die höhere implementiert. Das ist wieder Dependency Inversion."
+      "typ": "reihenfolge",
+      "frage": "Ein Kontextwechsel auf einem Cortex-M. Bringe die Schritte in die richtige Reihenfolge.",
+      "elemente": [
+        "Ein Interrupt oder Systemaufruf macht eine höher priorisierte Task bereit",
+        "Der Scheduler löst den PendSV-Interrupt aus",
+        "Die Register der alten Task werden auf ihren Stack gesichert",
+        "Der Stackpointer der neuen Task wird geladen",
+        "Die Register der neuen Task werden wiederhergestellt, sie läuft weiter"
+      ],
+      "erklaerung": "PendSV hat die niedrigste Interrupt-Priorität, damit der Wechsel erst stattfindet, wenn alle anderen ISRs fertig sind. Ein Kontextwechsel kostet auf einem Cortex-M4 je nach FPU-Nutzung einige hundert Takte."
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Das System stürzt gelegentlich mit einem HardFault ab, immer wenn der Logger eine lange Meldung formatiert. Welche Zeile ist die wahrscheinlichste Ursache?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "void loggerTask(void*) {",
+          "    for (;;) {",
+          "        Meldung m;",
+          "        xQueueReceive(queue, &m, portMAX_DELAY);",
+          "        char text[256];",
+          "        std::snprintf(text, sizeof text, \"%s: %f\", m.quelle, m.wert);",
+          "        uart.schreibe(text);",
+          "    }",
+          "}",
+          "",
+          "xTaskCreate(loggerTask, \"log\", 128, nullptr, 1, nullptr);   // Stack in Wörtern"
+        ]
+      },
+      "fehlerZeile": 11,
+      "erklaerung": "128 Wörter sind 512 Byte. Allein der Puffer braucht 256 Byte, `snprintf` mit `%f` braucht oft mehrere hundert Byte zusätzlich. Der Stack läuft über und überschreibt fremden Speicher. Abhilfe: Stack grösser wählen, mit `uxTaskGetStackHighWaterMark` messen und `configCHECK_FOR_STACK_OVERFLOW` aktivieren. Grosse Puffer gehören nicht auf Task-Stacks."
     },
     {
       "typ": "multiple-choice",
-      "frage": "Die Schichten existieren nur als Ordner. Im Build darf jedes Modul jedes andere einbinden. Was passiert über die Jahre?",
+      "frage": "Zwei Tasks: A (Priorität 3) rechnet in einer Schleife ohne zu blockieren, B (Priorität 2) soll alle 100 ms eine LED schalten. Was passiert?",
       "optionen": [
-        "Verstösse schleichen sich ein, weil der Build sie erlaubt. Besser sind CMake-Targets mit erlaubten Abhängigkeiten und eine Prüfung in der CI",
-        "Nichts, ein gutes Team hält sich an die Ordner",
-        "Der Compiler meldet Verstösse automatisch"
+        "B läuft nie, weil A immer bereit ist und höher priorisiert",
+        "B und A teilen sich die CPU halb und halb",
+        "B unterbricht A alle 100 ms"
       ],
       "korrekt": 0,
-      "erklaerung": "Unter Zeitdruck ist der direkte Include immer der schnellste Weg. Was der Build nicht verhindert, passiert irgendwann. Wenn `drivers` gar nicht gegen `app` linkt und `app` die Treiber nur über `hal` sieht, ist der Verstoss ein Compilerfehler statt einer Review-Diskussion.",
+      "erklaerung": "Das ist **Verhungern** (*starvation*). Ein RTOS mit festen Prioritäten ist streng: Solange eine höhere Task bereit ist, kommt keine niedrigere dran. Rechenintensive Arbeit gehört auf eine niedrige Priorität, oder die Task muss regelmässig blockieren.",
       "begruendungen": [
         "Richtig.",
-        "Gute Absicht allein hält unter Termindruck selten.",
-        "Ohne Build-Regeln kennt der Compiler keine Schichten."
+        "Zeitscheiben gibt es nur zwischen Tasks gleicher Priorität.",
+        "B hat die niedrigere Priorität und kann A nicht unterbrechen."
       ]
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze.",
+      "text": "Der Scheduler lässt immer die höchstpriorisierte Task laufen, die im Zustand {{?}} ist. Eine Task, die auf eine Queue wartet, ist {{?}}.",
+      "luecken": [{ "loesungen": ["Ready"] }, { "loesungen": ["Blocked"] }],
+      "auswahl": ["Ready", "Blocked", "Running", "Suspended"],
+      "erklaerung": "Gute RTOS-Systeme haben die meisten Tasks fast immer im Zustand Blocked. Dann läuft die Idle-Task, die die CPU schlafen legen kann."
     }
   ],
-  "praxis": "Schichten sind in Embedded-Projekten der wichtigste Hebel für Wiederverwendung und Testbarkeit: Wer die Anwendung über einer sauberen HAL hat, kann sie auf dem PC testen, auf einem neuen Chip weiterverwenden und mit simulierter Hardware vorführen. Im Review achtest du auf Registernamen, Chip-Header und Pin-Nummern oberhalb der HAL. Das sind klare Befunde.",
+  "praxis": "Die verbreitetsten RTOS sind FreeRTOS, Zephyr, ThreadX (Eclipse ThreadX), embOS und in der Sicherheitstechnik SafeRTOS oder PikeOS. Die Konzepte sind überall gleich. Zum Projektstart gehören eine Task-Liste mit Priorität, Periode, Stackgrösse und Begründung, eine Stack-Überwachung und eine Laufzeitstatistik pro Task.",
   "labor": {
-    "titel": "Schichtverstösse finden",
-    "anleitung": "Suche in einem Embedded-Projekt nach Hardware-Details ausserhalb der Treiber.",
+    "titel": "FreeRTOS auf dem PC",
+    "anleitung": "FreeRTOS hat einen POSIX-Port, mit dem Tasks als Threads auf Linux laufen. Baue die Demo und experimentiere mit Prioritäten und Delays.",
     "befehle": [
-      "rg -n 'stm32|GPIO[A-Z]->|0x400[0-9A-F]{5}' app/ services/ | head",
-      "rg -n '#include \"(drivers|bsp)/' app/ | head"
+      "git clone --recurse-submodules https://github.com/FreeRTOS/FreeRTOS.git",
+      "cd FreeRTOS/FreeRTOS/Demo/Posix_GCC && make",
+      "./build/posix_demo"
     ],
-    "beobachtung": "Jeder Treffer in `app/` oder `services/` ist ein Kandidat für eine HAL-Schnittstelle. Oft sind es nur wenige Stellen, die eine ganze Schicht an einen Chip binden."
+    "beobachtung": "Wenn du eine Task ohne Delay rechnen lässt, verhungern die niedrigeren. Mit `vTaskGetRunTimeStats` siehst du, wie die CPU-Zeit auf die Tasks verteilt ist."
   },
   "begriffe": [
-    { "begriff": "Schichtenarchitektur", "englisch": "layered architecture", "erklaerung": "Aufteilung in Schichten, bei der höhere nur von tieferen abhängen." },
-    { "begriff": "HAL", "englisch": "hardware abstraction layer", "erklaerung": "Schnittstellen zur Hardware ohne chip-spezifische Details." },
-    { "begriff": "BSP", "englisch": "board support package", "erklaerung": "Code für ein bestimmtes Board: Pinbelegung, Takt, Start-Code, Treiber." }
+    { "begriff": "RTOS", "englisch": "real-time operating system", "erklaerung": "Kleines Betriebssystem mit vorhersagbarem, prioritätsbasiertem Scheduling." },
+    { "begriff": "Präemption", "englisch": "preemption", "erklaerung": "Unterbrechung einer laufenden Task zugunsten einer höher priorisierten." },
+    { "begriff": "Kontextwechsel", "englisch": "context switch", "erklaerung": "Sichern des Zustands einer Task und Laden einer anderen." },
+    { "begriff": "Verhungern", "englisch": "starvation", "erklaerung": "Eine Task kommt nie zum Zug, weil höher priorisierte ständig bereit sind." }
   ],
   "weiterlesen": [
-    { "titel": "Martin Fowler: Presentation Domain Data Layering", "url": "https://martinfowler.com/bliki/PresentationDomainDataLayering.html" }
+    { "titel": "FreeRTOS: Mastering the FreeRTOS Real Time Kernel", "url": "https://www.freertos.org/Documentation/02-Kernel/07-Books-and-manual/01-RTOS_book" }
   ]
 }

@@ -47,10 +47,22 @@
           "}"
         ],
         "anmerkungen": [
-          { "zeile": 3, "text": "Ein Speicherbereich mit Startadresse und Grösse." },
-          { "zeile": 8, "text": "Interrupt-Vektortabelle, Code und Konstanten kommen in den Flash. `KEEP` schützt die Tabelle vor dem Aufräumen durch `--gc-sections`." },
-          { "zeile": 9, "text": "Ausgeführt wird im RAM, gespeichert (`AT`) im Flash." },
-          { "zeile": 10, "text": "`.bss` braucht nur RAM, es gibt keine Startwerte zu speichern." }
+          {
+            "zeile": 3,
+            "text": "Ein Speicherbereich mit Startadresse und Grösse."
+          },
+          {
+            "zeile": 8,
+            "text": "Interrupt-Vektortabelle, Code und Konstanten kommen in den Flash. `KEEP` schützt die Tabelle vor dem Aufräumen durch `--gc-sections`."
+          },
+          {
+            "zeile": 9,
+            "text": "Ausgeführt wird im RAM, gespeichert (`AT`) im Flash."
+          },
+          {
+            "zeile": 10,
+            "text": "`.bss` braucht nur RAM, es gibt keine Startwerte zu speichern."
+          }
         ]
       }
     },
@@ -65,8 +77,29 @@
           ".bss  : { *(.bss*) } > {{?}}"
         ]
       },
-      "luecken": [{ "loesungen": ["FLASH"] }, { "loesungen": ["FLASH"] }, { "loesungen": ["RAM"] }],
-      "auswahl": ["FLASH", "FLASH", "RAM", "STACK"],
+      "luecken": [
+        {
+          "loesungen": [
+            "FLASH"
+          ]
+        },
+        {
+          "loesungen": [
+            "FLASH"
+          ]
+        },
+        {
+          "loesungen": [
+            "RAM"
+          ]
+        }
+      ],
+      "auswahl": [
+        "FLASH",
+        "FLASH",
+        "RAM",
+        "STACK"
+      ],
       "erklaerung": "Code und Konstanten werden nur gelesen und bleiben im Flash. `.data` braucht beides: einen Platz im RAM zum Arbeiten und einen im Flash für die Startwerte. `.bss` nur RAM. Der Stack ist kein Speicherbereich im `MEMORY`-Block, sondern ein Stück RAM, das das Skript meist ans Ende legt."
     },
     {
@@ -132,7 +165,11 @@
         "Eine schlanke `printf`-Variante ohne Gleitkomma verwenden",
         "Mit `-O0` kompilieren, damit der Code einfacher wird"
       ],
-      "korrekt": [0, 1, 2],
+      "korrekt": [
+        0,
+        1,
+        2
+      ],
       "erklaerung": "`--gc-sections` entfernt ungenutzte Funktionen. Damit das fein genug klappt, muss jede Funktion in einer eigenen Sektion liegen, dafür sorgt `-ffunction-sections`. `-O0` erzeugt dagegen den grössten und langsamsten Code.",
       "begruendungen": [
         "Richtig. `-Os` optimiert gezielt auf kleinen Code.",
@@ -154,12 +191,31 @@
     "beobachtung": "Am Anfang des Map-Files steht, welche Archiv-Mitglieder (z. B. aus `libc.a`) eingebunden wurden und welches Symbol den Grund dafür lieferte."
   },
   "begriffe": [
-    { "begriff": "Linker-Skript", "englisch": "linker script", "erklaerung": "Datei, die Speicherbereiche (`MEMORY`) und die Platzierung der Sektionen (`SECTIONS`) festlegt." },
-    { "begriff": "Map-File", "englisch": "map file", "erklaerung": "Vom Linker erzeugte Übersicht: welche Sektion aus welchem Object-File wo liegt und wie gross sie ist." },
-    { "begriff": "LMA und VMA", "englisch": "load / virtual memory address", "erklaerung": "Ladeadresse (wo Daten gespeichert sind) und Laufzeitadresse (wo das Programm sie verwendet). Bei `.data` auf Mikrocontrollern verschieden." },
-    { "begriff": "Startup-Code", "englisch": "startup code", "erklaerung": "Code, der vor `main()` läuft: kopiert `.data` in den RAM, nullt `.bss` und ruft globale Konstruktoren auf." }
+    {
+      "begriff": "Linker-Skript",
+      "englisch": "linker script",
+      "erklaerung": "Datei, die Speicherbereiche (`MEMORY`) und die Platzierung der Sektionen (`SECTIONS`) festlegt."
+    },
+    {
+      "begriff": "Map-File",
+      "englisch": "map file",
+      "erklaerung": "Vom Linker erzeugte Übersicht: welche Sektion aus welchem Object-File wo liegt und wie gross sie ist."
+    },
+    {
+      "begriff": "LMA und VMA",
+      "englisch": "load / virtual memory address",
+      "erklaerung": "Ladeadresse (wo Daten gespeichert sind) und Laufzeitadresse (wo das Programm sie verwendet). Bei `.data` auf Mikrocontrollern verschieden."
+    },
+    {
+      "begriff": "Startup-Code",
+      "englisch": "startup code",
+      "erklaerung": "Code, der vor `main()` läuft: kopiert `.data` in den RAM, nullt `.bss` und ruft globale Konstruktoren auf."
+    }
   ],
   "weiterlesen": [
-    { "titel": "GNU ld: Linker Scripts", "url": "https://sourceware.org/binutils/docs/ld/Scripts.html" }
+    {
+      "titel": "GNU ld: Linker Scripts",
+      "url": "https://sourceware.org/binutils/docs/ld/Scripts.html"
+    }
   ]
 }

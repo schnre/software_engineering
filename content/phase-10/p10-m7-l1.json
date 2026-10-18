@@ -1,0 +1,164 @@
+{
+  "id": "p10-m7-l1",
+  "phase": 10,
+  "modul": "10.7 Coding-Standards und ADRs",
+  "titel": "MISRA C++ und C++ Core Guidelines",
+  "lernziele": [
+    "Die wichtigsten C++-Regelwerke und ihren Zweck kennen",
+    "Den Umgang mit begründeten Abweichungen erklären",
+    "Einen Coding-Standard sinnvoll in einem Projekt einführen"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Wozu dient ein Coding-Standard wie MISRA C++ oder die C++ Core Guidelines vor allem?",
+      "optionen": [
+        "Bekannt riskante Sprachkonstrukte zu vermeiden und Code im Team einheitlich und automatisch prüfbar zu machen",
+        "Den Code schneller zu machen",
+        "Einrückung und Klammerstil festzulegen"
+      ],
+      "korrekt": 0,
+      "erklaerung": "C++ erlaubt vieles, was fast immer ein Fehler ist: implizite Umwandlungen mit Datenverlust, Zugriffe ohne Grenzprüfung, rohe Besitzzeiger. Ein Regelwerk sammelt die Lehren daraus. In sicherheitskritischen Branchen ist ein solches Regelwerk oft vorgeschrieben.",
+      "begruendungen": [
+        "Richtig.",
+        "Um Geschwindigkeit geht es selten, um Sicherheit und Wartbarkeit schon.",
+        "Das regelt ein Stil-Leitfaden oder besser gleich clang-format."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Die wichtigsten Regelwerke",
+      "text": "- **C++ Core Guidelines** (Bjarne Stroustrup, Herb Sutter): Empfehlungen für modernes, sicheres C++ im Allgemeinen. Viele Regeln prüft `clang-tidy` (`cppcoreguidelines-*`).\n- **MISRA C++:2023**: für sicherheitskritische Systeme (Automobil, Medizin, Bahn, Luftfahrt). Die Regeln sind so formuliert, dass Werkzeuge sie prüfen können. Die Version 2023 vereint die frühere MISRA-C++:2008 und AUTOSAR C++14 und deckt C++17 ab.\n- **SEI CERT C++**: Regeln mit Schwerpunkt Sicherheit gegen Angriffe.\n- **Stil-Leitfäden** wie der von Google oder LLVM: vor allem Konventionen für Namen, Struktur und Formatierung.\n\nMISRA-Konformität prüft man meist mit kommerziellen Werkzeugen, z. B. Polyspace, Helix QAC, PC-lint Plus oder Parasoft."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Welches Regelwerk hat welchen Schwerpunkt?",
+      "paare": [
+        {
+          "links": "C++ Core Guidelines",
+          "rechts": "Modernes, sicheres C++ für alle Arten von Projekten"
+        },
+        {
+          "links": "MISRA C++:2023",
+          "rechts": "Sicherheitskritische Systeme mit prüfbaren Regeln und dokumentierten Abweichungen"
+        },
+        {
+          "links": "SEI CERT C++",
+          "rechts": "Schutz vor ausnutzbaren Sicherheitslücken"
+        },
+        {
+          "links": "Google C++ Style Guide",
+          "rechts": "Konventionen für Namen, Struktur und Formatierung in einer grossen Firma"
+        }
+      ],
+      "erklaerung": "Viele Projekte kombinieren: die Core Guidelines als inhaltliche Grundlage, einen Stil-Leitfaden für Konventionen und, wenn eine Norm wie ISO 26262 (Automobil) oder IEC 62304 (Medizin) gilt, MISRA."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Eine MISRA-Regel verbietet ein Konstrukt, das an einer Stelle aus gutem Grund nötig ist, z. B. ein `reinterpret_cast` für einen Registerzugriff. Was tut man?",
+      "optionen": [
+        "Eine dokumentierte **Abweichung** (deviation) mit Begründung, Prüfung und Freigabe, genau für diese Stelle",
+        "Die Regel für das ganze Projekt abschalten",
+        "Den Code so umschreiben, dass das Werkzeug ihn nicht mehr erkennt"
+      ],
+      "korrekt": 0,
+      "erklaerung": "MISRA ist kein Verbot ohne Ausnahme, sondern ein Prozess: Jede Abweichung wird begründet, auf Risiken geprüft und von einer verantwortlichen Person freigegeben. Bei einem Audit muss man zu jeder Abweichung erklären können, warum sie sicher ist. Das Werkzeug zu „überlisten“, ist dagegen ein schwerer Fehler.",
+      "begruendungen": [
+        "Richtig.",
+        "Dann gilt die Regel auch an allen anderen Stellen nicht mehr.",
+        "Das untergräbt den Zweck des Standards und fällt in einem Audit auf."
+      ]
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Die Core Guidelines empfehlen geschweifte Klammern bei der Initialisierung (ES.23). Was passiert hier?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "double messwert = 3.7;",
+          "int a = messwert;",
+          "int b{messwert};"
+        ]
+      },
+      "optionen": [
+        "Zeile 2 kompiliert und schneidet still auf 3 ab, Zeile 3 ist ein Compilerfehler wegen Verengung",
+        "Beide Zeilen kompilieren und ergeben 4",
+        "Beide Zeilen sind Compilerfehler"
+      ],
+      "korrekt": 0,
+      "fest": true,
+      "erklaerung": "Bei der Initialisierung mit `{}` sind **verengende Umwandlungen** (*narrowing*) verboten: `double` zu `int`, `long` zu `short` und ähnliche. So wird ein stiller Datenverlust zum Compilerfehler. Ist die Umwandlung gewollt, schreibt man sie mit `static_cast<int>(messwert)` ausdrücklich hin.",
+      "begruendungen": [
+        "Richtig.",
+        "Umwandlung in `int` rundet nicht, sie schneidet ab. Und Zeile 3 kompiliert nicht.",
+        "Zeile 2 ist erlaubt, nur riskant."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Einen Standard einführen",
+      "text": "Ein Regelwerk über Nacht auf eine bestehende Codebasis anzuwenden, erzeugt tausende Befunde und Frust. Bewährt hat sich:\n\n1. Eine Auswahl der Regeln treffen, die zum Projekt passen, und sie im Repository festhalten (z. B. `.clang-tidy`).\n2. Prüfung automatisieren, in der CI und in der IDE.\n3. Für **neuen und geänderten Code** verbindlich machen, die Altlast schrittweise abbauen (Baseline, Modul 4.5).\n4. Abweichungen sichtbar dokumentieren, im Code und in einer Liste.\n5. Die Auswahl regelmässig überprüfen."
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze den MISRA-Fachbegriff.",
+      "text": "Eine bewusste, begründete und freigegebene Abweichung von einer MISRA-Regel heisst {{?}}.",
+      "luecken": [
+        {
+          "loesungen": [
+            "Deviation"
+          ]
+        }
+      ],
+      "auswahl": [
+        "Deviation",
+        "Violation",
+        "Exception",
+        "Warning"
+      ],
+      "erklaerung": "Eine *violation* ist ein Verstoss ohne Begründung, also ein Befund. Eine *deviation* ist ein Verstoss mit Begründung und Freigabe, also ein akzeptierter Zustand. In Audits wird genau dieser Unterschied geprüft."
+    }
+  ],
+  "praxis": "Wenn du in ein Projekt mit Safety-Anforderungen kommst, frag früh: Welches Regelwerk gilt, welches Werkzeug prüft es, und wo stehen die Abweichungen? In anderen Projekten ist eine kleine, gut begründete Auswahl der Core Guidelines mit clang-tidy ein guter Start. Wichtig ist nicht die Zahl der Regeln, sondern dass sie automatisch geprüft und vom Team getragen werden.",
+  "labor": {
+    "titel": "Core-Guidelines-Checks ausprobieren",
+    "anleitung": "Lass clang-tidy mit den Core-Guidelines-Checks über ein eigenes Projekt laufen und zähle die Funde pro Regel.",
+    "befehle": [
+      "run-clang-tidy -p build -checks='-*,cppcoreguidelines-*' -quiet 2>/dev/null | grep -o '\\[cppcoreguidelines-[a-z-]*\\]' | sort | uniq -c | sort -rn | head"
+    ],
+    "beobachtung": "Einige Regeln erzeugen in fast jedem Projekt viele Funde, z. B. `pro-bounds-pointer-arithmetic` oder `avoid-magic-numbers`. Hier lohnt eine bewusste Entscheidung, ob die Regel ins Projekt passt."
+  },
+  "begriffe": [
+    {
+      "begriff": "MISRA C++",
+      "englisch": "MISRA C++",
+      "erklaerung": "Regelwerk für C++ in sicherheitskritischen Systemen. Aktuelle Version: MISRA C++:2023."
+    },
+    {
+      "begriff": "C++ Core Guidelines",
+      "englisch": "C++ Core Guidelines",
+      "erklaerung": "Sammlung von Empfehlungen für modernes, sicheres C++ von Stroustrup und Sutter."
+    },
+    {
+      "begriff": "Deviation",
+      "englisch": "deviation",
+      "erklaerung": "Begründete, dokumentierte und freigegebene Abweichung von einer Regel eines Coding-Standards."
+    },
+    {
+      "begriff": "Verengende Umwandlung",
+      "englisch": "narrowing conversion",
+      "erklaerung": "Umwandlung, bei der Werte verloren gehen können, z. B. `double` zu `int`."
+    }
+  ],
+  "weiterlesen": [
+    {
+      "titel": "C++ Core Guidelines",
+      "url": "https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines"
+    },
+    {
+      "titel": "MISRA: MISRA C++:2023",
+      "url": "https://misra.org.uk/product/misra-cpp2023/"
+    }
+  ]
+}

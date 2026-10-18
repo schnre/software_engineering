@@ -1,134 +1,147 @@
 {
   "id": "p7-m2-l2",
   "phase": 7,
-  "modul": "7.2 Schichten und Hardware Abstraction Layer",
-  "titel": "Hardware Abstraction Layer",
+  "modul": "7.2 RTOS-Grundlagen",
+  "titel": "Queues, Semaphore und Mutexe",
   "lernziele": [
-    "Eine HAL-Schnittstelle ohne Hardwaredetails entwerfen",
-    "Implementierungen pro Plattform im Build auswählen",
-    "Virtuelle Schnittstellen und Auswahl zur Link-Zeit abwägen"
+    "Für ein Kommunikationsproblem das passende RTOS-Mittel wählen",
+    "Daten aus einer ISR sicher an eine Task übergeben",
+    "Den Unterschied zwischen Semaphor und Mutex erklären"
   ],
-  "dauerMinuten": 6,
+  "dauerMinuten": 7,
   "schritte": [
     {
-      "typ": "multiple-choice",
-      "frage": "Wegen Lieferengpässen muss ein Produkt vom Mikrocontroller eines Herstellers auf einen anderen umsteigen. Was macht das am günstigsten?",
-      "optionen": [
-        "Eine HAL, über der kein Code chip-spezifisch ist. Neu geschrieben werden nur die Treiber unter der HAL",
-        "Möglichst viel Assembler, weil der überall gleich ist",
-        "Den Code des alten Herstellers einfach weiterverwenden"
-      ],
-      "korrekt": 0,
-      "erklaerung": "Chip-Wechsel waren in den letzten Jahren für viele Firmen bittere Realität. Wer eine saubere HAL hatte, schrieb ein paar Treiber neu. Wer Registerzugriffe in der ganzen Anwendung verteilt hatte, schrieb das halbe Produkt neu.",
-      "begruendungen": [
-        "Richtig.",
-        "Assembler ist für jede CPU-Familie anders, also das Gegenteil.",
-        "Die Bibliotheken eines Herstellers laufen nur auf dessen Chips."
-      ]
-    },
-    {
-      "typ": "erklaerung",
-      "titel": "Gute HAL-Schnittstellen",
-      "text": "- **Absicht statt Register**: `setze(true)` statt `ODR |= (1 << 5)`.\n- **Klein**: nur, was die Anwendung wirklich braucht.\n- **Ehrlich über Fehler und Zeit**: Kann etwas scheitern? Blockiert es? Wie lange höchstens?\n- **Plattformneutrale Typen**: `std::span<const std::byte>` statt eines Hersteller-Pufferstrukts.\n\nZu jeder Schnittstelle gibt es mehrere Implementierungen: für jeden Chip, eine **Host-Simulation** für den PC und Fakes für Unit-Tests."
-    },
-    {
-      "typ": "lueckentext",
-      "frage": "Ergänze die CMake-Datei: Je nach Plattform wird eine andere GPIO-Implementierung gebaut, die Anwendung linkt nur gegen `hal`.",
-      "code": {
-        "sprache": "cmake",
-        "zeilen": [
-          "add_library(hal INTERFACE)",
-          "target_include_directories(hal INTERFACE include)",
-          "",
-          "if(PLATTFORM STREQUAL \"stm32\")",
-          "  target_sources(hal INTERFACE stm32/gpio.cpp)",
-          "elseif(PLATTFORM STREQUAL \"{{?}}\")",
-          "  target_sources(hal INTERFACE host/gpio_simulation.cpp)",
-          "endif()",
-          "",
-          "target_link_libraries(app PRIVATE {{?}})"
-        ]
-      },
-      "luecken": [{ "loesungen": ["host"] }, { "loesungen": ["hal"] }],
-      "auswahl": ["host", "hal", "stm32", "app"],
-      "erklaerung": "Die Anwendung kennt nur das Target `hal` und dessen Header. Welche Implementierung dahintersteckt, entscheidet die Plattform beim Konfigurieren, z. B. mit `-DPLATTFORM=host` für die CI auf einem Linux-Rechner."
-    },
-    {
       "typ": "zuordnen",
-      "frage": "Wofür ist welche Implementierung der HAL da?",
+      "frage": "Welches Mittel passt zu welchem Zweck?",
       "paare": [
-        { "links": "STM32-Implementierung", "rechts": "Läuft im ausgelieferten Produkt" },
-        { "links": "Host-Simulation", "rechts": "Läuft auf dem PC für Entwicklung, Vorführungen und CI" },
-        { "links": "Fake im Unit-Test", "rechts": "Liefert gezielt Werte und Fehlerfälle" },
-        { "links": "Aufzeichnende Implementierung", "rechts": "Protokolliert alle Zugriffe zur Analyse" }
+        { "links": "Queue", "rechts": "Daten von einer Task oder ISR an eine andere übergeben" },
+        { "links": "Binärer Semaphor", "rechts": "Einer Task signalisieren, dass ein Ereignis eingetreten ist" },
+        { "links": "Mutex", "rechts": "Eine gemeinsame Ressource exklusiv nutzen, mit Besitzer" },
+        { "links": "Event Group", "rechts": "Auf eine Kombination mehrerer Ereignisse warten" }
       ],
-      "erklaerung": "Mit einer Host-Simulation kann das ganze Team ohne Hardware an der Anwendung arbeiten. Das ist besonders wertvoll, wenn es nur wenige Prototypen gibt."
+      "erklaerung": "Die Faustregel lautet: Wenn möglich Daten über Queues weitergeben statt gemeinsam zu nutzen. Dann braucht es keine Mutexe, und jeder Zustand gehört genau einer Task. FreeRTOS bietet zusätzlich **Task Notifications**, die schnellste und sparsamste Art, eine einzelne Task zu wecken."
     },
     {
       "typ": "code-lesen",
-      "frage": "Was stimmt mit dieser HAL-Schnittstelle nicht?",
+      "frage": "Was passiert in diesem Code?",
       "code": {
         "sprache": "cpp",
         "zeilen": [
-          "class IUart {",
+          "extern \"C\" void USART2_IRQHandler() {",
+          "    const uint8_t b = USART2->DR;",
+          "    BaseType_t weckt = pdFALSE;",
+          "    xQueueSendFromISR(rxQueue, &b, &weckt);",
+          "    portYIELD_FROM_ISR(weckt);",
+          "}",
+          "",
+          "void protokollTask(void*) {",
+          "    uint8_t b;",
+          "    for (;;) {",
+          "        xQueueReceive(rxQueue, &b, portMAX_DELAY);",
+          "        parser.verarbeite(b);",
+          "    }",
+          "}"
+        ]
+      },
+      "optionen": [
+        "Die ISR legt jedes Byte in eine Queue und weckt die Task. Ist die Task höher priorisiert als die unterbrochene, läuft sie direkt nach der ISR",
+        "Die Task fragt die UART ständig ab",
+        "Die ISR verarbeitet das Protokoll selbst"
+      ],
+      "korrekt": 0,
+      "erklaerung": "In ISRs sind nur die `FromISR`-Varianten erlaubt, denn eine ISR darf nicht blockieren. `portYIELD_FROM_ISR` sorgt dafür, dass der Scheduler nach der ISR sofort zur geweckten Task wechselt, statt bis zum nächsten Tick zu warten. Bei hohen Datenraten ist eine Queue pro Byte aber teuer. Dann nimmt man einen Stream Buffer oder DMA.",
+      "begruendungen": [
+        "Richtig.",
+        "Die Task ist blockiert, bis Daten da sind.",
+        "Die ISR übergibt nur das Byte, verarbeitet wird in der Task."
+      ]
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Dieses System hängt gelegentlich komplett. Welche Zeile ist falsch?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "extern \"C\" void EXTI0_IRQHandler() {",
+          "    EXTI->PR = EXTI_PR_PR0;",
+          "    xSemaphoreTake(spiMutex, portMAX_DELAY);",
+          "    leseSensorUeberSpi();",
+          "    xSemaphoreGive(spiMutex);",
+          "}"
+        ]
+      },
+      "fehlerZeile": 3,
+      "erklaerung": "Eine ISR darf niemals blockierend warten. Hält eine Task gerade den Mutex, wartet die ISR auf eine Task, die selbst nicht laufen kann, solange die ISR läuft: Das System steht. Ausserdem sind Mutexe in ISRs grundsätzlich nicht erlaubt. Die ISR sollte nur eine Task wecken, die dann den SPI-Zugriff erledigt."
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Semaphor oder Mutex?",
+      "text": "Beide sehen ähnlich aus, haben aber verschiedene Aufgaben:\n\n- Ein **Semaphor** ist ein Zähler zum **Signalisieren**. Wer ihn gibt, muss ihn nicht genommen haben. Typisch: Eine ISR gibt, eine Task nimmt.\n- Ein **Mutex** dient dem **gegenseitigen Ausschluss**. Er hat einen Besitzer: Nur wer ihn genommen hat, gibt ihn zurück. Dafür unterstützt er **Prioritätsvererbung** (nächste Lektion).\n\nIn C++ verpackt man den Mutex in einer RAII-Klasse wie bei `std::lock_guard`, damit er auch bei frühem `return` freigegeben wird."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Zwei Tasks schreiben über dieselbe UART Meldungen aus. Was ist die sauberste Lösung?",
+      "optionen": [
+        "Eine eigene Logger-Task besitzt die UART. Die anderen Tasks schicken ihre Meldungen über eine Queue",
+        "Beide schreiben direkt, die Meldungen sind kurz",
+        "Vor jedem Schreiben werden alle Interrupts gesperrt"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Das Muster heisst **Gatekeeper-Task**: Eine Task besitzt die Ressource exklusiv. Ein Mutex ginge auch, doch die Queue entkoppelt besser: Die sendenden Tasks warten nicht auf die langsame UART. Interrupts minutenlang zu sperren zerstört das Echtzeitverhalten.",
+      "begruendungen": [
+        "Richtig.",
+        "Dann vermischen sich die Zeichen beider Meldungen.",
+        "Interrupts sperrt man nur für wenige Instruktionen."
+      ]
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Was ist der Vorteil dieser kleinen Klasse?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "class MutexSperre {",
           "public:",
-          "    virtual ~IUart() = default;",
-          "    virtual void sende(std::span<const std::byte> daten) = 0;",
-          "    virtual void setzeRegisterCR1(std::uint32_t wert) = 0;",
+          "    explicit MutexSperre(SemaphoreHandle_t m) : m_{m} { xSemaphoreTake(m_, portMAX_DELAY); }",
+          "    ~MutexSperre() { xSemaphoreGive(m_); }",
+          "    MutexSperre(const MutexSperre&) = delete;",
+          "    MutexSperre& operator=(const MutexSperre&) = delete;",
+          "private:",
+          "    SemaphoreHandle_t m_;",
           "};"
         ]
       },
       "optionen": [
-        "`setzeRegisterCR1` ist ein STM32-Detail. Andere Plattformen können es nicht sinnvoll umsetzen, und die Anwendung wird an den Chip gekoppelt",
-        "`std::span` ist für Embedded-Systeme ungeeignet",
-        "Eine Schnittstelle braucht keinen virtuellen Destruktor"
+        "Der Mutex wird im Destruktor immer freigegeben, auch bei frühem `return`. Kopieren ist verboten, damit nicht zweimal freigegeben wird",
+        "Sie macht den Mutex schneller",
+        "Sie erlaubt die Verwendung in ISRs"
       ],
       "korrekt": 0,
-      "erklaerung": "Eine solche **undichte Abstraktion** (leaky abstraction) gibt Hardwaredetails nach oben weiter. Was die Anwendung mit CR1 eigentlich will, z. B. die Baudrate oder Parität setzen, sollte als eigene, neutrale Funktion in die Schnittstelle: `konfiguriere(UartKonfig k)`.",
+      "erklaerung": "RAII aus Modul 2.2 funktioniert genauso mit RTOS-Objekten. Wer `take` und `give` von Hand paart, vergisst früher oder später ein `give` in einem Fehlerpfad. Danach hängt das System.",
       "begruendungen": [
         "Richtig.",
-        "`std::span` kostet nichts und ist ideal für Puffer.",
-        "Für polymorphe Schnittstellen ist er richtig (Modul 2.4)."
-      ]
-    },
-    {
-      "typ": "erklaerung",
-      "titel": "Virtuell oder zur Link-Zeit?",
-      "text": "Eine HAL lässt sich auf zwei Arten umsetzen:\n\n- **Virtuelle Schnittstelle** (`class IGpio`): Implementierung zur Laufzeit wählbar, Fakes im selben Test-Binary möglich. Kostet einen indirekten Aufruf und verhindert Inlining.\n- **Auswahl zur Link-Zeit**: Ein Header `hal/gpio.h` mit normalen Funktionen, pro Plattform eine andere `.cpp`. Kein Overhead, der Compiler kann inlinen. Dafür gibt es pro Binary genau eine Implementierung.\n\nIn engen Interrupt-Routinen auf kleinen Mikrocontrollern bevorzugt man oft die zweite Variante oder Templates (Modul 7.5)."
-    },
-    {
-      "typ": "multiple-choice",
-      "frage": "Was ist der Preis der Auswahl zur Link-Zeit gegenüber einer virtuellen Schnittstelle?",
-      "optionen": [
-        "Pro Binary gibt es nur eine Implementierung. Für Tests mit Fakes braucht man ein eigenes Test-Binary mit eigener Fake-Implementierung",
-        "Der Code wird langsamer",
-        "Die Header müssen für jede Plattform anders sein"
-      ],
-      "korrekt": 0,
-      "erklaerung": "Das ist meist ein guter Tausch: Für das Produkt gibt es ohnehin nur eine Hardware, und Tests laufen als eigene Binaries. Unpraktisch wird es, wenn man innerhalb eines Tests verschiedene Fakes kombinieren will. Dann sind virtuelle Schnittstellen bequemer.",
-      "begruendungen": [
-        "Richtig.",
-        "Im Gegenteil, es entfällt der indirekte Aufruf.",
-        "Der Header ist für alle Plattformen derselbe, nur die `.cpp` wechselt."
+        "Die Geschwindigkeit ändert sich nicht.",
+        "In ISRs sind Mutexe weiterhin verboten."
       ]
     }
   ],
-  "praxis": "Beim Entwurf einer HAL ist die wichtigste Frage: Was will die Anwendung eigentlich? Die Schnittstelle sollte das ausdrücken, nicht das, was die Hardware zufällig kann. Im Review prüfst du neue HAL-Funktionen darauf, ob ein zweiter Chip sie sinnvoll umsetzen könnte. Wenn nicht, ist die Abstraktion undicht.",
+  "praxis": "Ein grosser Teil der Fehler in RTOS-Projekten sind Synchronisationsfehler: vergessene Freigabe, blockierende Aufrufe in ISRs, Deadlocks durch unterschiedliche Sperrreihenfolge, zu kleine Queues. Gute Architekturen verringern die Zahl gemeinsamer Ressourcen: Jede Hardware gehört einer Task, kommuniziert wird über Nachrichten. Das ist auch die Grundlage des Active-Object-Musters in Modul 11.2.",
   "labor": {
-    "titel": "Eine Host-Simulation bauen",
-    "anleitung": "Schreibe für eine kleine Anwendung, die eine LED blinken lässt, eine HAL-Schnittstelle `IGpioAusgang` und zwei Implementierungen: eine Host-Simulation, die den Zustand auf der Konsole ausgibt, und einen Fake für Tests.",
+    "titel": "Gatekeeper mit FreeRTOS",
+    "anleitung": "Baue im POSIX-Port von FreeRTOS drei Tasks, die über eine Queue an eine Logger-Task senden. Mach die Queue dann bewusst zu klein und prüfe den Rückgabewert von `xQueueSend` mit Timeout 0.",
     "befehle": [
-      "cmake -S . -B build-host -DPLATTFORM=host && cmake --build build-host && ./build-host/blinker",
-      "ctest --test-dir build-host"
+      "make -C FreeRTOS/FreeRTOS/Demo/Posix_GCC",
+      "./build/posix_demo"
     ],
-    "beobachtung": "Die Anwendung läuft auf dem PC und zeigt `LED an` / `LED aus`. Der Test prüft mit dem Fake, dass die LED nach drei Ticks genau dreimal umgeschaltet hat, ganz ohne Hardware."
+    "beobachtung": "Bei voller Queue liefert `xQueueSend` `errQUEUE_FULL`. Wer den Rückgabewert ignoriert, verliert Meldungen still. Zähle verlorene Meldungen und gib sie aus: Das ist eine gute Diagnose für die Queue-Grösse."
   },
   "begriffe": [
-    { "begriff": "Undichte Abstraktion", "englisch": "leaky abstraction", "erklaerung": "Eine Schnittstelle gibt Details der Implementierung nach aussen weiter." },
-    { "begriff": "Host-Simulation", "englisch": "host simulation", "erklaerung": "Implementierung der HAL für den Entwicklungsrechner, damit die Anwendung ohne Zielhardware läuft." },
-    { "begriff": "Link-Zeit-Auswahl", "englisch": "link-time selection", "erklaerung": "Für einen gemeinsamen Header wird je nach Build eine andere Implementierungsdatei gelinkt." }
+    { "begriff": "Queue", "englisch": "queue", "erklaerung": "Warteschlange zur threadsicheren Übergabe von Daten zwischen Tasks und ISRs." },
+    { "begriff": "Semaphor", "englisch": "semaphore", "erklaerung": "Zähler zur Signalisierung von Ereignissen zwischen Tasks." },
+    { "begriff": "Mutex", "englisch": "mutex", "erklaerung": "Sperre mit Besitzer für den exklusiven Zugriff auf eine Ressource." },
+    { "begriff": "Gatekeeper-Task", "englisch": "gatekeeper task", "erklaerung": "Task, die eine Ressource exklusiv besitzt und Aufträge über eine Queue entgegennimmt." }
   ],
   "weiterlesen": [
-    { "titel": "Joel Spolsky: The Law of Leaky Abstractions", "url": "https://www.joelonsoftware.com/2002/11/11/the-law-of-leaky-abstractions/" }
+    { "titel": "FreeRTOS: Queues, Mutexes and Semaphores", "url": "https://www.freertos.org/Documentation/02-Kernel/02-Kernel-features/02-Queues-mutexes-and-semaphores/00-Queues-mutexes-and-semaphores" }
   ]
 }

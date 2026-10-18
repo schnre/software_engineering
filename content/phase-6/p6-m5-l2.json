@@ -1,0 +1,150 @@
+{
+  "id": "p6-m5-l2",
+  "phase": 6,
+  "modul": "6.5 Kommunikationsschnittstellen",
+  "titel": "I²C und CAN",
+  "lernziele": [
+    "Ablauf und Adressierung einer I²C-Übertragung erklären",
+    "Arbitrierung und Aufbau eines CAN-Busses verstehen",
+    "Für eine Aufgabe die passende Schnittstelle wählen"
+  ],
+  "dauerMinuten": 7,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Bei **I²C** teilen sich viele Geräte dieselben zwei Leitungen SDA und SCL. Wie weiss ein Gerät, dass es gemeint ist?",
+      "optionen": [
+        "Der Master sendet nach der Startbedingung eine 7-Bit-Adresse, und nur das Gerät mit dieser Adresse antwortet",
+        "Jedes Gerät hat eine eigene Chip-Select-Leitung",
+        "Alle Geräte antworten, der Master filtert"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Das erste Byte jeder Übertragung enthält die Adresse und ein Bit für Lesen oder Schreiben. Das angesprochene Gerät zieht danach SDA kurz auf Low, das **ACK**. Bleibt das ACK aus (**NACK**), ist kein Gerät mit dieser Adresse da oder es ist beschäftigt.",
+      "begruendungen": [
+        "Richtig.",
+        "Das ist SPI.",
+        "Bei gleichzeitigen Antworten gäbe es ein Durcheinander auf der Leitung."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "I²C im Überblick",
+      "text": "- zwei Leitungen, **Open-Drain** mit Pull-up-Widerständen (typisch 2,2 bis 10 kΩ)\n- Geschwindigkeiten 100 kHz, 400 kHz, 1 MHz\n- Ablauf: Startbedingung, Adresse + R/W, ACK, Datenbytes mit ACK, Stoppbedingung\n- **Clock Stretching**: Ein langsamer Slave darf SCL auf Low halten, bis er bereit ist\n\nDer häufigste Fehler betrifft die Adresse: Manche Datenblätter nennen die 7-Bit-Adresse, andere das komplette erste Byte mit R/W-Bit (die „8-Bit-Adresse“). Bibliotheken erwarten meist die 7-Bit-Form."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Das Datenblatt nennt als Schreibadresse `0x90`. Welche 7-Bit-Adresse erwartet eine typische Bibliothek?",
+      "optionen": ["`0x48`", "`0x90`", "`0x91`", "`0x120`"],
+      "korrekt": 0,
+      "fest": true,
+      "erklaerung": "`0x90` ist die Adresse bereits um ein Bit nach links geschoben, mit R/W = 0 im niederwertigsten Bit. Die 7-Bit-Adresse ist `0x90 >> 1 = 0x48`. Übergibt man `0x90`, schiebt die Bibliothek nochmals und spricht `0x120 & 0xFF` an. Niemand antwortet.",
+      "begruendungen": [
+        "Richtig.",
+        "Das ist die Darstellung mit R/W-Bit.",
+        "Das wäre die Leseadresse mit R/W = 1.",
+        "Das passt nicht einmal in ein Byte."
+      ]
+    },
+    {
+      "typ": "terminal-deuten",
+      "frage": "Auf einem Raspberry Pi suchst du Geräte am I²C-Bus. Was zeigt die Ausgabe?",
+      "terminal": {
+        "befehl": "i2cdetect -y 1",
+        "ausgabe": [
+          "     0  1  2  3  4  5  6  7  8  9  a  b  c  d  e  f",
+          "00:                         -- -- -- -- -- -- -- --",
+          "10: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --",
+          "20: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --",
+          "30: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --",
+          "40: -- -- -- -- -- -- -- -- 48 -- -- -- -- -- -- --",
+          "50: -- -- -- -- -- -- -- -- -- -- -- -- -- -- -- --",
+          "60: -- -- -- -- -- -- -- -- 68 -- -- -- -- -- -- --",
+          "70: -- -- -- -- -- -- -- --"
+        ]
+      },
+      "optionen": [
+        "Zwei Geräte antworten, auf den 7-Bit-Adressen `0x48` und `0x68`",
+        "Es sind 48 und 68 Geräte angeschlossen",
+        "Der Bus ist defekt, weil fast alle Felder `--` zeigen"
+      ],
+      "korrekt": 0,
+      "erklaerung": "`i2cdetect` spricht jede Adresse an und zeigt die, die mit ACK antworten. `0x48` ist z. B. ein typischer Temperatursensor, `0x68` eine Echtzeituhr oder ein Lagesensor. Zeigt die Tabelle gar nichts, fehlen oft die Pull-ups oder die Versorgung.",
+      "begruendungen": [
+        "Richtig.",
+        "Die Zahlen sind Adressen, nicht Anzahlen.",
+        "`--` heisst nur: Unter dieser Adresse antwortet niemand. Das ist normal."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "CAN",
+      "text": "**CAN** ist der Bus in Fahrzeugen und vielen Maschinen. Er überträgt **differentiell** über CAN-H und CAN-L und ist dadurch robust gegen Störungen. An beiden Enden sitzt ein **Abschlusswiderstand** von 120 Ω.\n\nStatt Geräteadressen haben Nachrichten **Identifier** (11 oder 29 Bit), die zugleich ihre Priorität sind. Senden mehrere gleichzeitig, gewinnt die **Arbitrierung** bitweise: Eine 0 (dominant) überschreibt eine 1 (rezessiv). Wer eine 1 sendet und eine 0 liest, hört auf. Die Nachricht mit der kleinsten ID setzt sich durch, ohne dass ein Bit verloren geht.\n\nKlassisches CAN überträgt bis 8 Datenbyte mit bis 1 Mbit/s, **CAN FD** bis 64 Byte mit höherer Datenrate. Eingebaute Prüfsummen, Bestätigung und Fehlerzähler machen CAN sehr zuverlässig."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Zwei Steuergeräte beginnen gleichzeitig zu senden, eines mit ID `0x120`, das andere mit ID `0x0F0`. Was passiert?",
+      "optionen": [
+        "`0x0F0` gewinnt die Arbitrierung, `0x120` wird danach automatisch erneut gesendet",
+        "Beide Nachrichten werden zerstört",
+        "`0x120` gewinnt, weil die grössere ID wichtiger ist"
+      ],
+      "korrekt": 0,
+      "fest": true,
+      "erklaerung": "Die IDs werden vom höchstwertigen Bit an verglichen. Beim ersten Bit, in dem sie sich unterscheiden, sendet `0x0F0` eine dominante 0 und `0x120` eine rezessive 1. Der Sender von `0x120` erkennt das und zieht sich zurück. Deshalb vergibt man zeitkritischen Nachrichten (Bremse, Airbag) kleine IDs.",
+      "begruendungen": [
+        "Richtig.",
+        "Die Arbitrierung ist verlustfrei, gerade das ist ihr Vorteil.",
+        "Bei CAN gilt: kleinere ID, höhere Priorität."
+      ]
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Welche Schnittstelle passt am besten?",
+      "paare": [
+        { "links": "I²C", "rechts": "Zwei Leitungen, Adressen, kurze Strecken auf der Platine, viele langsame Sensoren" },
+        { "links": "SPI", "rechts": "Schnell und vollduplex, eine CS-Leitung pro Gerät, z. B. Display oder Flash" },
+        { "links": "UART", "rechts": "Punkt zu Punkt, asynchron, z. B. Konsole oder Funkmodul" },
+        { "links": "CAN", "rechts": "Robust und differentiell, Nachrichten mit Prioritäten, im Fahrzeug" }
+      ],
+      "erklaerung": "Für längere Strecken in der Industrie kommen RS-485 (oft mit Modbus) und Industrial Ethernet hinzu, im Fahrzeug zunehmend Automotive Ethernet. Die Grundideen aus dieser Lektion tauchen dort alle wieder auf."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Bei ausgeschaltetem System misst du zwischen CAN-H und CAN-L 120 Ω statt der erwarteten 60 Ω. Was bedeutet das?",
+      "optionen": [
+        "Nur ein Abschlusswiderstand ist vorhanden, der zweite fehlt",
+        "Der Bus ist perfekt abgeschlossen",
+        "Beide Abschlusswiderstände sind kurzgeschlossen"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Zwei parallele 120-Ω-Widerstände ergeben 60 Ω. Mit nur einem Abschluss entstehen Reflexionen, und bei höheren Datenraten oder langen Leitungen treten sporadische Fehler auf. Ein Multimeter an dieser Stelle gehört zur ersten Fehlersuche bei jedem CAN-Problem.",
+      "begruendungen": [
+        "Richtig.",
+        "Richtig abgeschlossen wären es 60 Ω.",
+        "Ein Kurzschluss ergäbe nahezu 0 Ω."
+      ]
+    }
+  ],
+  "praxis": "In Fahrzeug- und Maschinenprojekten ist CAN allgegenwärtig: Nachrichten werden in einer DBC-Datei beschrieben, Werkzeuge wie candump (Linux SocketCAN) oder Vector CANoe zeichnen auf. Bei I²C ist der Klassiker ein „hängender Bus“, wenn ein Slave mitten in einer Übertragung SDA auf Low hält. Gute Treiber erkennen das und takten SCL ein paar Mal, um den Bus wieder freizubekommen.",
+  "labor": {
+    "titel": "CAN unter Linux ohne Hardware",
+    "anleitung": "Linux bietet mit SocketCAN eine virtuelle CAN-Schnittstelle. Damit kannst du Nachrichten senden und mitschneiden, auch in WSL2 mit passendem Kernel.",
+    "befehle": [
+      "sudo modprobe vcan && sudo ip link add dev vcan0 type vcan && sudo ip link set up vcan0",
+      "candump vcan0 &",
+      "cansend vcan0 123#DEADBEEF",
+      "cansend vcan0 0F0#0102"
+    ],
+    "beobachtung": "`candump` zeigt beide Nachrichten mit ID und Daten. SocketCAN ist auch die Schnittstelle, über die du später aus C++ mit echten CAN-Adaptern sprichst."
+  },
+  "begriffe": [
+    { "begriff": "I²C", "englisch": "inter-integrated circuit", "erklaerung": "Zweidraht-Bus mit Adressen, Open-Drain-Leitungen und Bestätigung jedes Bytes." },
+    { "begriff": "ACK/NACK", "englisch": "acknowledge / not acknowledge", "erklaerung": "Bestätigung bzw. Ablehnung eines empfangenen Bytes durch den Empfänger." },
+    { "begriff": "CAN", "englisch": "controller area network", "erklaerung": "Robuster, differentieller Bus mit priorisierten Nachrichten, verbreitet in Fahrzeugen." },
+    { "begriff": "Arbitrierung", "englisch": "arbitration", "erklaerung": "Verfahren, das bei gleichzeitigem Senden verlustfrei entscheidet, welche Nachricht übertragen wird." }
+  ],
+  "weiterlesen": [
+    { "titel": "NXP: UM10204 I²C-bus specification and user manual", "url": "https://www.nxp.com/docs/en/user-guide/UM10204.pdf" },
+    { "titel": "Linux Kernel: SocketCAN", "url": "https://docs.kernel.org/networking/can.html" }
+  ]
+}

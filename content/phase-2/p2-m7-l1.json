@@ -27,7 +27,12 @@
           "}"
         ]
       },
-      "optionen": ["`~Log Fehler`", "`Fehler ~Log`", "`nie ~Log Fehler`", "`Fehler`"],
+      "optionen": [
+        "`~Log Fehler`",
+        "`Fehler ~Log`",
+        "`nie ~Log Fehler`",
+        "`Fehler`"
+      ],
       "korrekt": 0,
       "fest": true,
       "erklaerung": "`throw` verlässt `tief` und `mitte` sofort. Auf dem Weg zum passenden `catch` werden alle lokalen Objekte zerstört, deshalb erscheint `~Log` **vor** dem `catch`-Block. Das heisst **Stack Unwinding**, und genau darauf baut RAII auf.",
@@ -47,10 +52,22 @@
       "typ": "zuordnen",
       "frage": "Ordne die Garantien der Exception Safety zu.",
       "paare": [
-        { "links": "No-throw-Garantie", "rechts": "Die Operation wirft nie, z. B. Destruktoren, `swap`, Move mit `noexcept`" },
-        { "links": "Starke Garantie", "rechts": "Bei einer Exception bleibt der Zustand wie vorher: alles oder nichts" },
-        { "links": "Basisgarantie", "rechts": "Bei einer Exception bleibt alles gültig und ohne Lecks, der Zustand kann sich aber geändert haben" },
-        { "links": "Keine Garantie", "rechts": "Nach einer Exception können Invarianten verletzt oder Ressourcen verloren sein" }
+        {
+          "links": "No-throw-Garantie",
+          "rechts": "Die Operation wirft nie, z. B. Destruktoren, `swap`, Move mit `noexcept`"
+        },
+        {
+          "links": "Starke Garantie",
+          "rechts": "Bei einer Exception bleibt der Zustand wie vorher: alles oder nichts"
+        },
+        {
+          "links": "Basisgarantie",
+          "rechts": "Bei einer Exception bleibt alles gültig und ohne Lecks, der Zustand kann sich aber geändert haben"
+        },
+        {
+          "links": "Keine Garantie",
+          "rechts": "Nach einer Exception können Invarianten verletzt oder Ressourcen verloren sein"
+        }
       ],
       "erklaerung": "Die Basisgarantie sollte jeder Code erfüllen, mit RAII ist das fast automatisch der Fall. Die starke Garantie bieten z. B. `std::vector::push_back` und gute Zuweisungsoperatoren. Destruktoren sind implizit `noexcept`."
     },
@@ -142,12 +159,30 @@
     "beobachtung": "Mit `catch throw` hält gdb genau an der Stelle an, an der geworfen wird. So findest du die Quelle einer Exception, auch wenn sie weit oben gefangen wird."
   },
   "begriffe": [
-    { "begriff": "Stack Unwinding", "englisch": "stack unwinding", "erklaerung": "Beim Werfen einer Exception werden die Frames verlassen und deren lokale Objekte zerstört." },
-    { "begriff": "Exception Safety", "englisch": "exception safety", "erklaerung": "Zusage, in welchem Zustand ein Objekt nach einer Exception ist: keine, Basis-, starke oder No-throw-Garantie." },
-    { "begriff": "Copy-and-Swap", "englisch": "copy-and-swap idiom", "erklaerung": "Erst an einer Kopie arbeiten, dann mit einem nicht werfenden `swap` austauschen. Ergibt die starke Garantie." }
+    {
+      "begriff": "Stack Unwinding",
+      "englisch": "stack unwinding",
+      "erklaerung": "Beim Werfen einer Exception werden die Frames verlassen und deren lokale Objekte zerstört."
+    },
+    {
+      "begriff": "Exception Safety",
+      "englisch": "exception safety",
+      "erklaerung": "Zusage, in welchem Zustand ein Objekt nach einer Exception ist: keine, Basis-, starke oder No-throw-Garantie."
+    },
+    {
+      "begriff": "Copy-and-Swap",
+      "englisch": "copy-and-swap idiom",
+      "erklaerung": "Erst an einer Kopie arbeiten, dann mit einem nicht werfenden `swap` austauschen. Ergibt die starke Garantie."
+    }
   ],
   "weiterlesen": [
-    { "titel": "cppreference: Exceptions", "url": "https://en.cppreference.com/w/cpp/language/exceptions" },
-    { "titel": "C++ Core Guidelines: E – Error handling", "url": "https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#S-errors" }
+    {
+      "titel": "cppreference: Exceptions",
+      "url": "https://en.cppreference.com/w/cpp/language/exceptions"
+    },
+    {
+      "titel": "C++ Core Guidelines: E – Error handling",
+      "url": "https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#S-errors"
+    }
   ]
 }

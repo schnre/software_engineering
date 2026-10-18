@@ -1,0 +1,119 @@
+{
+  "id": "p12-m1-l2",
+  "phase": 12,
+  "modul": "12.1 Normen und Prozesse",
+  "titel": "V-Modell, Traceability und Testabdeckung",
+  "lernziele": [
+    "Den Aufbau des V-Modells erklären",
+    "Durchgängige Rückverfolgbarkeit von Anforderungen bis zum Test herstellen",
+    "Anweisungs-, Zweig- und MC/DC-Abdeckung unterscheiden"
+  ],
+  "dauerMinuten": 7,
+  "schritte": [
+    {
+      "typ": "reihenfolge",
+      "frage": "Bringe die linke Seite des V-Modells von oben nach unten in die richtige Reihenfolge.",
+      "elemente": [
+        "Systemanforderungen",
+        "Systemarchitektur",
+        "Software-Anforderungen",
+        "Software-Architektur",
+        "Software-Feinentwurf",
+        "Implementierung"
+      ],
+      "erklaerung": "Auf der rechten Seite steht jeder Ebene ein Test gegenüber: Unit-Test gegen den Feinentwurf, Integrationstest gegen die Architektur, Software-Qualifikationstest gegen die Software-Anforderungen, Systemtest gegen die Systemanforderungen. Das V-Modell beschreibt Beziehungen, keinen zwingend sequenziellen Ablauf. Agile Arbeitsweisen sind damit vereinbar, solange die Nachweise entstehen."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Welcher Test prüft gegen welche Ebene?",
+      "paare": [
+        { "links": "Unit-Test", "rechts": "Feinentwurf einer Einheit" },
+        { "links": "Software-Integrationstest", "rechts": "Software-Architektur und Schnittstellen" },
+        { "links": "Software-Qualifikationstest", "rechts": "Software-Anforderungen, oft mit HIL-Prüfstand" },
+        { "links": "Systemtest", "rechts": "Systemanforderungen am fertigen Gerät" }
+      ],
+      "erklaerung": "**HIL** (*hardware in the loop*) heisst: Das echte Steuergerät läuft, die Umgebung (Fahrzeug, Maschine) wird in Echtzeit simuliert. **SIL** (*software in the loop*, nicht zu verwechseln mit dem Safety Integrity Level) testet die Software auf dem PC mit simulierter Umgebung."
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Traceability",
+      "text": "**Rückverfolgbarkeit** heisst: Jede Anforderung ist mit Architektur, Code und Tests verknüpft, in beide Richtungen.\n\n- Von oben: Ist jede Anforderung umgesetzt und getestet?\n- Von unten: Gehört jede Codezeile und jeder Test zu einer Anforderung? Code ohne Anforderung ist entweder überflüssig oder es fehlt eine Anforderung.\n\nIn der Praxis bekommen Anforderungen IDs (z. B. `SWR-MOT-042`), Tests verweisen darauf, und Werkzeuge wie Polarion, codebeamer, Jama oder Open-Source-Lösungen wie Sphinx-Needs und StrictDoc erzeugen daraus Matrizen. Eine Änderung an einer Anforderung zeigt dann sofort, welche Tests und welcher Code betroffen sind."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Wie viele Testfälle braucht man für 100 % **MC/DC**-Abdeckung dieser Bedingung mindestens?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "if (freigabe && (temperaturOk || notbetrieb)) {",
+          "    starteMotor();",
+          "}"
+        ]
+      },
+      "optionen": ["4", "2", "8", "3"],
+      "korrekt": 0,
+      "fest": true,
+      "erklaerung": "**MC/DC** (*modified condition/decision coverage*) verlangt: Jede Teilbedingung muss nachweislich das Ergebnis allein umschalten können, während die anderen gleich bleiben. Für n Teilbedingungen genügen n+1 Tests, hier 4, zum Beispiel (F,W,F), (W,W,F), (W,F,F), (W,F,W). Zweigabdeckung wäre schon mit 2 Tests erreicht, alle Kombinationen wären 8. MC/DC wird für ASIL D und DO-178C Level A gefordert.",
+      "begruendungen": [
+        "Richtig.",
+        "Das reicht für Zweigabdeckung, aber nicht für MC/DC.",
+        "Das sind alle Kombinationen, mehr als nötig.",
+        "Mit drei Bedingungen braucht MC/DC mindestens n+1 = 4."
+      ]
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Dieser Test soll eine Anforderung nachweisen. Was fehlt für die Rückverfolgbarkeit und Aussagekraft am meisten?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "// Anforderung: SWR-MOT-042 Der Motor darf ohne Freigabe nicht starten.",
+          "TEST(Motorsteuerung, Test1) {",
+          "    Motorsteuerung m{fakeHw};",
+          "    m.zyklus();",
+          "}"
+        ]
+      },
+      "fehlerZeile": 4,
+      "erklaerung": "Der Test ruft nur auf, prüft aber nichts. Er würde auch bei falschem Verhalten bestehen, und trotzdem trägt er zur Abdeckung bei. Ein Nachweis braucht eine Prüfung wie `EXPECT_FALSE(fakeHw.motorAn());` nach einem Zyklus ohne Freigabe. Auch der Name `Test1` hilft nicht: Besser `OhneFreigabeStartetMotorNicht`. Abdeckung misst, was ausgeführt wurde, nicht, was geprüft wurde."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "In einem Safety-Projekt wird ein Fehler kurz vor dem Release gefunden. Der Fix ist eine Zeile. Was ist nötig?",
+      "optionen": [
+        "Eine Auswirkungsanalyse: Welche Anforderungen, Tests und Nachweise sind betroffen? Dann Fix, Review, betroffene Tests wiederholen und Dokumentation aktualisieren",
+        "Die Zeile ändern und sofort ausliefern",
+        "Den Fehler bis zum nächsten Release ignorieren, ohne ihn zu dokumentieren"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Jede Änderung in einem zertifizierten Produkt läuft über das Change Management. Kleine Änderungen können grosse Auswirkungen haben, etwa auf das Zeitverhalten. Mit guter Traceability und automatisierten Tests in der CI (Phase 8) ist der Aufwand trotzdem überschaubar. Ohne beides wird jeder Fix zum Projekt.",
+      "begruendungen": [
+        "Richtig.",
+        "Ohne Analyse und Nachweise verliert das Produkt seine Zulassungsgrundlage.",
+        "Bekannte Fehler müssen dokumentiert und bewertet werden."
+      ]
+    }
+  ],
+  "praxis": "Die Prozesse in Safety-Projekten werden oft durch **Automotive SPICE** (ASPICE) bewertet, ein Reifegradmodell für Entwicklungsprozesse. Was das für dich heisst: Anforderungen lesen und hinterfragen, Tests mit Bezug zu Anforderungen schreiben, Reviews dokumentieren. Investiere in Automatisierung: Abdeckung, statische Analyse und Traceability-Berichte direkt aus der CI sparen enorm Zeit.",
+  "labor": {
+    "titel": "Abdeckung messen",
+    "anleitung": "Übersetze ein kleines Projekt mit GoogleTest und Abdeckungsmessung und erzeuge einen Bericht. Neuere GCC-Versionen können auch MC/DC messen.",
+    "befehle": [
+      "g++ -std=c++20 --coverage -fcondition-coverage -O0 motor.cpp motor_test.cpp -lgtest -lgtest_main -pthread -o motor_test",
+      "./motor_test",
+      "gcov --conditions motor.cpp",
+      "gcovr --html-details abdeckung.html"
+    ],
+    "beobachtung": "Der Bericht zeigt Zeilen-, Zweig- und Bedingungsabdeckung. Teste die Bedingung aus der Übung mit zwei, dann mit vier Fällen und vergleiche die Bedingungsabdeckung."
+  },
+  "begriffe": [
+    { "begriff": "V-Modell", "englisch": "V-model", "erklaerung": "Entwicklungsmodell, das jeder Entwurfsebene eine Testebene gegenüberstellt." },
+    { "begriff": "Traceability", "englisch": "traceability", "erklaerung": "Nachvollziehbare Verknüpfung von Anforderungen, Entwurf, Code und Tests." },
+    { "begriff": "MC/DC", "englisch": "modified condition/decision coverage", "erklaerung": "Abdeckungsmass, bei dem jede Teilbedingung nachweislich das Ergebnis beeinflusst." },
+    { "begriff": "HIL", "englisch": "hardware in the loop", "erklaerung": "Test eines echten Steuergeräts mit simulierter Umgebung in Echtzeit." }
+  ],
+  "weiterlesen": [
+    { "titel": "Sphinx-Needs: Requirements and traceability in Sphinx", "url": "https://sphinx-needs.readthedocs.io/" },
+    { "titel": "NASA: A Practical Tutorial on Modified Condition/Decision Coverage", "url": "https://ntrs.nasa.gov/citations/20010057789" }
+  ]
+}

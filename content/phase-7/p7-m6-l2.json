@@ -1,152 +1,124 @@
 {
   "id": "p7-m6-l2",
   "phase": 7,
-  "modul": "7.6 PIMPL, starke Typen und enum class",
-  "titel": "Starke Typen und enum class",
+  "modul": "7.6 Debugging auf der Zielhardware",
+  "titel": "Tracing, Logging und Messgeräte",
   "lernziele": [
-    "Verwechslungen von Parametern gleichen Typs mit starken Typen verhindern",
-    "`enum class` statt einfacher Enums und `bool`-Parameter einsetzen",
-    "`std::chrono` als Vorbild für typsichere Einheiten verstehen"
+    "Logging-Verfahren mit wenig Einfluss auf das Zeitverhalten wählen",
+    "Tracing mit SWO, RTT und Werkzeugen wie SystemView einsetzen",
+    "Oszilloskop und Logikanalysator gezielt nutzen"
   ],
-  "dauerMinuten": 7,
+  "dauerMinuten": 6,
   "schritte": [
     {
-      "typ": "code-lesen",
-      "frage": "`fahre(double strecke_m, double zeit_s)` wird so aufgerufen. Erkennt der Compiler den Fehler?",
-      "code": {
-        "sprache": "cpp",
-        "zeilen": [
-          "double zeit = 2.5;",
-          "double strecke = 30.0;",
-          "fahre(zeit, strecke);"
-        ]
-      },
+      "typ": "multiple-choice",
+      "frage": "Ein Fehler tritt nur auf, wenn kein Debugger angeschlossen ist. Sobald du `printf` einfügst, verschwindet er. Wie nennt man das?",
       "optionen": [
-        "Nein. Beide Parameter sind `double`, die Vertauschung kompiliert ohne Warnung",
-        "Ja, der Compiler vergleicht die Variablennamen mit den Parameternamen",
-        "Ja, mit `-Wall` gibt es eine Warnung"
+        "Einen **Heisenbug**: Die Beobachtung verändert das Zeitverhalten und damit den Fehler",
+        "Einen Compilerfehler",
+        "Einen Hardwaredefekt"
       ],
       "korrekt": 0,
-      "fest": true,
-      "erklaerung": "Für den Compiler sind beide einfach Zahlen. Solche Fehler sind teuer: Die NASA verlor 1999 den *Mars Climate Orbiter*, weil eine Software Impulswerte in Pfund-Sekunden lieferte, eine andere aber Newton-Sekunden erwartete. **Starke Typen** machen diese Klasse von Fehlern zum Compilerfehler.",
+      "erklaerung": "Typische Ursachen sind Race Conditions, fehlendes `volatile`, Stacküberläufe oder nicht initialisierte Variablen. Ein `printf` über die UART kostet bei 115 200 Baud fast 90 µs pro Zeichen und verschiebt alle Zeitabläufe. Darum braucht man Verfahren, die das System kaum beeinflussen.",
       "begruendungen": [
         "Richtig.",
-        "Namen spielen für den Compiler keine Rolle.",
-        "Auch mit allen Warnungen bemerkt der Compiler nichts."
-      ]
-    },
-    {
-      "typ": "erklaerung",
-      "titel": "Starke Typen",
-      "text": "Ein **starker Typ** ist ein eigener, kleiner Typ um einen Grundtyp: `struct Meter { double wert; };`, `struct Sekunden { double wert; };`. Mit einem `explicit`-Konstruktor gibt es keine stillen Umwandlungen. Eine Funktion `fahre(Meter s, Sekunden t)` lässt sich nicht mehr verwechselt aufrufen.\n\nZur Laufzeit kostet das nichts: Der Compiler behandelt `Meter` genau wie ein `double`. Mit **benutzerdefinierten Literalen** wird der Code sogar lesbarer: `fahre(30.0_m, 2.5_s)`."
-    },
-    {
-      "typ": "lueckentext",
-      "frage": "Ergänze den starken Typ und sein Literal.",
-      "code": {
-        "sprache": "cpp",
-        "zeilen": [
-          "struct Meter {",
-          "    {{?}} constexpr Meter(double w) : wert(w) {}",
-          "    double wert;",
-          "};",
-          "",
-          "constexpr Meter operator\"\"_m(long double w) { return Meter{static_cast<double>(w)}; }",
-          "",
-          "auto d = 12.5{{?}};"
-        ]
-      },
-      "luecken": [{ "loesungen": ["explicit"] }, { "loesungen": ["_m"] }],
-      "auswahl": ["explicit", "_m", "inline", "m"],
-      "erklaerung": "Ohne `explicit` könnte man `fahre(30.0, 2.5)` weiterhin aufrufen, und der Compiler würde still umwandeln. Eigene Literale müssen mit einem Unterstrich beginnen, Literale ohne Unterstrich sind der Standardbibliothek vorbehalten (`10ms`, `\"text\"s`)."
-    },
-    {
-      "typ": "erklaerung",
-      "titel": "enum class",
-      "text": "Ein einfaches `enum` hat zwei Schwächen: Seine Werte landen im umgebenden Namensraum (`Rot` statt `Farbe::Rot`), und sie wandeln sich still in `int` um. Ein **`enum class`** behebt beides: Werte nur über den Namen (`Farbe::Rot`), keine stille Umwandlung. Mit `enum class Fehler : std::uint8_t` legt man ausserdem den zugrunde liegenden Typ fest, wichtig für Protokolle und Speicherlayouts."
-    },
-    {
-      "typ": "code-lesen",
-      "frage": "Was passiert beim Kompilieren?",
-      "code": {
-        "sprache": "cpp",
-        "zeilen": [
-          "enum Farbe { Rot, Gruen };",
-          "enum Ampel { Gruen, Gelb, Rot };"
-        ]
-      },
-      "optionen": [
-        "Compilerfehler: `Gruen` und `Rot` werden im selben Namensraum zweimal definiert",
-        "Alles in Ordnung, die Enums sind getrennt",
-        "Die Werte der zweiten Zeile überschreiben die der ersten"
-      ],
-      "korrekt": 0,
-      "erklaerung": "Die Werte eines einfachen `enum` gehören zum umgebenden Gültigkeitsbereich. Mit `enum class Farbe` und `enum class Ampel` gäbe es `Farbe::Rot` und `Ampel::Rot` getrennt nebeneinander. In grossen Codebasen mit vielen Headern ist das ein echter Vorteil.",
-      "begruendungen": [
-        "Richtig.",
-        "Einfache Enums teilen ihren Namensraum.",
-        "Doppelte Definitionen sind ein Fehler, keine Überschreibung."
+        "Der Compiler macht hier, was der Code verlangt.",
+        "Ein Hardwaredefekt würde nicht durch `printf` verschwinden."
       ]
     },
     {
       "typ": "zuordnen",
-      "frage": "Ordne zu.",
+      "frage": "Ordne die Ausgabeverfahren zu.",
       "paare": [
-        { "links": "`enum class`", "rechts": "Werte nur über den Namen ansprechbar, keine stille Umwandlung in `int`" },
-        { "links": "`enum class Fehler : std::uint8_t`", "rechts": "Legt den zugrunde liegenden Typ fest, z. B. für ein Protokoll" },
-        { "links": "`std::to_underlying` (C++23)", "rechts": "Wandelt einen `enum class`-Wert ausdrücklich in seine Zahl um" },
-        { "links": "Starker Typ", "rechts": "Eigener Typ um einen Grundtyp, damit Verwechslungen nicht kompilieren" }
+        { "links": "UART-`printf`", "rechts": "Einfach, aber langsam und mit grossem Einfluss auf das Zeitverhalten" },
+        { "links": "SEGGER RTT", "rechts": "Ringpuffer im RAM, den die Probe im Hintergrund ausliest, Mikrosekunden pro Meldung" },
+        { "links": "SWO/ITM", "rechts": "Eigene Trace-Leitung des Cortex-M, Ausgabe ohne CPU-Wartezeit" },
+        { "links": "Binäres Logging", "rechts": "Nur ID und Werte werden gesendet, Texte bleiben auf dem PC" }
       ],
-      "erklaerung": "Die Umwandlung in eine Zahl ist mit `enum class` weiter möglich, aber nur ausdrücklich. So sieht man im Code genau, wo Zahlen und Bedeutungen wechseln, z. B. beim Serialisieren."
+      "erklaerung": "Binäres Logging (z. B. mit defmt aus der Rust-Welt oder Eigenbau in C++) ist besonders effizient: Statt `\"Temperatur %d zu hoch\"` überträgt das Gerät nur eine Meldungsnummer und eine Zahl. Das spart Flash, Bandbreite und Zeit."
     },
     {
-      "typ": "fehler-finden",
-      "frage": "Welche Zeile ist besonders schwer zu lesen und lädt zu Fehlern ein?",
+      "typ": "code-lesen",
+      "frage": "Was ist die Idee hinter diesem Makro?",
       "code": {
         "sprache": "cpp",
         "zeilen": [
-          "void oeffneVentil(int id, bool sofort, bool protokollieren, bool notfall);",
+          "#define TRACE_PIN_EIN()  (GPIOB->BSRR = GPIO_BSRR_BS0)",
+          "#define TRACE_PIN_AUS()  (GPIOB->BSRR = GPIO_BSRR_BR0)",
           "",
-          "oeffneVentil(4, true, false, true);"
+          "extern \"C\" void TIM2_IRQHandler() {",
+          "    TRACE_PIN_EIN();",
+          "    regelschritt();",
+          "    TRACE_PIN_AUS();",
+          "    TIM2->SR = ~TIM_SR_UIF;",
+          "}"
         ]
       },
-      "fehlerZeile": 3,
-      "erklaerung": "Was bedeutet `true, false, true`? Ohne Blick in die Deklaration weiss das niemand, und vertauschte Werte kompilieren problemlos. Besser sind eigene Typen: `oeffneVentil(VentilId{4}, Zeitpunkt::Sofort, Protokoll::Aus, Modus::Notfall);`, gebaut aus `enum class`. Die Aufrufstelle wird selbsterklärend, und Vertauschungen sind Compilerfehler."
+      "optionen": [
+        "Ein freier Pin zeigt mit einer einzigen Instruktion, wann die ISR läuft. Mit Oszilloskop oder Logikanalysator sieht man Dauer, Periode und Jitter",
+        "Das Makro schaltet eine Status-LED für den Benutzer",
+        "Es verlangsamt die ISR absichtlich"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Pin-Toggling ist das einfachste und genaueste Zeit-Tracing, auf wenige Nanosekunden genau. Mit mehreren Pins sieht man auch das Zusammenspiel von ISRs und Tasks. Viele Boards haben dafür eigens einen Testpunkt-Header.",
+      "begruendungen": [
+        "Richtig.",
+        "Eine LED würde man bei dieser Frequenz nicht blinken sehen.",
+        "Ein Schreibbefehl kostet nur wenige Takte."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "RTOS-Tracing",
+      "text": "Werkzeuge wie **SEGGER SystemView**, **Percepio Tracealyzer** oder der Zephyr-Tracing-Support zeichnen Ereignisse eines RTOS auf: Kontextwechsel, ISR-Eintritt und -Austritt, Queue-Operationen, Mutexe. Daraus entsteht eine Zeitleiste, auf der man sieht:\n\n- welche Task wann lief und wie lange\n- wer wen verdrängt hat, etwa bei einer Prioritätsinversion\n- wie voll Queues werden\n- wie hoch die CPU-Last pro Task ist\n\nDie Aufzeichnung läuft meist über RTT und kostet nur wenige Prozent CPU."
     },
     {
       "typ": "multiple-choice",
-      "frage": "Was passiert bei `std::this_thread::sleep_for(500);`?",
+      "frage": "Ein I²C-Sensor liefert manchmal falsche Werte. Du vermutest ein elektrisches Problem. Welches Messgerät nimmst du?",
       "optionen": [
-        "Compilerfehler: Eine Zahl ohne Einheit wird nicht in eine Dauer umgewandelt. Man muss `500ms` schreiben",
-        "Der Thread schläft 500 Millisekunden",
-        "Der Thread schläft 500 Sekunden"
+        "Ein **Oszilloskop**, um Flankensteilheit, Pegel und Störungen auf SDA und SCL zu sehen",
+        "Einen Logikanalysator, um die Bytes zu dekodieren",
+        "Ein Multimeter"
       ],
       "korrekt": 0,
-      "erklaerung": "`std::chrono` ist das Vorbild für starke Typen in der Standardbibliothek: Dauern tragen ihre Einheit im Typ, Umrechnungen zwischen Sekunden und Millisekunden passieren automatisch und verlustfrei, und eine nackte Zahl wird abgelehnt. Bibliotheken wie *mp-units* übertragen das auf physikalische Grössen.",
+      "erklaerung": "Ein **Logikanalysator** zeigt nur 0 und 1 und dekodiert Protokolle. Perfekt für Logikfehler. Ob eine Flanke zu flach ist (zu schwache Pull-ups, zu lange Leitung) oder Störspitzen auftreten, sieht man nur mit dem **Oszilloskop**. Viele Oszilloskope können heute auch dekodieren.",
       "begruendungen": [
         "Richtig.",
-        "Welche Einheit gemeint ist, müsste der Compiler raten. Das tut er bewusst nicht.",
-        "Auch Sekunden müsste man ausdrücklich angeben."
+        "Er zeigt nur digitale Pegel, nicht die analoge Signalform.",
+        "Ein Multimeter mittelt und zeigt keine schnellen Vorgänge."
       ]
+    },
+    {
+      "typ": "reihenfolge",
+      "frage": "Ein Gerät im Feld stürzt sporadisch ab. Bringe ein sinnvolles Vorgehen in die richtige Reihenfolge.",
+      "elemente": [
+        "Reset-Ursache und Fault-Register nach dem Neustart auslesen",
+        "Gespeicherten PC mit `addr2line` einer Codezeile zuordnen",
+        "Hypothese bilden und mit Trace oder Watchpoint im Labor reproduzieren",
+        "Fehler beheben und einen Test schreiben, der ihn abdeckt",
+        "Über die Feld-Telemetrie prüfen, ob die Abstürze verschwinden"
+      ],
+      "erklaerung": "Dieses Vorgehen setzt voraus, dass die Firmware vorbereitet ist: Fault-Handler, persistente Diagnosedaten, Versionsinformationen und das passende ELF mit Debug-Infos für jede ausgelieferte Version. Bewahre dieses ELF für jedes Release auf."
     }
   ],
-  "praxis": "Starke Typen und `enum class` sind die billigste Art, ganze Fehlerklassen auszuschliessen, besonders an Schnittstellen zwischen Modulen und Teams. Im Review fallen auf: Funktionen mit mehreren Parametern gleichen Grundtyps, `bool`-Parameter in Aufrufen, einfache `enum` in Headern und Grössen ohne Einheit im Namen oder Typ, wie `int timeout`.",
+  "praxis": "Gute Diagnosefähigkeit wird eingebaut, nicht nachgerüstet: Logging mit Ebenen und geringem Overhead, Trace-Pins auf dem Board, RTT oder SWO herausgeführt, Fault-Handler, Zähler für verlorene Meldungen und volle Queues. Plane im Hardware-Design Testpunkte für die wichtigsten Signale mit ein. Das spart später Tage.",
   "labor": {
-    "titel": "Einheiten als Typen",
-    "anleitung": "Schreibe starke Typen `Meter` und `Sekunden` mit Literalen und eine Funktion `Geschwindigkeit operator/(Meter, Sekunden)`. Versuche dann, die Argumente zu vertauschen.",
+    "titel": "RTT ausprobieren",
+    "anleitung": "Binde die SEGGER-RTT-Quellen in ein Projekt ein und gib Meldungen mit `SEGGER_RTT_printf` aus. Lies sie mit dem J-Link RTT Viewer oder mit OpenOCD.",
     "befehle": [
-      "g++ -std=c++20 -O2 einheiten.cpp -o einheiten && ./einheiten",
-      "g++ -std=c++20 -O2 -S einheiten.cpp -o - | grep -A5 'berechne'"
+      "openocd -f board/st_nucleo_f4.cfg -c \"init; rtt setup 0x20000000 0x20000 \\\"SEGGER RTT\\\"; rtt start; rtt server start 9090 0\"",
+      "nc localhost 9090"
     ],
-    "beobachtung": "Die Vertauschung ist ein Compilerfehler. Im Assembler sieht die Funktion genauso aus wie mit nackten `double`-Werten: Starke Typen kosten zur Laufzeit nichts."
+    "beobachtung": "Miss mit einem Trace-Pin die Dauer einer RTT-Ausgabe und einer UART-Ausgabe derselben Meldung. RTT liegt typischerweise im Bereich weniger Mikrosekunden, die UART-Variante bei Millisekunden."
   },
   "begriffe": [
-    { "begriff": "Starker Typ", "englisch": "strong type", "erklaerung": "Eigener Typ um einen Grundtyp, z. B. `Meter` um `double`, der Verwechslungen beim Kompilieren verhindert." },
-    { "begriff": "enum class", "englisch": "scoped enumeration", "erklaerung": "Aufzählung mit eigenem Namensraum und ohne stille Umwandlung in Ganzzahlen." },
-    { "begriff": "Benutzerdefiniertes Literal", "englisch": "user-defined literal", "erklaerung": "Eigene Literal-Endung wie `_m`, die aus einer Zahl einen Wert eines bestimmten Typs macht." }
+    { "begriff": "Heisenbug", "englisch": "heisenbug", "erklaerung": "Fehler, der sich verändert oder verschwindet, sobald man ihn beobachtet." },
+    { "begriff": "RTT", "englisch": "real-time transfer", "erklaerung": "Verfahren von SEGGER, Daten über einen RAM-Puffer und die Debug-Schnittstelle zu übertragen." },
+    { "begriff": "SWO", "englisch": "serial wire output", "erklaerung": "Trace-Ausgang des Cortex-M für Meldungen und Ereignisse." },
+    { "begriff": "Logikanalysator", "englisch": "logic analyzer", "erklaerung": "Messgerät, das digitale Signale aufzeichnet und Protokolle dekodiert." }
   ],
   "weiterlesen": [
-    { "titel": "C++ Core Guidelines: Enum.3 – Prefer class enums over plain enums", "url": "https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#Renum-class" },
-    { "titel": "cppreference: std::chrono::duration", "url": "https://en.cppreference.com/w/cpp/chrono/duration" }
+    { "titel": "SEGGER: SystemView", "url": "https://www.segger.com/products/development-tools/systemview/" },
+    { "titel": "Interrupt (Memfault): Profiling Firmware on Cortex-M", "url": "https://interrupt.memfault.com/blog/profiling-firmware-on-cortex-m" }
   ]
 }

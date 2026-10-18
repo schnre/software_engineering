@@ -1,0 +1,133 @@
+{
+  "id": "p6-m7-l3",
+  "phase": 6,
+  "modul": "6.7 Start, Updates und Zuverlässigkeit",
+  "titel": "Watchdog und Low-Power-Modi",
+  "lernziele": [
+    "Einen Watchdog richtig einsetzen",
+    "Die Schlafmodi eines Mikrocontrollers unterscheiden",
+    "Die Laufzeit eines Batteriegeräts abschätzen"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Wozu dient ein **Watchdog**?",
+      "optionen": [
+        "Er löst einen Reset aus, wenn die Software ihn nicht regelmässig zurücksetzt, und befreit so ein hängendes System",
+        "Er misst, wie lange Funktionen laufen",
+        "Er überwacht die Versorgungsspannung"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Ein Watchdog ist ein unabhängiger Zähler, der abläuft, wenn er nicht rechtzeitig „gefüttert“ wird (*kick*, *feed*). Bleibt die Software in einer Endlosschleife oder einem Deadlock hängen, startet das Gerät neu. Der **IWDG** des STM32 läuft mit eigenem Oszillator und funktioniert auch, wenn der Haupttakt ausfällt.",
+      "begruendungen": [
+        "Richtig.",
+        "Das wäre ein Profiling-Timer.",
+        "Das macht der Brown-out-Detektor."
+      ]
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Diese Firmware hängt manchmal in der Hauptschleife, aber der Watchdog greift nie. Welche Zeile verhindert das?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "extern \"C\" void SysTick_Handler() {",
+          "    ++millis;",
+          "    IWDG->KR = 0xAAAA;   // Watchdog füttern",
+          "}",
+          "",
+          "int main() {",
+          "    while (true) { verarbeite(); }",
+          "}"
+        ]
+      },
+      "fehlerZeile": 3,
+      "erklaerung": "Der SysTick-Interrupt läuft auch dann weiter, wenn `verarbeite()` hängt. Der Watchdog wird damit immer gefüttert und kann nie auslösen. Gefüttert wird an der Stelle, die beweist, dass das System wirklich arbeitet: in der Hauptschleife oder, mit RTOS, erst wenn alle wichtigen Tasks sich gemeldet haben."
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Watchdog richtig einsetzen",
+      "text": "- Nur füttern, wenn **alle** überwachten Teile lebendig sind. Mit RTOS meldet jeder Task ein Flag, ein Überwachungstask füttert erst, wenn alle Flags gesetzt sind.\n- Die Zeitspanne grösser wählen als der längste legitime Ablauf, inklusive Flash-Schreiben.\n- Nach dem Start die **Reset-Ursache** auslesen und protokollieren. Ein Watchdog-Reset ist ein Fehler, den man sehen will.\n- Ein **Fenster-Watchdog** löst auch aus, wenn zu früh gefüttert wird. Das erkennt eine Schleife, die nur noch füttert."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Ordne die Energiesparmodi eines typischen STM32 zu.",
+      "paare": [
+        { "links": "Run", "rechts": "CPU läuft, typisch einige mA" },
+        { "links": "Sleep", "rechts": "CPU steht, Peripherie läuft, jeder Interrupt weckt" },
+        { "links": "Stop", "rechts": "Haupttakt aus, RAM bleibt erhalten, wenige µA" },
+        { "links": "Standby", "rechts": "Fast alles aus, RAM verloren, Aufwachen wie ein Reset" }
+      ],
+      "erklaerung": "Je tiefer der Modus, desto weniger Strom und desto länger das Aufwachen. Im Stop-Modus muss nach dem Aufwachen der Takt neu konfiguriert werden, ein häufig vergessener Schritt."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Was macht diese Hauptschleife?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "while (true) {",
+          "    if (ereignisseVorhanden()) {",
+          "        verarbeiteEreignisse();",
+          "    } else {",
+          "        __WFI();",
+          "    }",
+          "}"
+        ]
+      },
+      "optionen": [
+        "Sie verarbeitet anstehende Ereignisse und schläft sonst bis zum nächsten Interrupt",
+        "Sie wartet aktiv in einer Schleife",
+        "Sie schaltet den Mikrocontroller dauerhaft ab"
+      ],
+      "korrekt": 0,
+      "erklaerung": "`__WFI()` (*wait for interrupt*) hält die CPU an, bis ein Interrupt kommt. Achtung: Kommt der Interrupt zwischen der Prüfung und dem `__WFI`, schläft die CPU trotz Ereignis. Sauber wird das, wenn man Interrupts vor der Prüfung sperrt. `WFI` weckt trotzdem, und der Interrupt läuft nach dem Freigeben.",
+      "begruendungen": [
+        "Richtig.",
+        "Gerade das Gegenteil: Die CPU schläft, statt zu kreisen.",
+        "Ein Interrupt weckt die CPU wieder auf."
+      ]
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Ein Sensorknoten schläft mit 5 µA und wacht jede Minute für 100 ms bei 10 mA auf. Wie lange hält eine Batterie mit 1000 mAh etwa?",
+      "optionen": ["etwa 5 Jahre (rechnerisch)", "etwa 4 Tage", "etwa 50 Jahre", "etwa 2 Monate"],
+      "korrekt": 0,
+      "fest": true,
+      "erklaerung": "Mittlerer Strom: 10 mA · 0,1 s / 60 s ≈ 16,7 µA aktiv, plus 5 µA Schlaf, zusammen etwa 21,7 µA. 1000 mAh / 0,0217 mA ≈ 46 000 h, also gut 5 Jahre. Selbstentladung, Kälte und Funkspitzen verkürzen das in der Praxis oft deutlich, darum plant man Reserve ein. Die Aufgabe zeigt auch: Die aktive Zeit dominiert. 100 ms auf 50 ms zu kürzen bringt mehr als ein besserer Schlafmodus.",
+      "begruendungen": [
+        "Richtig.",
+        "Das wäre bei ständig 10 mA.",
+        "Um eine Zehnerpotenz verrechnet.",
+        "Zu pessimistisch: Der Mittelwert liegt bei etwa 22 µA."
+      ]
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze.",
+      "text": "Der Watchdog wird dort gefüttert, wo bewiesen ist, dass das System {{?}}. Im Modus {{?}} bleibt das RAM erhalten, der Haupttakt ist aber aus.",
+      "luecken": [{ "loesungen": ["arbeitet"] }, { "loesungen": ["Stop"] }],
+      "auswahl": ["arbeitet", "Stop", "startet", "Standby"],
+      "erklaerung": "Ein Watchdog im Timer-Interrupt beweist nur, dass der Timer läuft. Standby verliert das RAM, Stop nicht."
+    }
+  ],
+  "praxis": "Bei Batteriegeräten entscheidet die Software über die Laufzeit: offene Pins ohne definierte Pegel, vergessene Peripherietakte oder ein Debug-UART, der weiterläuft, kosten schnell das Zehnfache. Gemessen wird mit einem Stromprofiler wie dem Nordic PPK2 oder Joulescope. Beim Watchdog ist das Review-Kriterium einfach: Kann eine einzelne hängende Komponente das Füttern verhindern?",
+  "labor": {
+    "titel": "Reset-Ursache auswerten",
+    "anleitung": "Lies nach dem Start das Register `RCC->CSR` (STM32F4) aus und gib die Reset-Ursache aus. Erzwinge dann einen Watchdog-Reset mit einer Endlosschleife und vergleiche.",
+    "befehle": [
+      "openocd -f board/st_nucleo_f4.cfg -c \"init; reset halt; mdw 0x40023874; exit\""
+    ],
+    "beobachtung": "Nach einem Watchdog-Reset ist das Bit `IWDGRSTF` gesetzt, nach dem Einschalten `PORRSTF`. Die Flags bleiben gesetzt, bis man sie mit `RMVF` löscht. Ein Gerät, das seine Reset-Ursachen zählt und meldet, ist im Feld viel leichter zu diagnostizieren."
+  },
+  "begriffe": [
+    { "begriff": "Watchdog", "englisch": "watchdog timer", "erklaerung": "Unabhängiger Zähler, der einen Reset auslöst, wenn die Software ihn nicht rechtzeitig zurücksetzt." },
+    { "begriff": "Fenster-Watchdog", "englisch": "window watchdog", "erklaerung": "Watchdog, der auch bei zu frühem Füttern auslöst." },
+    { "begriff": "WFI", "englisch": "wait for interrupt", "erklaerung": "Instruktion, die die CPU bis zum nächsten Interrupt anhält." },
+    { "begriff": "Brown-out", "englisch": "brown-out", "erklaerung": "Absinken der Versorgungsspannung unter den sicheren Bereich, löst meist einen Reset aus." }
+  ],
+  "weiterlesen": [
+    { "titel": "Interrupt (Memfault): A Guide to Watchdog Timers for Embedded Systems", "url": "https://interrupt.memfault.com/blog/firmware-watchdog-best-practices" }
+  ]
+}

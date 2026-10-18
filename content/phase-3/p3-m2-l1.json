@@ -1,133 +1,137 @@
 {
   "id": "p3-m2-l1",
   "phase": 3,
-  "modul": "3.2 Teststrategie",
-  "titel": "Die Testpyramide und flaky Tests",
+  "modul": "3.2 Lambdas und Ranges",
+  "titel": "Lambdas im Detail",
   "lernziele": [
-    "Unit-, Integrations- und Systemtests unterscheiden und gewichten",
-    "Ursachen von flaky Tests erkennen und beheben",
-    "Einschätzen, was Code-Coverage aussagt und was nicht"
+    "Captures nach Wert, Referenz und mit Initialisierung sicher einsetzen",
+    "Verstehen, was der Compiler aus einem Lambda macht",
+    "Dangling-Captures und versteckte Kopien erkennen"
   ],
-  "dauerMinuten": 6,
+  "dauerMinuten": 7,
   "schritte": [
     {
-      "typ": "multiple-choice",
-      "frage": "Ein Team hat 20 End-to-End-Tests über die Oberfläche. Sie dauern 40 Minuten und scheitern gelegentlich ohne Grund. Unit-Tests gibt es kaum. Was ist das Hauptproblem?",
-      "optionen": [
-        "Rückmeldungen kommen spät, sind unzuverlässig, und bei einem Fehler ist unklar, wo er liegt",
-        "Es gibt zu wenige End-to-End-Tests",
-        "Kein Problem, End-to-End-Tests sind die realistischsten"
-      ],
-      "korrekt": 0,
-      "erklaerung": "End-to-End-Tests sind wertvoll, aber teuer: langsam, empfindlich und schlecht im Eingrenzen. Wer sich vor allem auf sie verlässt, bekommt Rückmeldung erst nach 40 Minuten und dann oft nur „irgendwo ist etwas kaputt“.",
-      "begruendungen": [
-        "Richtig. Man spricht von einer umgedrehten Pyramide oder einem Eiscreme-Hörnchen.",
-        "Mehr davon würde alles noch langsamer machen.",
-        "Realistisch ja, aber als Hauptstrategie zu langsam und unzuverlässig."
-      ]
-    },
-    {
-      "typ": "erklaerung",
-      "titel": "Die Testpyramide",
-      "text": "- **Unit-Tests** (Basis, sehr viele): einzelne Funktionen und Klassen, isoliert, Millisekunden.\n- **Integrationstests** (Mitte, einige): mehrere Komponenten zusammen, z. B. Parser mit echtem Dateisystem oder Treiber auf echter Hardware (Hardware-in-the-Loop).\n- **System- und End-to-End-Tests** (Spitze, wenige): das ganze System aus Sicht des Nutzers.\n\nDarunter liegt das Fundament aus Compiler-Warnungen und statischer Analyse. Je weiter oben, desto realistischer, aber auch langsamer, teurer und schwerer einzugrenzen."
-    },
-    {
-      "typ": "reihenfolge",
-      "frage": "Ordne die Testarten von der **grössten** zur **kleinsten** Anzahl in einer gesunden Teststrategie.",
-      "elemente": [
-        "Unit-Tests",
-        "Integrationstests",
-        "System- und End-to-End-Tests",
-        "Manuelle explorative Tests"
-      ],
-      "erklaerung": "Manuelle Tests ersetzen nichts davon, finden aber, woran niemand gedacht hat. Sie sind besonders wertvoll für neue Funktionen und Benutzbarkeit."
-    },
-    {
-      "typ": "zuordnen",
-      "frage": "Welche Art von Test ist das?",
-      "paare": [
-        { "links": "Prüft eine CRC-Funktion mit bekannten Prüfwerten", "rechts": "Unit-Test" },
-        { "links": "Prüft, ob der Protokoll-Parser mit dem echten UART-Treiber auf der Zielhardware Daten austauscht", "rechts": "Integrationstest" },
-        { "links": "Startet das ganze Gerät und prüft eine Kundenfunktion vom Knopfdruck bis zur Anzeige", "rechts": "Systemtest" },
-        { "links": "Stellt sicher, dass ein behobener Fehler nicht zurückkommt", "rechts": "Regressionstest" }
-      ],
-      "erklaerung": "Regressionstest ist keine eigene Ebene, sondern ein Zweck. Am besten schreibt man ihn auf der niedrigsten Ebene, auf der sich der Fehler zeigen lässt, meist als Unit-Test."
-    },
-    {
-      "typ": "erklaerung",
-      "titel": "Flaky Tests",
-      "text": "Ein **flaky Test** ist mal grün, mal rot, ohne dass sich der Code geändert hat. Typische Ursachen: feste Wartezeiten (`sleep`), Abhängigkeit von der Reihenfolge, geteilter Zustand, Data Races, echte Uhrzeit, Netzwerk oder externe Dienste.\n\nFlaky Tests sind gefährlich, weil das Team lernt, rote Builds zu ignorieren. Dann geht auch ein echter Fehler unter. Ein flaky Test ist ein Bug: beheben oder in Quarantäne nehmen, aber nicht mit „nochmal laufen lassen“ leben."
-    },
-    {
       "typ": "code-lesen",
-      "frage": "Lokal läuft der Test immer, in der CI scheitert er etwa jedes zwanzigste Mal. Warum?",
+      "frage": "Was macht der Compiler ungefähr aus diesem Lambda?",
       "code": {
         "sprache": "cpp",
         "zeilen": [
-          "TEST(TimerTest, LoestNachHundertMillisekundenAus) {",
-          "    bool ausgeloest = false;",
-          "    Timer t(100ms, [&] { ausgeloest = true; });",
-          "    std::this_thread::sleep_for(110ms);",
-          "    EXPECT_TRUE(ausgeloest);",
-          "}"
+          "int grenze = 10;",
+          "auto groesser = [grenze](int x) { return x > grenze; };"
         ]
       },
       "optionen": [
-        "Auf einem ausgelasteten CI-Rechner kann der Timer-Thread später als 110 ms laufen. Ausserdem ist der Zugriff auf `ausgeloest` ein Data Race",
-        "`sleep_for` ist in Tests verboten",
-        "Der Test ist stabil, die CI ist kaputt"
+        "Eine unbenannte Klasse mit einem Member `grenze` und einem `operator()(int) const`",
+        "Einen Funktionszeiger auf eine globale Funktion",
+        "Ein `std::function`-Objekt mit Heap-Speicher"
       ],
       "korrekt": 0,
-      "erklaerung": "Zehn Millisekunden Puffer reichen nicht, wenn der Rechner mit anderen Jobs beschäftigt ist. Und `bool` ohne Synchronisation zwischen zwei Threads ist Undefined Behavior. Die robuste Lösung: Eine **Uhr injizieren**, die der Test selbst vorstellt (`fakeClock.vorstellen(100ms)`). Dann läuft der Test deterministisch und ohne zu warten.",
+      "erklaerung": "Ein Lambda ist syntaktischer Zucker für ein **Funktionsobjekt** (*closure*). Jede Capture wird ein Member, der Rumpf wird `operator()`. Darum kann der Compiler Lambdas so gut einbetten. Jedes Lambda hat einen eigenen, unbenannten Typ, darum `auto`.",
       "begruendungen": [
-        "Richtig. Beides sind klassische Ursachen.",
-        "Verboten nicht, aber feste Wartezeiten sind fast immer ein Zeichen für ein Design-Problem.",
-        "Die CI deckt nur auf, was lokal zufällig gut geht."
+        "Richtig.",
+        "In einen Funktionszeiger umwandeln lassen sich nur Lambdas ohne Captures.",
+        "`std::function` ist ein eigener Typ, in den man ein Lambda verpacken kann, aber nicht muss."
       ]
     },
     {
-      "typ": "multiple-choice",
-      "frage": "Ein Modul hat 90 % **Code-Coverage**. Was heisst das?",
-      "optionen": [
-        "90 % der Zeilen wurden von Tests ausgeführt. Ob dabei auch das Richtige geprüft wurde, sagt die Zahl nicht",
-        "90 % der möglichen Fehler sind ausgeschlossen",
-        "Das Modul ist ausreichend getestet"
+      "typ": "zuordnen",
+      "frage": "Ordne die Capture-Formen zu.",
+      "paare": [
+        { "links": "`[x]`", "rechts": "Kopie von `x` zum Zeitpunkt der Erstellung" },
+        { "links": "`[&x]`", "rechts": "Referenz auf `x`, `x` muss länger leben als das Lambda" },
+        { "links": "`[p = std::move(ptr)]`", "rechts": "Neuer Member, initialisiert durch Verschieben" },
+        { "links": "`[this]`", "rechts": "Zeiger auf das aktuelle Objekt, nicht das Objekt selbst" }
       ],
+      "erklaerung": "Die Standard-Captures `[=]` und `[&]` fangen alles ein, was im Rumpf benutzt wird. Viele Coding-Standards verbieten sie, weil man nicht sieht, was eingefangen wird. Insbesondere fängt `[=]` in einer Methode `this` ein, nicht eine Kopie der Members."
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Der Callback stürzt ab oder liest Müll, wenn der Timer auslöst. Welche Zeile ist schuld?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "void starteMessung(Timer& timer) {",
+          "    std::string name = \"Temperatur\";",
+          "    timer.nachMs(100, [&name] {",
+          "        log(name + \" gemessen\");",
+          "    });",
+          "}"
+        ]
+      },
+      "fehlerZeile": 3,
+      "erklaerung": "`name` lebt nur bis zum Ende von `starteMessung`. Der Callback läuft 100 ms später und greift über eine **hängende Referenz** auf zerstörten Speicher zu. Für Callbacks, die später ausgeführt werden, immer nach Wert oder mit Verschieben einfangen: `[name = std::move(name)]`. Dasselbe gilt für `[this]`, wenn das Objekt vor dem Callback zerstört werden kann."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Was gibt dieser Code aus?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "int zaehler = 0;",
+          "auto erhoehe = [zaehler]() mutable { return ++zaehler; };",
+          "erhoehe();",
+          "erhoehe();",
+          "std::cout << erhoehe() << ' ' << zaehler;"
+        ]
+      },
+      "optionen": ["`3 0`", "`3 3`", "`1 0`", "Einen Übersetzungsfehler"],
       "korrekt": 0,
-      "erklaerung": "Ein Test ohne einzige Prüfung erreicht dieselbe Coverage wie ein guter Test. Coverage ist nützlich, um **ungetestete** Stellen zu finden. Als Ziel an sich verleitet sie zu wertlosen Tests. Viele Safety-Normen verlangen zusätzlich Branch-Coverage oder MC/DC, die jede Bedingung einzeln prüfen.",
+      "fest": true,
+      "erklaerung": "Das Lambda hat eine eigene Kopie von `zaehler`, die über die Aufrufe hinweg erhalten bleibt. Ohne `mutable` ist `operator()` `const`, und `++zaehler` übersetzt nicht. Das äussere `zaehler` bleibt unverändert.",
       "begruendungen": [
         "Richtig.",
-        "Coverage misst Ausführung, nicht Fehlerfreiheit.",
-        "Ob es reicht, hängt davon ab, was geprüft wird und welche 10 % fehlen."
+        "Die Kopie im Lambda ist unabhängig vom Original.",
+        "Die Kopie lebt im Lambda-Objekt und zählt über die Aufrufe weiter.",
+        "Mit `mutable` darf die Kopie verändert werden."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Generische und konstante Lambdas",
+      "text": "- **Generische Lambdas** mit `auto`-Parametern: `[](const auto& a, const auto& b) { return a < b; }`. Der `operator()` wird zum Template. Seit C++20 auch mit expliziter Template-Liste: `[]<typename T>(std::vector<T>& v) {...}`.\n- **`constexpr`**: Lambdas sind automatisch `constexpr`, wenn ihr Rumpf es erlaubt. Mit `consteval` erzwingt man die Auswertung beim Übersetzen.\n- **IIFE** (*immediately invoked function expression*): `const auto tabelle = [] { ... return t; }();` initialisiert eine Konstante mit komplexer Logik.\n- **Rekursion**: Seit C++23 mit *deducing this*: `[](this auto self, int n) -> int { return n < 2 ? n : self(n-1) + self(n-2); }`."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Ein Callback-Typ soll Lambdas mit Captures aufnehmen und auf einem Mikrocontroller ohne Heap funktionieren. Was nimmst du?",
+      "optionen": [
+        "Ein Template-Parameter für den Lambda-Typ, oder ein Typ mit festem internem Speicher wie `etl::delegate` bzw. eine `inplace_function`",
+        "`std::function<void()>`",
+        "Einen Funktionszeiger `void(*)()`"
+      ],
+      "korrekt": 0,
+      "erklaerung": "`std::function` kann jedes aufrufbare Objekt speichern und legt grosse Objekte auf dem Heap an. Ein Funktionszeiger nimmt keine Lambdas mit Captures auf. Als Template-Parameter bleibt alles statisch und einbettbar. Wenn der Typ gespeichert werden muss, braucht es einen Typ mit festem Puffer. C++26 bringt mit `std::function_ref` zudem einen nicht besitzenden Typ ohne Allokation.",
+      "begruendungen": [
+        "Richtig.",
+        "Das kann den Heap benutzen.",
+        "Lambdas mit Captures passen nicht in einen Funktionszeiger."
       ]
     },
     {
       "typ": "lueckentext",
-      "frage": "Ergänze die Fachbegriffe.",
-      "text": "Ein Test, der ohne Code-Änderung mal besteht und mal nicht, heisst {{?}}. Den Anteil der Zeilen, die Tests ausführen, misst die {{?}}.",
-      "luecken": [{ "loesungen": ["flaky"] }, { "loesungen": ["Testabdeckung"] }],
-      "auswahl": ["flaky", "Testabdeckung", "Laufzeit", "Komplexität"],
-      "erklaerung": "Testabdeckung heisst auf Englisch *code coverage*. Werkzeuge dafür sind z. B. `gcov`/`lcov` oder `llvm-cov`, aktiviert mit `--coverage`."
+      "frage": "Ergänze.",
+      "text": "Damit ein Lambda seine Kopien verändern darf, braucht es {{?}}. Für einen Callback, der später läuft, fängt man Objekte nach {{?}} ein.",
+      "luecken": [{ "loesungen": ["mutable"] }, { "loesungen": ["Wert"] }],
+      "auswahl": ["mutable", "Wert", "const", "Referenz"],
+      "erklaerung": "Die Faustregel: Referenz-Captures nur, wenn das Lambda sofort und lokal verwendet wird, zum Beispiel in `std::ranges::sort`."
     }
   ],
-  "praxis": "Als Senior gestaltest du die Teststrategie mit: Welche Fehler fängt welche Ebene? Wie lange darf die CI dauern? Wo lohnt Hardware-in-the-Loop? Ein guter Richtwert: Unit-Tests eines Moduls laufen in Sekunden lokal vor jedem Commit, Integrationstests in der CI bei jedem Pull Request, lange Systemtests nachts. Flaky Tests behandelst du sichtbar, z. B. mit einem Ticket und einer Quarantäne-Liste.",
+  "praxis": "Lambdas sind in modernem C++ überall: Algorithmen, Callbacks, Initialisierung, Threads. Die häufigsten Fehler im Review sind Referenz-Captures in asynchronen Callbacks und `[this]` in Objekten, die vor dem Callback sterben können. Bei Objekten, die über `shared_ptr` verwaltet werden, hilft `[self = shared_from_this()]` oder ein `weak_ptr`, der vor der Verwendung geprüft wird.",
   "labor": {
-    "titel": "Coverage messen",
-    "anleitung": "Baue ein kleines Projekt mit Tests mit Coverage-Instrumentierung und erzeuge einen HTML-Bericht.",
+    "titel": "Dangling Captures finden",
+    "anleitung": "Baue das Timer-Beispiel mit einem `std::thread`, der den Callback verzögert ausführt, und übersetze mit AddressSanitizer.",
     "befehle": [
-      "cmake -S . -B build-cov -DCMAKE_CXX_FLAGS='--coverage' && cmake --build build-cov",
-      "ctest --test-dir build-cov",
-      "lcov --capture --directory build-cov --output-file cov.info && genhtml cov.info -o cov-html"
+      "g++ -std=c++20 -g -fsanitize=address -pthread lambda_dangling.cpp -o lambda_dangling",
+      "./lambda_dangling"
     ],
-    "beobachtung": "Der Bericht zeigt Zeile für Zeile, was ausgeführt wurde. Lösche testweise alle `EXPECT_*` in einem Test: Die Coverage bleibt gleich, obwohl der Test nichts mehr prüft."
+    "beobachtung": "ASan meldet `stack-use-after-return` oder `heap-use-after-free` (ggf. mit `ASAN_OPTIONS=detect_stack_use_after_return=1`). Mit Capture nach Wert verschwindet der Fehler."
   },
   "begriffe": [
-    { "begriff": "Testpyramide", "englisch": "test pyramid", "erklaerung": "Viele schnelle Unit-Tests, weniger Integrationstests, wenige System- und End-to-End-Tests." },
-    { "begriff": "Flaky Test", "englisch": "flaky test", "erklaerung": "Test, der ohne Code-Änderung manchmal besteht und manchmal nicht." },
-    { "begriff": "Testabdeckung", "englisch": "code coverage", "erklaerung": "Anteil des Codes, der von Tests ausgeführt wird. Sagt nichts über die Qualität der Prüfungen." },
-    { "begriff": "Hardware-in-the-Loop", "englisch": "hardware-in-the-loop, HIL", "erklaerung": "Test auf echter Zielhardware, deren Umgebung simuliert oder gesteuert wird." }
+    { "begriff": "Closure", "englisch": "closure", "erklaerung": "Das Funktionsobjekt, das der Compiler aus einem Lambda mitsamt Captures erzeugt." },
+    { "begriff": "Capture", "englisch": "capture", "erklaerung": "Übernahme einer Variablen aus der Umgebung in ein Lambda, nach Wert oder Referenz." },
+    { "begriff": "Init-Capture", "englisch": "init capture", "erklaerung": "Capture mit eigenem Namen und Initialisierung, z. B. `[p = std::move(ptr)]`." }
   ],
   "weiterlesen": [
-    { "titel": "Martin Fowler: The Practical Test Pyramid", "url": "https://martinfowler.com/articles/practical-test-pyramid.html" }
+    { "titel": "cppreference: Lambda expressions", "url": "https://en.cppreference.com/w/cpp/language/lambda" },
+    { "titel": "C++ Core Guidelines: F.53 Avoid capturing by reference in lambdas that will be used non-locally", "url": "https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#f53-avoid-capturing-by-reference-in-lambdas-that-will-be-used-non-locally-including-returned-stored-on-the-heap-or-passed-to-another-thread" }
   ]
 }

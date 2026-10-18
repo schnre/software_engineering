@@ -19,7 +19,11 @@
         "Unterschiedliche Compiler-Versionen",
         "Die beiden Rechner haben unterschiedlich viel RAM"
       ],
-      "korrekt": [0, 1, 2],
+      "korrekt": [
+        0,
+        1,
+        2
+      ],
       "erklaerung": "Alles, was vom Zeitpunkt, vom Ort oder von der Umgebung des Builds abhängt, landet potenziell im Binary. Die RAM-Grösse beeinflusst höchstens die Build-Dauer, nicht das Ergebnis.",
       "begruendungen": [
         "Richtig. Zeitstempel ändern sich bei jedem Build.",
@@ -37,10 +41,22 @@
       "typ": "zuordnen",
       "frage": "Welche Massnahme behebt welches Problem?",
       "paare": [
-        { "links": "`__DATE__` im Code", "rechts": "Makro entfernen oder `SOURCE_DATE_EPOCH` setzen" },
-        { "links": "Absolute Pfade im Binary", "rechts": "`-ffile-prefix-map=$PWD=.`" },
-        { "links": "Wechselnde Compiler-Versionen", "rechts": "Toolchain fest in einem Docker-Image vorgeben" },
-        { "links": "Abhängigkeit „neueste Version“", "rechts": "Versionen festschreiben (Lockfile, Tag oder Commit-Hash)" }
+        {
+          "links": "`__DATE__` im Code",
+          "rechts": "Makro entfernen oder `SOURCE_DATE_EPOCH` setzen"
+        },
+        {
+          "links": "Absolute Pfade im Binary",
+          "rechts": "`-ffile-prefix-map=$PWD=.`"
+        },
+        {
+          "links": "Wechselnde Compiler-Versionen",
+          "rechts": "Toolchain fest in einem Docker-Image vorgeben"
+        },
+        {
+          "links": "Abhängigkeit „neueste Version“",
+          "rechts": "Versionen festschreiben (Lockfile, Tag oder Commit-Hash)"
+        }
       ],
       "erklaerung": "`SOURCE_DATE_EPOCH` ist eine verbreitete Konvention: Setzt man die Variable, verwenden GCC und viele andere Werkzeuge diesen festen Zeitpunkt statt der aktuellen Uhrzeit. `-ffile-prefix-map` ersetzt Pfad-Präfixe in Debug-Infos und Makros wie `__FILE__`."
     },
@@ -120,12 +136,30 @@
     "beobachtung": "Ohne Prefix-Map unterscheiden sich die Prüfsummen, weil das Build-Verzeichnis in den Debug-Infos steht. Mit Prefix-Map sind sie identisch. Das Werkzeug `diffoscope` zeigt Unterschiede zwischen Binaries detailliert an."
   },
   "begriffe": [
-    { "begriff": "Reproduzierbarer Build", "englisch": "reproducible build", "erklaerung": "Gleicher Quellcode und gleiche Toolchain ergeben immer ein bitidentisches Ergebnis." },
-    { "begriff": "SOURCE_DATE_EPOCH", "englisch": "SOURCE_DATE_EPOCH", "erklaerung": "Umgebungsvariable mit einem festen Zeitstempel, den Werkzeuge statt der aktuellen Zeit verwenden." },
-    { "begriff": "ccache", "englisch": "compiler cache", "erklaerung": "Zwischenspeicher für Compiler-Ergebnisse, angesprochen über einen Hash der Eingaben." }
+    {
+      "begriff": "Reproduzierbarer Build",
+      "englisch": "reproducible build",
+      "erklaerung": "Gleicher Quellcode und gleiche Toolchain ergeben immer ein bitidentisches Ergebnis."
+    },
+    {
+      "begriff": "SOURCE_DATE_EPOCH",
+      "englisch": "SOURCE_DATE_EPOCH",
+      "erklaerung": "Umgebungsvariable mit einem festen Zeitstempel, den Werkzeuge statt der aktuellen Zeit verwenden."
+    },
+    {
+      "begriff": "ccache",
+      "englisch": "compiler cache",
+      "erklaerung": "Zwischenspeicher für Compiler-Ergebnisse, angesprochen über einen Hash der Eingaben."
+    }
   ],
   "weiterlesen": [
-    { "titel": "reproducible-builds.org: Documentation", "url": "https://reproducible-builds.org/docs/" },
-    { "titel": "SOURCE_DATE_EPOCH Specification", "url": "https://reproducible-builds.org/specs/source-date-epoch/" }
+    {
+      "titel": "reproducible-builds.org: Documentation",
+      "url": "https://reproducible-builds.org/docs/"
+    },
+    {
+      "titel": "SOURCE_DATE_EPOCH Specification",
+      "url": "https://reproducible-builds.org/specs/source-date-epoch/"
+    }
   ]
 }

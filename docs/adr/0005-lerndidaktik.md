@@ -1,6 +1,6 @@
 # 0005 – Lerndidaktik und Erweiterungen gegenüber der Vorgabe
 
-- Status: Angenommen
+- Status: Angenommen, Curriculum erweitert durch [0008](0008-embedded-architektur-und-neues-design.md)
 - Datum: 2026-10-16
 
 ## Kontext

@@ -1,0 +1,132 @@
+{
+  "id": "p12-m2-l1",
+  "phase": 12,
+  "modul": "12.2 Sicher entwerfen",
+  "titel": "Fehlertoleranz und sichere Zustände",
+  "lernziele": [
+    "Sichere Zustände für ein System definieren",
+    "Redundanz und Diversität als Entwurfsmuster einsetzen",
+    "Daten- und Programmflussüberwachung verstehen"
+  ],
+  "dauerMinuten": 7,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Was ist der **sichere Zustand** einer Industriepresse, wenn die Steuerung einen Fehler erkennt?",
+      "optionen": [
+        "Die Bewegung stoppen und die Antriebe energielos schalten",
+        "Mit reduzierter Geschwindigkeit weiterlaufen",
+        "Die Steuerung neu starten und den Hub fortsetzen"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Ein **sicherer Zustand** ist ein Zustand ohne unvertretbares Risiko, den das System bei einem Fehler zuverlässig erreicht. Bei vielen Maschinen ist das „aus“ (*fail-safe*). Nicht immer: Bei einer Lenkung oder einem Flugzeug ist „aus“ gerade gefährlich. Dann braucht es einen eingeschränkten Weiterbetrieb (*fail-operational*), meist mit Redundanz.",
+      "begruendungen": [
+        "Richtig.",
+        "Das kann ein Notbetrieb sein, ist aber nur mit nachgewiesener Sicherheit zulässig.",
+        "Ein Neustart ohne Ursachenanalyse kann den Fehler wiederholen."
+      ]
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Ordne die Muster zu.",
+      "paare": [
+        { "links": "Fail-safe", "rechts": "Bei einem Fehler in einen sicheren, meist abgeschalteten Zustand" },
+        { "links": "Fail-operational", "rechts": "Bei einem Fehler mit eingeschränkter Funktion weiterarbeiten" },
+        { "links": "1oo2 (one out of two)", "rechts": "Zwei Kanäle, jeder kann allein abschalten" },
+        { "links": "2oo3 (two out of three)", "rechts": "Drei Kanäle, Mehrheitsentscheid, Ausfall eines Kanals wird toleriert" }
+      ],
+      "erklaerung": "1oo2 erhöht die Sicherheit (jeder Kanal kann abschalten), aber nicht die Verfügbarkeit. 2oo3 erhöht beides, kostet aber dreifache Hardware. Diese Notation „MooN“ kommt aus IEC 61508."
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Redundanz und Diversität",
+      "text": "Zwei identische Kanäle schützen gegen zufällige Hardwarefehler, aber nicht gegen einen gemeinsamen Softwarefehler: Beide machen denselben Fehler zur selben Zeit (*common cause failure*). Dagegen hilft **Diversität**:\n\n- verschiedene Algorithmen für dasselbe Ergebnis\n- verschiedene Teams, Compiler oder Prozessoren\n- ein einfacher **Überwachungskanal**, der nur prüft, ob die Ausgabe plausibel ist\n\nVerbreitet ist das Muster **Funktions- und Überwachungsebene**, etwa im E-Gas-Konzept der Fahrzeughersteller: Ebene 1 rechnet die Funktion, Ebene 2 überwacht sie mit einem vereinfachten Modell, Ebene 3 überwacht den Rechner selbst, z. B. mit einem Frage-Antwort-Spiel mit einem externen Watchdog."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Wozu dient diese Speicherung eines sicherheitsrelevanten Werts?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "class GeschuetzterWert {",
+          "public:",
+          "    void setze(uint32_t w) { wert_ = w; invers_ = ~w; }",
+          "    std::optional<uint32_t> lese() const {",
+          "        if (wert_ != ~invers_) return std::nullopt;   // Datenfehler erkannt",
+          "        return wert_;",
+          "    }",
+          "private:",
+          "    volatile uint32_t wert_;",
+          "    volatile uint32_t invers_;",
+          "};"
+        ]
+      },
+      "optionen": [
+        "Ein verfälschter Wert im RAM (gekipptes Bit, Überschreiben durch einen Fehler) wird beim Lesen erkannt, weil Wert und Inverses nicht mehr zusammenpassen",
+        "Der Wert wird verschlüsselt",
+        "Die Speicherung ist doppelt so schnell"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Das ist **Informationsredundanz**. Sie erkennt Fehler, die in beiden Kopien unterschiedlich wirken, aber keine korrekten Schreibzugriffe mit falschem Wert. Weitere Techniken sind CRCs über Datenblöcke, ECC-RAM und periodische Tests von RAM und Flash im Betrieb. `volatile` verhindert, dass der Compiler die Prüfung wegoptimiert, weil er sie für immer wahr hält.",
+      "begruendungen": [
+        "Richtig.",
+        "Das Inverse ist kein Schutz gegen Angreifer.",
+        "Es kostet doppelt Speicher und etwas Zeit."
+      ]
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Die Programmflussüberwachung soll erkennen, wenn ein Schritt übersprungen wird. Welche Zeile macht sie wirkungslos?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "void sicherheitsZyklus() {",
+          "    flussPruefer.start();",
+          "    leseEingaenge();     flussPruefer.punkt(0x11);",
+          "    pruefePlausibel();   flussPruefer.punkt(0x22);",
+          "    berechneAusgaenge(); flussPruefer.punkt(0x33);",
+          "    flussPruefer.punkt(0x22);   // zur Sicherheit nochmals",
+          "    if (!flussPruefer.ende(0x11 ^ 0x22 ^ 0x33)) gehInSicherenZustand();",
+          "}"
+        ]
+      },
+      "fehlerZeile": 6,
+      "erklaerung": "Die Prüfsumme über die Kontrollpunkte (hier XOR) stimmt nur, wenn genau die erwarteten Punkte erreicht wurden. Der zusätzliche Punkt verfälscht sie. Schlimmer: Bei XOR heben sich zwei gleiche Punkte auf, sodass auch ein übersprungenes `pruefePlausibel` plus doppelter Punkt unentdeckt bleiben könnte. Echte Implementierungen verwenden Signaturen, die auch die Reihenfolge erfassen, etwa eine CRC oder ein verkettetes Schieberegister. AUTOSAR nennt das Logical Supervision im Watchdog Manager."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Ein Temperatursensor meldet plötzlich 850 °C bei einem Gerät, das höchstens 90 °C erreichen kann. Was ist die richtige Reaktion der Software?",
+      "optionen": [
+        "Den Wert als unplausibel erkennen, als Sensorfehler behandeln und abhängig von der Gefährdung einen sicheren Zustand oder einen Ersatzwert verwenden",
+        "Den Wert verwenden und die Heizung abschalten",
+        "Den Wert ignorieren und den letzten guten Wert für immer weiterverwenden"
+      ],
+      "korrekt": 0,
+      "erklaerung": "**Plausibilitätsprüfungen** gehören zu den wichtigsten Techniken: Wertebereich, maximale Änderungsrate, Vergleich mit anderen Sensoren oder einem Modell. Wichtig ist eine definierte Fehlerreaktion: Wie lange darf ein Ersatzwert verwendet werden? Wann wird ein Fehler gemeldet? Wann ist der Sensor wieder gültig (*Entprellung* des Fehlerzustands)?",
+      "begruendungen": [
+        "Richtig.",
+        "Hier hat man Glück, dass „Heizung aus“ sicher ist. Bei einem Kühlsystem wäre es umgekehrt gefährlich.",
+        "Ein eingefrorener Wert kann eine echte Überhitzung verdecken."
+      ]
+    }
+  ],
+  "praxis": "Sicherheit entsteht im Entwurf: Welche Fehler sind möglich? Wie werden sie erkannt? Was ist die Reaktion, und wie schnell muss sie kommen (*fault tolerant time interval*)? Eine **FMEA** (Fehlermöglichkeits- und Einflussanalyse) für die Software-Architektur stellt diese Fragen systematisch für jede Komponente. Als Senior-Entwickler bringst du dabei das Wissen über tatsächliche Fehlerbilder ein.",
+  "labor": {
+    "titel": "Ein Plausibilitätsfilter",
+    "anleitung": "Schreibe eine Klasse, die Sensorwerte auf Wertebereich und maximale Änderungsrate prüft, nach drei aufeinanderfolgenden Fehlern einen Fehlerzustand meldet und erst nach zehn guten Werten wieder freigibt. Teste alle Übergänge.",
+    "befehle": [
+      "g++ -std=c++20 plausibel.cpp plausibel_test.cpp -lgtest -lgtest_main -pthread -o plausibel_test",
+      "./plausibel_test"
+    ],
+    "beobachtung": "Die Tests dokumentieren das Fehlerverhalten präzise. Genau das wird in einem Safety-Review gefragt: Welche Werte führen wann zu welcher Reaktion?"
+  },
+  "begriffe": [
+    { "begriff": "Sicherer Zustand", "englisch": "safe state", "erklaerung": "Zustand ohne unvertretbares Risiko, den das System bei einem Fehler einnimmt." },
+    { "begriff": "Diversität", "englisch": "diversity", "erklaerung": "Verschiedene Umsetzungen derselben Funktion gegen gemeinsame Fehlerursachen." },
+    { "begriff": "Programmflussüberwachung", "englisch": "control flow monitoring", "erklaerung": "Prüfung, ob die vorgesehenen Programmschritte in der richtigen Reihenfolge durchlaufen wurden." },
+    { "begriff": "Plausibilitätsprüfung", "englisch": "plausibility check", "erklaerung": "Prüfung eines Werts auf physikalische und logische Glaubwürdigkeit." }
+  ],
+  "weiterlesen": [
+    { "titel": "Phil Koopman: Better Embedded System Software", "url": "https://koopman.us/" }
+  ]
+}

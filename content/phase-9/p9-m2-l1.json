@@ -1,0 +1,190 @@
+{
+  "id": "p9-m2-l1",
+  "phase": 9,
+  "modul": "9.2 Interfaces und Header als Verträge",
+  "titel": "Header als Schnittstelle",
+  "lernziele": [
+    "Einen öffentlichen Header als Vertrag gestalten und dokumentieren",
+    "Unnötige Abhängigkeiten im Header mit Vorwärtsdeklarationen vermeiden",
+    "Typische Fehler in öffentlichen Headern erkennen"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Was gehört in einen öffentlichen Header eines Moduls?",
+      "optionen": [
+        "Genau das, was Nutzer zum Aufrufen brauchen: Deklarationen, Typen, dokumentierte Zusagen, und möglichst wenige Includes",
+        "Alles, was das Modul intern verwendet, damit Nutzer nichts selbst einbinden müssen",
+        "Nur Makros und Konstanten"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Jede Zeile im öffentlichen Header wird Teil des Vertrags mit allen Nutzern, und jedes Include darin wird zu einer Abhängigkeit aller Nutzer. Ein schlanker Header hält Kopplung und Kompilierzeit klein.",
+      "begruendungen": [
+        "Richtig.",
+        "Dann hängen alle Nutzer von allen Interna ab, und jede interne Änderung kostet einen Neubau bei allen.",
+        "Funktionen und Klassen sind der eigentliche Inhalt einer Schnittstelle."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Ein Header ist ein Vertrag",
+      "text": "Die Signatur sagt nur, *wie* man etwas aufruft. Ein vollständiger Vertrag sagt auch:\n\n- **Vorbedingungen**: Was muss der Aufrufer sicherstellen?\n- **Nachbedingungen**: Was gilt nach dem Aufruf?\n- **Ownership**: Wem gehören übergebene und zurückgegebene Objekte?\n- **Thread-Sicherheit**: Darf man das gleichzeitig aus mehreren Threads aufrufen?\n- **Fehlerverhalten**: Exception, Rückgabewert oder Abbruch?\n\nViel davon lässt sich im Typ ausdrücken (`const&`, `std::unique_ptr`, `std::optional`, `[[nodiscard]]`, `noexcept`). Den Rest dokumentiert man direkt im Header, dort, wo Nutzer hinschauen."
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Dieser öffentliche Header wird von 300 Dateien eingebunden. Welche Zeile richtet dort den grössten Schaden an?",
+      "code": {
+        "sprache": "cpp",
+        "datei": "protokoll/protokoll.h",
+        "zeilen": [
+          "#pragma once",
+          "#include <string>",
+          "#include <vector>",
+          "using namespace std;",
+          "",
+          "class Protokoll {",
+          "public:",
+          "    void schreibe(const string& zeile);",
+          "private:",
+          "    vector<string> zeilen_;",
+          "};"
+        ]
+      },
+      "fehlerZeile": 4,
+      "erklaerung": "`using namespace std;` im Header wirkt in **jeder** Datei, die ihn einbindet. Dort können plötzlich eigene Namen mit `std::` kollidieren, z. B. `count`, `distance` oder `data`, oft mit rätselhaften Fehlermeldungen. In Headern immer voll qualifizieren (`std::string`). In `.cpp`-Dateien ist eine gezielte `using`-Deklaration in Ordnung."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Welcher Teil des Vertrags ist das?",
+      "paare": [
+        {
+          "links": "„`daten` darf nicht leer sein.“",
+          "rechts": "Vorbedingung"
+        },
+        {
+          "links": "„Nach dem Aufruf ist die Datei geschlossen.“",
+          "rechts": "Nachbedingung"
+        },
+        {
+          "links": "„Der Aufrufer behält den Besitz von `puffer`.“",
+          "rechts": "Ownership"
+        },
+        {
+          "links": "„Darf von mehreren Threads gleichzeitig aufgerufen werden.“",
+          "rechts": "Thread-Sicherheit"
+        },
+        {
+          "links": "„Wirft `std::invalid_argument` bei negativer Grösse.“",
+          "rechts": "Fehlerverhalten"
+        }
+      ],
+      "erklaerung": "Was im Vertrag fehlt, wird geraten, und dann von verschiedenen Nutzern verschieden. Gerade Thread-Sicherheit und Ownership lassen sich aus der Signatur oft nicht ablesen und gehören deshalb in einen Kommentar."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Braucht `anzeige.h` ein `#include \"sensor.h\"`?",
+      "code": {
+        "sprache": "cpp",
+        "datei": "anzeige.h",
+        "zeilen": [
+          "#pragma once",
+          "class Sensor;   // Vorwärtsdeklaration",
+          "",
+          "class Anzeige {",
+          "public:",
+          "    void zeige(const Sensor& s);",
+          "private:",
+          "    const Sensor* aktiv_ = nullptr;",
+          "};"
+        ]
+      },
+      "optionen": [
+        "Nein. Für Referenzen und Zeiger genügt die Vorwärtsdeklaration. `anzeige.cpp` bindet `sensor.h` ein",
+        "Ja, sonst kennt der Compiler `Sensor` nicht",
+        "Ja, weil `Sensor` als Parameter vorkommt"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Der Compiler muss die Grösse von `Sensor` nur kennen, wenn er ein `Sensor`-Objekt anlegen, kopieren oder auf Member zugreifen muss. Für `Sensor&` und `Sensor*` reicht der Name. So hängen Nutzer von `anzeige.h` nicht von `sensor.h` ab. Ändert sich `sensor.h`, wird nur neu gebaut, was `Sensor` wirklich benutzt. Wäre `Sensor` ein Member als Wert, bräuchte es das Include.",
+      "begruendungen": [
+        "Richtig.",
+        "Die Vorwärtsdeklaration macht den Namen bekannt.",
+        "Als Referenzparameter reicht die Deklaration, auch in der Funktionsdeklaration."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Include what you use",
+      "text": "Jede Datei bindet genau die Header ein, deren Inhalte sie selbst verwendet, nicht mehr und nicht weniger. Sich darauf zu verlassen, dass ein anderer Header „zufällig“ `<vector>` mitbringt, ist zerbrechlich: Entfernt dort jemand das Include, bricht dein Code. Umgekehrt kosten überflüssige Includes in Headern Kompilierzeit bei allen Nutzern. Das Werkzeug *include-what-you-use* und die Warnungen von clangd helfen beim Aufräumen."
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze die Attribute, die Teile des Vertrags im Typ ausdrücken.",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "// Gibt false zurück, wenn der Speicher voll ist. Ergebnis muss geprüft werden.",
+          "[[{{?}}]] bool speichere(const Messwert& m);",
+          "",
+          "// Wirft nie.",
+          "void setzeGrenze(int grenze) {{?}};"
+        ]
+      },
+      "luecken": [
+        {
+          "loesungen": [
+            "nodiscard"
+          ]
+        },
+        {
+          "loesungen": [
+            "noexcept"
+          ]
+        }
+      ],
+      "auswahl": [
+        "nodiscard",
+        "noexcept",
+        "deprecated",
+        "inline"
+      ],
+      "erklaerung": "Was im Typ steht, prüft der Compiler. `[[nodiscard]]` warnt bei ignoriertem Ergebnis, `noexcept` ist eine Zusage, die auch Container für Optimierungen nutzen. Ein Kommentar kann veralten, ein Attribut nicht unbemerkt."
+    }
+  ],
+  "praxis": "Öffentliche Header sind die teuersten Zeilen in einem grossen Projekt: Jede Änderung wirkt auf alle Nutzer, beim Kompilieren wie im Verhalten. Im Review prüfst du bei jedem neuen oder geänderten öffentlichen Header: Ist der Vertrag vollständig? Gibt es Includes, die nur die Implementierung braucht? Steht ein `using namespace` im Header?",
+  "labor": {
+    "titel": "Includes aufräumen",
+    "anleitung": "Lass include-what-you-use über ein eigenes Projekt laufen und schau dir die Vorschläge für einen öffentlichen Header an.",
+    "befehle": [
+      "cmake -S . -B build -DCMAKE_CXX_INCLUDE_WHAT_YOU_USE=include-what-you-use && cmake --build build 2>&1 | head -40"
+    ],
+    "beobachtung": "IWYU schlägt pro Datei vor, welche Includes fehlen, welche entfernt werden können und wo eine Vorwärtsdeklaration genügt. Nicht jeder Vorschlag ist richtig, aber die Liste zeigt schnell, wo die grössten Abhängigkeiten liegen."
+  },
+  "begriffe": [
+    {
+      "begriff": "Vertrag",
+      "englisch": "contract",
+      "erklaerung": "Zusagen einer Schnittstelle: Vor- und Nachbedingungen, Ownership, Thread-Sicherheit, Fehlerverhalten."
+    },
+    {
+      "begriff": "Vorbedingung",
+      "englisch": "precondition",
+      "erklaerung": "Was der Aufrufer vor dem Aufruf sicherstellen muss."
+    },
+    {
+      "begriff": "Include what you use",
+      "englisch": "include what you use, IWYU",
+      "erklaerung": "Jede Datei bindet genau die Header ein, die sie selbst verwendet."
+    }
+  ],
+  "weiterlesen": [
+    {
+      "titel": "C++ Core Guidelines: SF – Source files",
+      "url": "https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#S-source"
+    },
+    {
+      "titel": "include-what-you-use",
+      "url": "https://include-what-you-use.org/"
+    }
+  ]
+}

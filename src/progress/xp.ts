@@ -14,9 +14,9 @@ export interface Level {
 
 export const LEVELS: Level[] = [
   { name: 'Junior', ab: 0, beschreibung: 'Du lernst die Werkzeuge und Grundlagen kennen.' },
-  { name: 'Mid', ab: 300, beschreibung: 'Du verstehst, was unter der Haube passiert, und arbeitest selbstständig.' },
-  { name: 'Senior', ab: 900, beschreibung: 'Du triffst und begründest Design-Entscheidungen und hilfst anderen dabei.' },
-  { name: 'Principal', ab: 1800, beschreibung: 'Du prägst Architektur und Arbeitsweise über Teams hinweg.' },
+  { name: 'Mid', ab: 450, beschreibung: 'Du verstehst, was unter der Haube passiert, und arbeitest selbstständig.' },
+  { name: 'Senior', ab: 1350, beschreibung: 'Du triffst und begründest Design-Entscheidungen und hilfst anderen dabei.' },
+  { name: 'Principal', ab: 2700, beschreibung: 'Du prägst Architektur und Arbeitsweise über Teams hinweg.' },
 ];
 
 export interface LevelInfo {

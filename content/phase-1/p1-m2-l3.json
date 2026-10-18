@@ -37,23 +37,43 @@
           "_ZN 5mathe 7addiere E i i"
         ],
         "anmerkungen": [
-          { "zeile": 1, "text": "`_Z` = C++-Symbol, `7` = Länge des Namens, `addiere`, dann ein Kürzel pro Parameter (`i` = int)." },
-          { "zeile": 2, "text": "`N … E` umschliesst verschachtelte Namen, hier `mathe::addiere(int, int)`." }
+          {
+            "zeile": 1,
+            "text": "`_Z` = C++-Symbol, `7` = Länge des Namens, `addiere`, dann ein Kürzel pro Parameter (`i` = int)."
+          },
+          {
+            "zeile": 2,
+            "text": "`N … E` umschliesst verschachtelte Namen, hier `mathe::addiere(int, int)`."
+          }
         ]
       },
       "terminal": {
         "befehl": "echo _ZN5mathe7addiereEdd | c++filt",
-        "ausgabe": ["mathe::addiere(double, double)"]
+        "ausgabe": [
+          "mathe::addiere(double, double)"
+        ]
       }
     },
     {
       "typ": "zuordnen",
       "frage": "Ordne die gemangelten Namen den C++-Signaturen zu.",
       "paare": [
-        { "links": "`_Z7addiereii`", "rechts": "`addiere(int, int)`" },
-        { "links": "`_Z7addieredd`", "rechts": "`addiere(double, double)`" },
-        { "links": "`_ZN5mathe7addiereEii`", "rechts": "`mathe::addiere(int, int)`" },
-        { "links": "`_Z5druckPKc`", "rechts": "`druck(char const*)`" }
+        {
+          "links": "`_Z7addiereii`",
+          "rechts": "`addiere(int, int)`"
+        },
+        {
+          "links": "`_Z7addieredd`",
+          "rechts": "`addiere(double, double)`"
+        },
+        {
+          "links": "`_ZN5mathe7addiereEii`",
+          "rechts": "`mathe::addiere(int, int)`"
+        },
+        {
+          "links": "`_Z5druckPKc`",
+          "rechts": "`druck(char const*)`"
+        }
       ],
       "hinweis": "`P` steht für Zeiger (pointer), `K` für const, `c` für char.",
       "erklaerung": "Die Kürzel sind kompakt: `i` int, `d` double, `c` char, `P` Zeiger, `K` const, `R` Referenz. Auswendig lernen musst du sie nicht. Es reicht zu wissen, dass ein `_Z` am Anfang einen C++-Namen markiert und dass `c++filt` ihn übersetzt."
@@ -105,8 +125,14 @@
           "#endif"
         ],
         "anmerkungen": [
-          { "zeile": 5, "text": "`__cplusplus` ist nur definiert, wenn ein C++-Compiler den Header liest." },
-          { "zeile": 6, "text": "Alles bis zur schliessenden Klammer bekommt C-Linkage." }
+          {
+            "zeile": 5,
+            "text": "`__cplusplus` ist nur definiert, wenn ein C++-Compiler den Header liest."
+          },
+          {
+            "zeile": 6,
+            "text": "Alles bis zur schliessenden Klammer bekommt C-Linkage."
+          }
         ]
       }
     },
@@ -125,8 +151,24 @@
           "#endif"
         ]
       },
-      "luecken": [{ "loesungen": ["#ifdef"] }, { "loesungen": ["\"C\""] }],
-      "auswahl": ["#ifdef", "#ifndef", "\"C\"", "\"C++\""],
+      "luecken": [
+        {
+          "loesungen": [
+            "#ifdef"
+          ]
+        },
+        {
+          "loesungen": [
+            "\"C\""
+          ]
+        }
+      ],
+      "auswahl": [
+        "#ifdef",
+        "#ifndef",
+        "\"C\"",
+        "\"C++\""
+      ],
       "erklaerung": "`#ifdef __cplusplus` blendet die Zeile für C-Compiler aus. `extern \"C\"` wählt C-Linkage. `extern \"C++\"` gibt es auch, es ist aber der Normalfall und würde hier nichts ändern."
     },
     {
@@ -158,12 +200,30 @@
     "beobachtung": "Die Überladungen erscheinen als `_Z7addiereii` und `_Z7addieredd`, die `extern \"C\"`-Funktion ohne `_Z`-Präfix. `c++filt` verändert sie deshalb nicht."
   },
   "begriffe": [
-    { "begriff": "Name Mangling", "englisch": "name mangling", "erklaerung": "Kodierung von Namespace, Klasse und Parametertypen in den Symbolnamen, damit Überladungen für den Linker unterscheidbar sind." },
-    { "begriff": "ABI", "englisch": "application binary interface", "erklaerung": "Regeln auf Maschinenebene: Mangling, Aufrufkonventionen, Objektlayout. Nur bei gleicher ABI passen Object-Files zusammen." },
-    { "begriff": "C-Linkage", "englisch": "C language linkage", "erklaerung": "Mit `extern \"C\"`: Symbolname ohne Mangling, kompatibel mit C." }
+    {
+      "begriff": "Name Mangling",
+      "englisch": "name mangling",
+      "erklaerung": "Kodierung von Namespace, Klasse und Parametertypen in den Symbolnamen, damit Überladungen für den Linker unterscheidbar sind."
+    },
+    {
+      "begriff": "ABI",
+      "englisch": "application binary interface",
+      "erklaerung": "Regeln auf Maschinenebene: Mangling, Aufrufkonventionen, Objektlayout. Nur bei gleicher ABI passen Object-Files zusammen."
+    },
+    {
+      "begriff": "C-Linkage",
+      "englisch": "C language linkage",
+      "erklaerung": "Mit `extern \"C\"`: Symbolname ohne Mangling, kompatibel mit C."
+    }
   ],
   "weiterlesen": [
-    { "titel": "Itanium C++ ABI: Mangling", "url": "https://itanium-cxx-abi.github.io/cxx-abi/abi.html#mangling" },
-    { "titel": "cppreference: Language linkage", "url": "https://en.cppreference.com/w/cpp/language/language_linkage" }
+    {
+      "titel": "Itanium C++ ABI: Mangling",
+      "url": "https://itanium-cxx-abi.github.io/cxx-abi/abi.html#mangling"
+    },
+    {
+      "titel": "cppreference: Language linkage",
+      "url": "https://en.cppreference.com/w/cpp/language/language_linkage"
+    }
   ]
 }

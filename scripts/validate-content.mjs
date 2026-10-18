@@ -132,7 +132,7 @@ if (curriculum) {
   if (!Array.isArray(curriculum.phasen)) melde('content/curriculum.json', 'phasen fehlt');
   for (const phase of curriculum.phasen ?? []) {
     for (const modul of phase.module ?? []) {
-      if (!/^\d\.\d{1,2}$/.test(modul.id ?? '')) melde('content/curriculum.json', `Modul-id "${modul.id}" muss die Form "1.2" haben`);
+      if (!/^\d{1,2}\.\d{1,2}$/.test(modul.id ?? '')) melde('content/curriculum.json', `Modul-id "${modul.id}" muss die Form "1.2" haben`);
       for (const id of modul.lektionen ?? []) {
         if (imCurriculum.has(id)) melde('content/curriculum.json', `Lektion ${id} kommt mehrfach vor`);
         imCurriculum.add(id);

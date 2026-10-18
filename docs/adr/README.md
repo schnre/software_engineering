@@ -11,6 +11,7 @@ Hier sind die wichtigen Architektur-Entscheidungen der Engineering Academy festg
 | [0005](0005-lerndidaktik.md) | Lerndidaktik und Erweiterungen gegenüber der Vorgabe | Angenommen |
 | [0006](0006-ci-validierung-vor-deployment.md) | Validierung als Bedingung für das Deployment | Angenommen |
 | [0007](0007-eigener-syntax-highlighter.md) | Eigener Syntax-Highlighter | Angenommen |
+| [0008](0008-embedded-architektur-und-neues-design.md) | Embedded, Systemarchitektur, Sicherheit und neues Design | Angenommen |
 
 ## Neue ADR anlegen
 

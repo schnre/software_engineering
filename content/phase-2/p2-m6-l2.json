@@ -61,10 +61,23 @@
       "frage": "Ergänze die C++20-Lösung, die alle geraden Zahlen sicher entfernt.",
       "code": {
         "sprache": "cpp",
-        "zeilen": ["std::{{?}}(v, [](int x) { return x % 2 == 0; });"]
+        "zeilen": [
+          "std::{{?}}(v, [](int x) { return x % 2 == 0; });"
+        ]
       },
-      "luecken": [{ "loesungen": ["erase_if"] }],
-      "auswahl": ["erase_if", "remove_if", "erase", "filter"],
+      "luecken": [
+        {
+          "loesungen": [
+            "erase_if"
+          ]
+        }
+      ],
+      "auswahl": [
+        "erase_if",
+        "remove_if",
+        "erase",
+        "filter"
+      ],
       "erklaerung": "`std::erase_if` gibt es seit C++20 für alle Standardcontainer. `std::remove_if` allein verschiebt die zu behaltenden Elemente nur nach vorne und gibt einen Iterator auf das neue Ende zurück. Gelöscht wird erst mit dem anschliessenden `v.erase(...)`. Das ist das bekannte *erase-remove idiom* aus älterem Code."
     },
     {
@@ -97,12 +110,24 @@
       "typ": "zuordnen",
       "frage": "Welches Werkzeug findet welchen Fehler zur Laufzeit?",
       "paare": [
-        { "links": "Zugriff ausserhalb eines Arrays, use after free", "rechts": "AddressSanitizer (`-fsanitize=address`)" },
-        { "links": "Überlauf eines `int`, ungültige Shift-Weite", "rechts": "UndefinedBehaviorSanitizer (`-fsanitize=undefined`)" },
-        { "links": "Data Race zwischen Threads", "rechts": "ThreadSanitizer (`-fsanitize=thread`)" },
-        { "links": "Lesen nicht initialisierten Speichers", "rechts": "MemorySanitizer (Clang) oder Valgrind" }
+        {
+          "links": "Zugriff ausserhalb eines Arrays, use after free",
+          "rechts": "AddressSanitizer (`-fsanitize=address`)"
+        },
+        {
+          "links": "Überlauf eines `int`, ungültige Shift-Weite",
+          "rechts": "UndefinedBehaviorSanitizer (`-fsanitize=undefined`)"
+        },
+        {
+          "links": "Data Race zwischen Threads",
+          "rechts": "ThreadSanitizer (`-fsanitize=thread`)"
+        },
+        {
+          "links": "Lesen nicht initialisierten Speichers",
+          "rechts": "MemorySanitizer (Clang) oder Valgrind"
+        }
       ],
-      "erklaerung": "Sanitizer bauen Prüfcode in das Programm ein und melden Fehler mit Stacktrace. Sie kosten Laufzeit (ASan etwa Faktor 2) und gehören in die CI für Tests, nicht in Release-Builds. ASan und TSan lassen sich nicht gleichzeitig verwenden. Mehr dazu in Phase 3."
+      "erklaerung": "Sanitizer bauen Prüfcode in das Programm ein und melden Fehler mit Stacktrace. Sie kosten Laufzeit (ASan etwa Faktor 2) und gehören in die CI für Tests, nicht in Release-Builds. ASan und TSan lassen sich nicht gleichzeitig verwenden. Mehr dazu in Phase 4."
     },
     {
       "typ": "terminal-deuten",
@@ -138,12 +163,30 @@
     "beobachtung": "ASan meldet `stack-buffer-overflow` beim Array und `heap-buffer-overflow` beim Iterator, sobald dieser über den reservierten Speicher des Vektors hinausläuft. Der Compiler warnt mit `-O2` vor `ergebnis`, weil er für diese Warnung den Datenfluss analysieren muss, und das tut er erst mit Optimierung."
   },
   "begriffe": [
-    { "begriff": "Ungültiger Iterator", "englisch": "invalidated iterator", "erklaerung": "Iterator, der nach einer Änderung des Containers nicht mehr verwendet werden darf." },
-    { "begriff": "Strict Aliasing", "englisch": "strict aliasing rule", "erklaerung": "Regel, nach der ein Objekt nur über passende Typen gelesen werden darf. Verstösse sind UB." },
-    { "begriff": "Sanitizer", "englisch": "sanitizer", "erklaerung": "Compiler-Option, die Prüfcode einbaut und Fehler wie UB oder Speicherfehler zur Laufzeit meldet." }
+    {
+      "begriff": "Ungültiger Iterator",
+      "englisch": "invalidated iterator",
+      "erklaerung": "Iterator, der nach einer Änderung des Containers nicht mehr verwendet werden darf."
+    },
+    {
+      "begriff": "Strict Aliasing",
+      "englisch": "strict aliasing rule",
+      "erklaerung": "Regel, nach der ein Objekt nur über passende Typen gelesen werden darf. Verstösse sind UB."
+    },
+    {
+      "begriff": "Sanitizer",
+      "englisch": "sanitizer",
+      "erklaerung": "Compiler-Option, die Prüfcode einbaut und Fehler wie UB oder Speicherfehler zur Laufzeit meldet."
+    }
   ],
   "weiterlesen": [
-    { "titel": "cppreference: Iterator invalidation", "url": "https://en.cppreference.com/w/cpp/container#Iterator_invalidation" },
-    { "titel": "Clang: UndefinedBehaviorSanitizer", "url": "https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html" }
+    {
+      "titel": "cppreference: Iterator invalidation",
+      "url": "https://en.cppreference.com/w/cpp/container#Iterator_invalidation"
+    },
+    {
+      "titel": "Clang: UndefinedBehaviorSanitizer",
+      "url": "https://clang.llvm.org/docs/UndefinedBehaviorSanitizer.html"
+    }
   ]
 }

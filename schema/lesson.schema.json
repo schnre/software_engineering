@@ -7,9 +7,9 @@
   "required": ["id", "phase", "modul", "titel", "lernziele", "dauerMinuten", "schritte", "praxis"],
   "properties": {
     "$schema": { "type": "string" },
-    "id": { "type": "string", "pattern": "^p[1-9]-m[0-9]{1,2}-l[0-9]{1,2}$" },
-    "phase": { "type": "integer", "minimum": 1, "maximum": 9 },
-    "modul": { "type": "string", "pattern": "^[1-9]\\.[0-9]{1,2} .+" },
+    "id": { "type": "string", "pattern": "^p[1-9][0-9]?-m[0-9]{1,2}-l[0-9]{1,2}$" },
+    "phase": { "type": "integer", "minimum": 1, "maximum": 20 },
+    "modul": { "type": "string", "pattern": "^[1-9][0-9]?\\.[0-9]{1,2} .+" },
     "titel": { "type": "string", "minLength": 3, "maxLength": 90 },
     "lernziele": { "type": "array", "minItems": 1, "maxItems": 4, "items": { "$ref": "#/definitions/text" } },
     "dauerMinuten": { "type": "integer", "minimum": 3, "maximum": 7 },

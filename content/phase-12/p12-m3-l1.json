@@ -1,0 +1,118 @@
+{
+  "id": "p12-m3-l1",
+  "phase": 12,
+  "modul": "12.3 Security für Embedded-Systeme",
+  "titel": "Bedrohungsanalyse mit STRIDE",
+  "lernziele": [
+    "Ein System mit einem Datenflussdiagramm und Vertrauensgrenzen beschreiben",
+    "Bedrohungen mit STRIDE systematisch finden",
+    "Gegenmassnahmen zuordnen und die regulatorischen Anforderungen kennen"
+  ],
+  "dauerMinuten": 7,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Ein vernetztes Gerät soll sicher gegen Angriffe sein. Womit beginnt man sinnvollerweise?",
+      "optionen": [
+        "Mit einer **Bedrohungsanalyse** (*threat modeling*): Was wollen wir schützen, wer greift an, über welche Wege?",
+        "Mit der Verschlüsselung aller Daten",
+        "Mit einem Penetrationstest des fertigen Geräts"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Security ohne Analyse führt zu Massnahmen an der falschen Stelle: Die Telemetrie ist verschlüsselt, aber die Debug-Schnittstelle ist offen. Die Analyse gehört an den Anfang, wenn Architekturentscheidungen noch günstig sind, und wird bei Änderungen fortgeschrieben. Ein Penetrationstest am Ende ergänzt sie.",
+      "begruendungen": [
+        "Richtig.",
+        "Verschlüsselung ist eine Massnahme. Ob und wo sie nötig ist, zeigt erst die Analyse.",
+        "Ein Test am Ende findet Probleme, wenn sie am teuersten zu beheben sind."
+      ]
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Ordne die STRIDE-Kategorien zu.",
+      "paare": [
+        { "links": "Spoofing", "rechts": "Sich als jemand anderes ausgeben, z. B. als Update-Server" },
+        { "links": "Tampering", "rechts": "Daten oder Code manipulieren, z. B. die Firmware" },
+        { "links": "Repudiation", "rechts": "Eine Aktion abstreiten, weil sie nicht protokolliert wurde" },
+        { "links": "Information Disclosure", "rechts": "Vertrauliche Daten auslesen, z. B. Schlüssel aus dem Flash" },
+        { "links": "Denial of Service", "rechts": "Das System unbenutzbar machen, z. B. durch Fluten des CAN-Busses" },
+        { "links": "Elevation of Privilege", "rechts": "Mehr Rechte erlangen, z. B. von der Web-Oberfläche auf Root" }
+      ],
+      "erklaerung": "**STRIDE** (entwickelt bei Microsoft) ist eine Checkliste: Für jedes Element eines Datenflussdiagramms fragt man, welche der sechs Bedrohungen zutreffen. Jede Kategorie verletzt eine Schutzeigenschaft: Authentizität, Integrität, Nachweisbarkeit, Vertraulichkeit, Verfügbarkeit und Autorisierung."
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Datenflüsse und Vertrauensgrenzen",
+      "text": "Grundlage der Analyse ist ein **Datenflussdiagramm**: externe Akteure, Prozesse, Datenspeicher und die Flüsse dazwischen. Entscheidend sind die **Vertrauensgrenzen** (*trust boundaries*): Stellen, an denen Daten aus einer weniger vertrauenswürdigen Umgebung kommen. Typisch bei einem Embedded-Gerät:\n\n- Netzwerk (WLAN, Mobilfunk, Ethernet) und Cloud-Anbindung\n- Funk (Bluetooth, NFC)\n- physische Schnittstellen: USB, UART, JTAG/SWD, SD-Karte\n- Busse zu anderen Geräten, z. B. CAN im Fahrzeug\n- die Hardware selbst, wenn Angreifer das Gerät in der Hand haben\n\nJeder Fluss über eine Vertrauensgrenze ist ein Kandidat für Bedrohungen."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Ein Ladegerät hat eine offene SWD-Schnittstelle auf der Platine, und im Flash liegt der private Schlüssel für die Cloud-Verbindung. Welche STRIDE-Kategorie ist das vor allem?",
+      "optionen": [
+        "Information Disclosure: Wer das Gerät öffnet, liest den Schlüssel aus und kann sich danach als dieses Gerät ausgeben",
+        "Denial of Service",
+        "Repudiation"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Aus der Offenlegung folgt Spoofing. Ist der Schlüssel auf allen Geräten gleich, betrifft der Angriff alle Geräte im Feld. Gegenmassnahmen: Debug-Schnittstelle in der Produktion sperren (Readout Protection, Lifecycle-Zustände), Schlüssel pro Gerät, Speicherung in einem Secure Element oder in einem geschützten Bereich (TrustZone).",
+      "begruendungen": [
+        "Richtig.",
+        "Die Verfügbarkeit ist nicht direkt betroffen.",
+        "Es geht nicht um abgestrittene Aktionen."
+      ]
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Welche Zeile in dieser Konfiguration eines vernetzten Geräts ist die schwerwiegendste Schwachstelle?",
+      "code": {
+        "sprache": "text",
+        "datei": "produktion.conf",
+        "zeilen": [
+          "tls.min_version = 1.2",
+          "update.signature_required = true",
+          "web.admin_user = admin",
+          "web.admin_password = admin",
+          "debug.uart_console = disabled"
+        ]
+      },
+      "fehlerZeile": 4,
+      "erklaerung": "Ein Standardpasswort, das auf allen Geräten gleich ist, gehört zu den häufigsten Ursachen für IoT-Angriffe. Botnetze wie Mirai haben so Hunderttausende Geräte übernommen. Die EN 18031 (Funkanlagenrichtlinie) und der Cyber Resilience Act verbieten universelle Standardpasswörter. Richtig: Passwort pro Gerät oder Einrichtung beim ersten Start erzwingen."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Was verlangt der **EU Cyber Resilience Act** (CRA) von Herstellern vernetzter Produkte?",
+      "optionen": [
+        "Security über den ganzen Lebenszyklus: sichere Voreinstellungen, Behandlung von Schwachstellen, Sicherheitsupdates über den Supportzeitraum, Meldung aktiv ausgenutzter Schwachstellen und eine Software-Stückliste",
+        "Nur einen einmaligen Penetrationstest vor dem Verkauf",
+        "Nichts, er gilt nur für Cloud-Dienste"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Der CRA gilt schrittweise ab 2026/2027 für fast alle Produkte mit digitalen Elementen, die in der EU verkauft werden. Für Fahrzeuge gelten UN R155/R156 und ISO/SAE 21434, für Industrieanlagen die Normreihe IEC 62443. Security wird damit wie Safety zur Pflicht mit Nachweisen. Eine **SBOM** (*software bill of materials*) listet alle enthaltenen Komponenten, damit man bei einer neuen Schwachstelle sofort weiss, welche Produkte betroffen sind.",
+      "begruendungen": [
+        "Richtig.",
+        "Der CRA verlangt Pflichten über den gesamten Supportzeitraum.",
+        "Er gilt gerade für Hardware- und Softwareprodukte."
+      ]
+    }
+  ],
+  "praxis": "Eine Bedrohungsanalyse muss kein schweres Dokument sein: Ein Datenflussdiagramm an der Wand, STRIDE pro Element, eine Tabelle mit Bedrohung, Risiko und Massnahme, und das Ganze im Repository gepflegt. Werkzeuge wie der Microsoft Threat Modeling Tool oder OWASP Threat Dragon helfen. Wichtig ist, dass Entwickler mitmachen. Sie kennen die Schnittstellen und ihre Schwächen am besten.",
+  "labor": {
+    "titel": "SBOM erzeugen",
+    "anleitung": "Erzeuge für ein Projekt eine Software-Stückliste im CycloneDX-Format und prüfe sie auf bekannte Schwachstellen.",
+    "befehle": [
+      "curl -sSfL https://raw.githubusercontent.com/anchore/syft/main/install.sh | sh -s -- -b ~/.local/bin",
+      "syft dir:. -o cyclonedx-json > sbom.json",
+      "grype sbom:sbom.json"
+    ],
+    "beobachtung": "Die Stückliste enthält alle erkannten Bibliotheken mit Version. `grype` meldet bekannte CVEs. Bei Firmware mit eingebetteten Bibliotheken ohne Paketmanager muss man die SBOM oft aus dem Build-System erzeugen, Zephyr und Yocto können das inzwischen."
+  },
+  "begriffe": [
+    { "begriff": "Bedrohungsanalyse", "englisch": "threat modeling", "erklaerung": "Systematische Suche nach möglichen Angriffen auf ein System und deren Bewertung." },
+    { "begriff": "STRIDE", "englisch": "STRIDE", "erklaerung": "Kategorien für Bedrohungen: Spoofing, Tampering, Repudiation, Information Disclosure, Denial of Service, Elevation of Privilege." },
+    { "begriff": "Vertrauensgrenze", "englisch": "trust boundary", "erklaerung": "Übergang zwischen Bereichen mit unterschiedlichem Vertrauensniveau." },
+    { "begriff": "SBOM", "englisch": "software bill of materials", "erklaerung": "Liste aller Softwarekomponenten eines Produkts mit Versionen." }
+  ],
+  "weiterlesen": [
+    { "titel": "OWASP: Threat Modeling Cheat Sheet", "url": "https://cheatsheetseries.owasp.org/cheatsheets/Threat_Modeling_Cheat_Sheet.html" },
+    { "titel": "EU: Cyber Resilience Act", "url": "https://digital-strategy.ec.europa.eu/en/policies/cyber-resilience-act" }
+  ]
+}

@@ -1,139 +1,212 @@
 {
   "id": "p5-m4-l2",
   "phase": 5,
-  "modul": "5.4 Jenkins Shared Libraries",
-  "titel": "Eigene Pipeline-Bausteine schreiben",
+  "modul": "5.4 Performance verstehen",
+  "titel": "Profiling und Benchmarks",
   "lernziele": [
-    "Gute Schritte für eine Shared Library entwerfen",
-    "Typische Sicherheitsfehler im Pipeline-Code vermeiden",
-    "Änderungen an einer Library sicher ausrollen"
+    "Mit einem Profiler die Stelle finden, an der Zeit verloren geht",
+    "Einen aussagekräftigen Mikrobenchmark schreiben",
+    "Den möglichen Gewinn einer Optimierung vorab abschätzen"
   ],
   "dauerMinuten": 6,
   "schritte": [
     {
       "typ": "multiple-choice",
-      "frage": "Was macht einen guten Schritt in einer Shared Library aus?",
+      "frage": "Ein Programm ist zu langsam. Was ist der erste Schritt?",
       "optionen": [
-        "Er macht eine Sache, hat einen klaren Namen, Parameter mit sinnvollen Standardwerten und klare Fehlermeldungen",
-        "Er erledigt möglichst alles auf einmal, damit Jenkinsfiles kurz bleiben",
-        "Er liest seine Konfiguration aus globalen Variablen, damit man keine Parameter übergeben muss"
+        "Mit einem Profiler messen, wo die Zeit tatsächlich verbraucht wird",
+        "Die Funktionen optimieren, die am kompliziertesten aussehen",
+        "Alles auf `-O3` und `-march=native` umstellen und hoffen"
       ],
       "korrekt": 0,
-      "erklaerung": "Für Pipeline-Schritte gelten dieselben Regeln wie für Funktionen: eine Aufgabe, ein klarer Vertrag, keine versteckten Abhängigkeiten. Ein Monster-Schritt mit 30 Parametern wird zur Falle, weil niemand mehr weiss, welche Kombinationen funktionieren.",
+      "erklaerung": "Die Intuition liegt bei Performance erstaunlich oft daneben. Oft verbringt ein Programm 80 % der Zeit in einem kleinen Teil des Codes, und das ist selten der, den man vermutet. Ohne Messung optimiert man an der falschen Stelle und macht dabei den Code komplizierter.",
       "begruendungen": [
-        "Richtig.",
-        "Dafür kann es zusätzlich eine Vorlage geben, die mehrere kleine Schritte kombiniert.",
-        "Versteckte Abhängigkeiten machen Schritte schwer verständlich und testbar."
+        "Richtig. Erst messen, dann ändern, dann wieder messen.",
+        "Kompliziert heisst nicht langsam.",
+        "Compiler-Optionen bringen selten mehr als ein paar Prozent und verschleiern das eigentliche Problem."
       ]
     },
     {
       "typ": "erklaerung",
-      "titel": "Bewährte Praktiken",
-      "text": "- **Groovy dünn halten**: Die eigentliche Logik in Shell- oder Python-Skripte unter `resources/` legen, mit `libraryResource` laden und auf dem Agent ausführen.\n- **Parameter prüfen** und mit `error 'Klartext'` abbrechen, wenn etwas fehlt.\n- **Dokumentieren**: eine `.txt`-Datei neben jedem Schritt in `vars/` erscheint als Hilfe in Jenkins.\n- **Versionieren** nach Semantic Versioning, mit Changelog.\n- **Testen**: mit JenkinsPipelineUnit oder in einer Test-Instanz, bevor eine Version freigegeben wird."
+      "titel": "Profiler",
+      "text": "Ein **Sampling-Profiler** wie `perf` (Linux) hält das Programm tausende Male pro Sekunde kurz an und notiert, wo es gerade steht. Die Verteilung zeigt die **Hotspots**. Der Aufwand ist gering, das Programm läuft fast normal schnell.\n\nWichtig: Release-Build profilieren (`-O2`), aber mit `-g` und `-fno-omit-frame-pointer`, damit Funktionsnamen und Aufrufketten sichtbar sind. `perf record -g ./app` zeichnet auf, `perf report` zeigt die Auswertung. **Flame Graphs** stellen die Aufrufketten als Grafik dar: Je breiter ein Balken, desto mehr Zeit. Weitere Werkzeuge: Intel VTune, Tracy, callgrind und Hotspot (eine grafische Oberfläche für perf)."
     },
     {
-      "typ": "fehler-finden",
-      "frage": "Jenkins zeigt bei diesem Schritt eine Warnung zu einem möglichen Leck von Geheimnissen. Welche Zeile ist das Problem?",
-      "code": {
-        "sprache": "groovy",
-        "datei": "vars/publishArtifact.groovy",
-        "zeilen": [
-          "def call(Map cfg) {",
-          "    withCredentials([string(credentialsId: 'artefakt-token', variable: 'TOKEN')]) {",
-          "        sh \"curl -H 'Authorization: Bearer ${TOKEN}' -T ${cfg.datei} https://artefakte.firma.ch/\"",
-          "    }",
-          "}"
+      "typ": "terminal-deuten",
+      "frage": "Wo setzt du an?",
+      "terminal": {
+        "befehl": "perf report --stdio --no-children | head",
+        "ausgabe": [
+          "# Overhead  Command  Shared Object  Symbol",
+          "    62.31%  app      app            [.] Parser::naechstesToken",
+          "    18.04%  app      libc.so.6      [.] __memmove_avx_unaligned_erms",
+          "     7.55%  app      app            [.] std::vector<Token>::_M_realloc_insert",
+          "     3.10%  app      app            [.] main"
         ]
       },
-      "fehlerZeile": 3,
-      "erklaerung": "In doppelten Anführungszeichen setzt **Groovy** den Wert von `TOKEN` ein, bevor die Shell startet. Das Geheimnis landet so im Befehlstext, ist für andere Prozesse auf dem Agent sichtbar und kann in Logs auftauchen. Richtig sind einfache Anführungszeichen, damit erst die **Shell** die Variable auflöst: `sh 'curl -H \"Authorization: Bearer $TOKEN\" -T \"$DATEI\" https://…'`, wobei `DATEI` z. B. mit `withEnv` gesetzt wird. Das verhindert zugleich, dass ein Dateiname mit Sonderzeichen den Befehl verändert."
+      "optionen": [
+        "Bei `Parser::naechstesToken`. Zudem deuten `memmove` und `_M_realloc_insert` darauf hin, dass ein Vektor ohne `reserve` wächst",
+        "Bei `main`, weil dort alles beginnt",
+        "Bei `libc.so.6`: Die C-Bibliothek ist langsam"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Über 60 % in einer Funktion: Dort lohnt sich die Analyse. Interessant ist auch der Rest. `_M_realloc_insert` ist die Funktion, mit der `std::vector` beim Wachsen umzieht, und `memmove` kopiert dabei die Elemente. Zusammen 25 %, die ein einziges `reserve` vermutlich fast beseitigt.",
+      "begruendungen": [
+        "Richtig.",
+        "`main` hat nur 3 % *eigene* Zeit.",
+        "`memmove` ist hoch optimiert. Das Problem ist, dass es zu oft aufgerufen wird."
+      ]
     },
     {
-      "typ": "zuordnen",
-      "frage": "Welche Praxis bringt welchen Nutzen?",
-      "paare": [
-        { "links": "Semantic Versioning der Library", "rechts": "Teams entscheiden selbst, wann sie auf eine neue Hauptversion wechseln" },
-        { "links": "Logik in Skripten unter `resources/`", "rechts": "Lokal testbar und entlastet den Controller" },
-        { "links": "Parameter mit Standardwerten und Prüfung", "rechts": "Klare Fehlermeldungen statt rätselhafter Abbrüche" },
-        { "links": "Unit-Tests mit JenkinsPipelineUnit", "rechts": "Fehler fallen auf, bevor eine neue Version ausgerollt wird" }
-      ],
-      "erklaerung": "Eine Shared Library ist eine Abhängigkeit für viele Teams. Ein Fehler darin trifft alle gleichzeitig. Deshalb lohnt sich hier mehr Sorgfalt als in einem einzelnen Jenkinsfile."
+      "typ": "erklaerung",
+      "titel": "Mikrobenchmarks",
+      "text": "Um zwei Varianten einer Funktion zu vergleichen, schreibt man einen **Mikrobenchmark**, z. B. mit Google Benchmark. Die Bibliothek wiederholt den Code so lange, bis die Messung stabil ist, und gibt Mittelwert und Streuung aus.\n\nDie grössten Fallen: Der Compiler entfernt Code, dessen Ergebnis niemand benutzt. Die Daten passen im Benchmark in den Cache, in der Realität nicht. Und der Rechner taktet während der Messung hoch oder runter. Benchmark-Ergebnisse gelten deshalb nur für ähnliche Bedingungen."
     },
     {
       "typ": "code-lesen",
-      "frage": "Ein Jenkinsfile ruft `cmakePaket()` ohne Parameter auf. Was passiert?",
+      "frage": "`berechne` hat keine Seiteneffekte. Was misst dieser selbst gebaute Benchmark mit `-O2` vermutlich?",
       "code": {
-        "sprache": "groovy",
-        "datei": "vars/cmakePaket.groovy",
+        "sprache": "cpp",
         "zeilen": [
-          "def call(Map cfg = [:]) {",
-          "    if (!cfg.produkt) {",
-          "        error 'cmakePaket: Parameter \"produkt\" fehlt, z. B. cmakePaket(produkt: \"sensor-fw\")'",
-          "    }",
-          "    sh \"cpack -G TGZ -D CPACK_PACKAGE_NAME=${cfg.produkt}\"",
-          "}"
+          "auto start = std::chrono::steady_clock::now();",
+          "for (int i = 0; i < 1'000'000; ++i) {",
+          "    berechne(i);",
+          "}",
+          "auto dauer = std::chrono::steady_clock::now() - start;"
         ]
       },
       "optionen": [
-        "Der Build bricht mit der Meldung aus Zeile 3 ab und wird als fehlgeschlagen markiert",
-        "`cpack` läuft mit einem leeren Paketnamen",
-        "Jenkins fragt nach dem fehlenden Parameter"
+        "Fast nichts: Der Compiler darf die Schleife entfernen, weil das Ergebnis nie benutzt wird",
+        "Genau die Laufzeit von einer Million Aufrufen",
+        "Die Laufzeit inklusive Kompilieren"
       ],
       "korrekt": 0,
-      "erklaerung": "`error` beendet den Build sofort mit der angegebenen Meldung. Die Meldung nennt den Schritt, den fehlenden Parameter und ein Beispiel. Wer sie liest, weiss sofort, was zu tun ist. Ohne die Prüfung käme ein schwer verständlicher Fehler von `cpack`.",
+      "erklaerung": "Ist `berechne` inline sichtbar und ohne Seiteneffekte, wirft der Optimierer die ganze Schleife weg. Das Ergebnis ist eine beeindruckende, aber wertlose Zahl nahe null. Deshalb gibt es in Benchmark-Bibliotheken Hilfen wie `benchmark::DoNotOptimize(x)`, die den Compiler zwingen, das Ergebnis zu berechnen.",
       "begruendungen": [
         "Richtig.",
-        "Genau das verhindert die Prüfung.",
-        "Pipelines laufen ohne Benutzerinteraktion."
-      ]
-    },
-    {
-      "typ": "erklaerung",
-      "titel": "Änderungen sicher ausrollen",
-      "text": "Neue Funktionen testet man, indem man die Library in einer Test-Pipeline von einem Branch lädt: `@Library('firma-pipeline@feature/neuer-schritt') _`. Ist alles gut, wird ein Tag erstellt. Rückwärtskompatible Erweiterungen bekommen eine neue Minor-Version, inkompatible Änderungen eine neue Major-Version. Die alte Major-Version pflegt man eine Weile weiter, damit Teams in Ruhe wechseln können."
-    },
-    {
-      "typ": "multiple-choice",
-      "frage": "Du willst den Parameter `buildType` von `cmakeBuild` in `konfiguration` umbenennen. Wie rollst du das aus?",
-      "optionen": [
-        "Neue Major-Version, oder vorübergehend beide Namen akzeptieren und bei `buildType` eine Warnung ausgeben",
-        "Umbenennen und denselben Tag `v2.3.0` neu setzen",
-        "Umbenennen auf dem Hauptbranch, die Teams merken es dann schon"
-      ],
-      "korrekt": 0,
-      "erklaerung": "Eine Umbenennung bricht alle bestehenden Aufrufe. Ein sanfter Übergang (*deprecation*) akzeptiert beide Namen und warnt beim alten. So können Teams migrieren, ohne dass ihre Builds plötzlich rot werden. Einen bestehenden Tag zu verschieben, zerstört die Reproduzierbarkeit.",
-      "begruendungen": [
-        "Richtig.",
-        "Ein Tag muss für immer auf denselben Stand zeigen.",
-        "So bricht man auf einen Schlag viele Builds."
+        "Nur, wenn der Compiler die Aufrufe nicht entfernen kann.",
+        "Kompiliert wird vorher, das gehört nie zur Laufzeit."
       ]
     },
     {
       "typ": "lueckentext",
-      "frage": "Ergänze die Pipeline-Schritte.",
-      "text": "Mit {{?}} bricht ein Schritt den Build mit einer klaren Fehlermeldung ab. Den Inhalt einer Datei aus dem Ordner `resources/` der Library lädt {{?}}.",
-      "luecken": [{ "loesungen": ["error"] }, { "loesungen": ["libraryResource"] }],
-      "auswahl": ["error", "libraryResource", "echo", "readFile"],
-      "erklaerung": "`readFile` liest dagegen eine Datei aus dem Workspace auf dem Agent, also aus dem gebauten Projekt. `libraryResource` liest aus der Library selbst. Typisch ist die Kombination: `writeFile file: 'tidy.yaml', text: libraryResource('ch/firma/clang-tidy.yaml')`."
+      "frage": "Ergänze den Benchmark mit Google Benchmark.",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "static void BM_Sortieren(benchmark::State& state) {",
+          "    const auto original = erzeugeZufallszahlen(state.range(0));",
+          "    for (auto _ : state) {",
+          "        auto v = original;",
+          "        std::sort(v.begin(), v.end());",
+          "        benchmark::{{?}}(v.data());",
+          "    }",
+          "}",
+          "{{?}}(BM_Sortieren)->Range(1 << 10, 1 << 20);"
+        ]
+      },
+      "luecken": [
+        {
+          "loesungen": [
+            "DoNotOptimize"
+          ]
+        },
+        {
+          "loesungen": [
+            "BENCHMARK"
+          ]
+        }
+      ],
+      "auswahl": [
+        "DoNotOptimize",
+        "BENCHMARK",
+        "ClobberMemory",
+        "TEST"
+      ],
+      "erklaerung": "`Range` misst für verschiedene Grössen von 1024 bis etwa einer Million. So sieht man, wie die Laufzeit mit der Datenmenge wächst. Die Kopie `auto v = original;` wird mitgemessen. Wer nur das Sortieren messen will, nimmt sie mit `state.PauseTiming()` heraus oder zieht ihre Zeit separat ab."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Eine Funktion braucht 5 % der Gesamtlaufzeit. Du machst sie 10-mal schneller. Um wie viel wird das Programm schneller?",
+      "optionen": [
+        "Um etwa 4,5 %",
+        "10-mal",
+        "Um etwa 50 %"
+      ],
+      "korrekt": 0,
+      "fest": true,
+      "erklaerung": "Aus 5 % werden 0,5 %, eingespart sind 4,5 % der Laufzeit. Wieder das Gesetz von Amdahl: Der Gewinn einer Optimierung ist durch den Anteil des optimierten Teils begrenzt. Deshalb zuerst den Profiler fragen, welcher Teil gross ist.",
+      "begruendungen": [
+        "Richtig.",
+        "Nur die Funktion ist 10-mal schneller, nicht das ganze Programm.",
+        "Das wäre so, wenn die Funktion die Hälfte der Laufzeit ausmachte."
+      ]
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Welches Werkzeug beantwortet welche Frage?",
+      "paare": [
+        {
+          "links": "`perf record` / `perf report`",
+          "rechts": "In welchen Funktionen verbringt das Programm seine Zeit?"
+        },
+        {
+          "links": "Flame Graph",
+          "rechts": "Über welche Aufrufketten entsteht die Zeit, auf einen Blick?"
+        },
+        {
+          "links": "Google Benchmark",
+          "rechts": "Welche von zwei Varianten einer Funktion ist schneller?"
+        },
+        {
+          "links": "heaptrack oder massif",
+          "rechts": "Wer fordert wie oft und wie viel Speicher an?"
+        }
+      ],
+      "erklaerung": "Ein typischer Ablauf: Profiler findet den Hotspot, Benchmark vergleicht Varianten dafür, Profiler bestätigt den Gewinn im ganzen Programm. Ein Benchmark ohne vorheriges Profiling optimiert oft eine Stelle, die gar nicht zählt."
     }
   ],
-  "praxis": "Pipeline-Code verdient dieselbe Qualität wie Produktcode, weil Fehler darin alle Teams treffen. Wer eine Shared Library pflegt, denkt an Rückwärtskompatibilität, klare Fehlermeldungen, Sicherheit beim Umgang mit Zugangsdaten und Dokumentation. Im Review achtest du besonders auf Groovy-Interpolation in `sh`-Befehlen, die Geheimnisse oder Eingaben von aussen enthält.",
+  "praxis": "Performance-Diskussionen im Team werden mit Messungen geführt, nicht mit Meinungen. Eine gute Gewohnheit: Jeder Performance-Pull-Request enthält Vorher-nachher-Zahlen unter vergleichbaren Bedingungen. Für kritische Pfade lohnen sich Benchmarks in der CI, die bei Verschlechterungen warnen.",
   "labor": {
-    "titel": "Einen Schritt testen",
-    "anleitung": "Schreibe für `cmakeBuild` einen Unit-Test mit JenkinsPipelineUnit, der prüft, dass bei `buildType: 'Debug'` der richtige `cmake`-Aufruf erzeugt wird.",
+    "titel": "Einen Hotspot finden",
+    "anleitung": "Nimm ein eigenes Programm oder schreibe einen kleinen Parser, der eine grosse Datei Zeichen für Zeichen liest und Tokens in einen `std::vector` schreibt. Profiliere ihn, behebe den grössten Hotspot und miss erneut.",
     "befehle": [
-      "gradle init --type groovy-library",
-      "gradle test"
+      "g++ -O2 -g -fno-omit-frame-pointer parser.cpp -o parser",
+      "perf record -g ./parser gross.txt && perf report --stdio --no-children | head -20",
+      "git clone https://github.com/brendangregg/FlameGraph && perf script | FlameGraph/stackcollapse-perf.pl | FlameGraph/flamegraph.pl > flame.svg"
     ],
-    "beobachtung": "JenkinsPipelineUnit simuliert Schritte wie `sh` und zeichnet die Aufrufe auf. Der Test läuft in Sekunden lokal, ganz ohne Jenkins-Server."
+    "beobachtung": "Öffne `flame.svg` im Browser. Breite Balken zeigen, wo die Zeit hingeht. Ein `reserve` an der richtigen Stelle lässt `_M_realloc_insert` oft vollständig verschwinden."
   },
   "begriffe": [
-    { "begriff": "Semantic Versioning", "englisch": "semantic versioning", "erklaerung": "Versionsschema MAJOR.MINOR.PATCH: Major für inkompatible Änderungen, Minor für Erweiterungen, Patch für Fehlerbehebungen." },
-    { "begriff": "Deprecation", "englisch": "deprecation", "erklaerung": "Eine alte Schnittstelle bleibt vorerst nutzbar, wird aber als veraltet markiert und später entfernt." },
-    { "begriff": "String-Interpolation", "englisch": "string interpolation", "erklaerung": "Einsetzen von Variablenwerten in einen Text. In Groovy bei doppelten Anführungszeichen mit `${…}`." }
+    {
+      "begriff": "Profiler",
+      "englisch": "profiler",
+      "erklaerung": "Werkzeug, das misst, wo ein Programm seine Zeit verbringt."
+    },
+    {
+      "begriff": "Hotspot",
+      "englisch": "hotspot",
+      "erklaerung": "Stelle im Code, die einen grossen Anteil der Laufzeit verbraucht."
+    },
+    {
+      "begriff": "Mikrobenchmark",
+      "englisch": "microbenchmark",
+      "erklaerung": "Gezielte Laufzeitmessung eines kleinen Code-Stücks unter kontrollierten Bedingungen."
+    },
+    {
+      "begriff": "Flame Graph",
+      "englisch": "flame graph",
+      "erklaerung": "Grafik der Aufrufketten, bei der die Breite den Anteil an der Laufzeit zeigt."
+    }
   ],
   "weiterlesen": [
-    { "titel": "Jenkins: String interpolation (Sicherheitshinweise)", "url": "https://www.jenkins.io/doc/book/pipeline/jenkinsfile/#string-interpolation" },
-    { "titel": "JenkinsPipelineUnit", "url": "https://github.com/jenkinsci/JenkinsPipelineUnit" }
+    {
+      "titel": "Brendan Gregg: perf Examples",
+      "url": "https://www.brendangregg.com/perf.html"
+    },
+    {
+      "titel": "Google Benchmark: User Guide",
+      "url": "https://github.com/google/benchmark/blob/main/docs/user_guide.md"
+    }
   ]
 }

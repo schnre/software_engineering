@@ -1,0 +1,164 @@
+{
+  "id": "p13-m1-l2",
+  "phase": 13,
+  "modul": "13.1 Technische Schulden und Refactoring",
+  "titel": "Sicher umbauen in Legacy-Code",
+  "lernziele": [
+    "Legacy-Code mit Nähten testbar machen",
+    "Einen Umbau in kleinen, sicheren Schritten planen",
+    "Schrittweise Ablösung einem Neuschreiben vorziehen"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Michael Feathers definiert Legacy-Code ganz knapp. Wie?",
+      "optionen": [
+        "Code ohne Tests",
+        "Code, der älter als fünf Jahre ist",
+        "Code in einer veralteten Programmiersprache"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Nach Feathers ist nicht das Alter entscheidend, sondern ob man den Code sicher ändern kann. Ohne Tests weiss man nach jeder Änderung nicht, ob noch alles funktioniert. Auch Code von gestern kann so schon Legacy sein.",
+      "begruendungen": [
+        "Richtig.",
+        "Alter Code mit guten Tests lässt sich problemlos ändern.",
+        "Auch modernes C++ ohne Tests ist nach dieser Definition Legacy."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Nähte",
+      "text": "Um Legacy-Code zu testen, muss man oft Abhängigkeiten ersetzen, ohne viel Code zu ändern. Dafür braucht es eine **Naht** (seam): eine Stelle, an der man das Verhalten austauschen kann, ohne den Code dort zu bearbeiten.\n\nDas Vorgehen nach Feathers:\n1. Die Stelle finden, die geändert werden soll.\n2. Eine Stelle finden, an der man das Verhalten prüfen kann.\n3. Abhängigkeiten aufbrechen, also eine Naht schaffen.\n4. Charakterisierungstests schreiben (Modul 4.2).\n5. Ändern und aufräumen, gesichert durch die Tests."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Welche Art von Naht ist das?",
+      "paare": [
+        {
+          "links": "Objekt-Naht",
+          "rechts": "Abhängigkeit über eine Schnittstelle oder virtuelle Funktion ersetzbar machen"
+        },
+        {
+          "links": "Link-Naht",
+          "rechts": "Im Test-Build eine andere Implementierungsdatei linken"
+        },
+        {
+          "links": "Parameter-Naht",
+          "rechts": "Die Abhängigkeit als Parameter übergeben statt sie intern zu holen"
+        },
+        {
+          "links": "Präprozessor-Naht",
+          "rechts": "Per Makro im Test anderes Verhalten einschalten, der letzte Ausweg"
+        }
+      ],
+      "erklaerung": "Die Link-Naht ist bei C-artigem Legacy-Code mit freien Funktionen oft der einfachste Einstieg: Gleicher Header, im Test eine andere `.cpp`. Das kennst du von der HAL-Auswahl zur Link-Zeit in Modul 10.2."
+    },
+    {
+      "typ": "reihenfolge",
+      "frage": "Bringe das Vorgehen nach Feathers in die richtige Reihenfolge.",
+      "elemente": [
+        "Änderungsstelle finden",
+        "Prüfstelle für das Verhalten finden",
+        "Abhängigkeiten aufbrechen (Naht schaffen)",
+        "Charakterisierungstests schreiben",
+        "Ändern und aufräumen"
+      ],
+      "erklaerung": "Das Aufbrechen der Abhängigkeiten passiert noch **ohne** Tests. Deshalb nimmt man dafür möglichst einfache, mechanische Schritte, die das Verhalten nicht ändern können, z. B. die automatischen Refactorings der IDE."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Du sollst eine Funktion mit 600 Zeilen ohne Tests ändern. Welcher erste Umbau ist am sichersten?",
+      "optionen": [
+        "Mit dem automatischen Refactoring der IDE einen in sich geschlossenen Block in eine eigene Funktion auslagern und einzeln committen",
+        "Die ganze Funktion neu schreiben, so wie sie sein sollte",
+        "Gleichzeitig die Logik korrigieren und die Struktur verbessern"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Werkzeug-gestützte Refactorings wie *Extract Function* oder *Rename* verändern das Verhalten nachweislich nicht. Jeder kleine Schritt ist einzeln prüfbar und einzeln rückgängig zu machen. Struktur- und Verhaltensänderungen gehören in getrennte Commits.",
+      "begruendungen": [
+        "Richtig.",
+        "Ohne Tests gehen dabei fast sicher Sonderfälle verloren.",
+        "Geht dann etwas kaputt, weiss niemand, welche der beiden Änderungen schuld war."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Schrittweise ablösen",
+      "text": "Für ganze Subsysteme gibt es das Muster **Strangler Fig** (Würgefeige): Das neue System wächst neben dem alten. Eine Facade (Modul 10.4) leitet Aufrufe weiter, zuerst alle ans alte System, dann Funktion für Funktion ans neue. Irgendwann wird das alte nicht mehr aufgerufen und kann gelöscht werden.\n\nDer Vorteil gegenüber einem Neuschreiben: Das System ist jederzeit lieferbar, jeder Schritt ist klein, und das Risiko bleibt beherrschbar."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Das Team will ein zehn Jahre altes Subsystem komplett neu schreiben. Was ist das grösste Risiko?",
+      "optionen": [
+        "Die Neuentwicklung dauert viel länger als geplant, das alte System muss parallel weiter gepflegt werden, und unzählige Sonderfälle gehen verloren",
+        "Neuer Code ist immer langsamer",
+        "Es gibt kein Risiko, neuer Code ist immer besser"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Alter Code enthält zehn Jahre Wissen über Sonderfälle, Kundenwünsche und Hardware-Eigenheiten, oft undokumentiert. Grosse Neuschreib-Projekte scheitern deshalb häufig oder liefern Jahre später ein System mit neuen Fehlern. Schrittweise Ablösung ist fast immer die sicherere Wahl.",
+      "begruendungen": [
+        "Richtig.",
+        "Um die Geschwindigkeit geht es selten.",
+        "Neuer Code hat neue, noch unbekannte Fehler."
+      ]
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze den Namen des Musters.",
+      "text": "Beim Muster {{?}} wird ein Altsystem schrittweise ersetzt: Neue Funktionen entstehen daneben, und Aufrufe werden Stück für Stück umgeleitet.",
+      "luecken": [
+        {
+          "loesungen": [
+            "Strangler Fig"
+          ]
+        }
+      ],
+      "auswahl": [
+        "Strangler Fig",
+        "Big Bang",
+        "Singleton",
+        "Observer"
+      ],
+      "erklaerung": "Martin Fowler hat den Namen nach Würgefeigen gewählt, die an einem Baum emporwachsen, bis sie ihn ersetzen. Das Gegenstück, alles auf einmal umzustellen, heisst *Big Bang* und ist berüchtigt."
+    }
+  ],
+  "praxis": "Fast jeder Senior arbeitet an Legacy-Code, das ist der Normalfall, nicht die Ausnahme. Die Fähigkeit, in fremdem, ungetestetem Code sicher kleine Schritte zu machen, ist deshalb eine der wertvollsten überhaupt. Wenn im Team der Ruf nach „alles neu“ laut wird, hilfst du, einen schrittweisen Weg zu finden, und zeigst mit einem ersten kleinen Erfolg, dass er funktioniert.",
+  "labor": {
+    "titel": "Eine Naht schaffen",
+    "anleitung": "Nimm eine Funktion, die direkt eine Datei liest oder die Uhrzeit abfragt. Schaffe eine Parameter-Naht: Die Abhängigkeit wird als Parameter mit Standardwert übergeben. Schreibe dann einen Charakterisierungstest.",
+    "befehle": [
+      "git switch -c naht-schaffen",
+      "git commit -am 'Übergib Zeitquelle als Parameter (keine Verhaltensänderung)'",
+      "git commit -am 'Füge Charakterisierungstest für berichtErstellen hinzu'"
+    ],
+    "beobachtung": "Mit einem Standardwert für den neuen Parameter müssen bestehende Aufrufer nicht geändert werden. Nur der Test übergibt eine eigene Zeitquelle. Zwei kleine Commits, beide leicht zu reviewen."
+  },
+  "begriffe": [
+    {
+      "begriff": "Legacy-Code",
+      "englisch": "legacy code",
+      "erklaerung": "Nach Michael Feathers: Code ohne Tests, unabhängig vom Alter."
+    },
+    {
+      "begriff": "Naht",
+      "englisch": "seam",
+      "erklaerung": "Stelle, an der man Verhalten austauschen kann, ohne den Code dort zu ändern."
+    },
+    {
+      "begriff": "Strangler Fig",
+      "englisch": "strangler fig pattern",
+      "erklaerung": "Schrittweise Ablösung eines Altsystems, indem Funktionen nach und nach in ein neues verlagert werden."
+    }
+  ],
+  "weiterlesen": [
+    {
+      "titel": "Martin Fowler: StranglerFigApplication",
+      "url": "https://martinfowler.com/bliki/StranglerFigApplication.html"
+    },
+    {
+      "titel": "Refactoring.com: Catalog of Refactorings",
+      "url": "https://refactoring.com/catalog/"
+    }
+  ]
+}

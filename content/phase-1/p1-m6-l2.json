@@ -45,9 +45,18 @@
           "target_link_libraries(rechner PRIVATE mathe)"
         ],
         "anmerkungen": [
-          { "zeile": 4, "text": "Eine Bibliothek als Target. Statisch oder dynamisch steuert `BUILD_SHARED_LIBS`." },
-          { "zeile": 5, "text": "`include/` gilt für `mathe` selbst **und** für alle, die `mathe` verwenden." },
-          { "zeile": 9, "text": "`rechner` erbt Include-Pfad und C++-Standard von `mathe` automatisch." }
+          {
+            "zeile": 4,
+            "text": "Eine Bibliothek als Target. Statisch oder dynamisch steuert `BUILD_SHARED_LIBS`."
+          },
+          {
+            "zeile": 5,
+            "text": "`include/` gilt für `mathe` selbst **und** für alle, die `mathe` verwenden."
+          },
+          {
+            "zeile": 9,
+            "text": "`rechner` erbt Include-Pfad und C++-Standard von `mathe` automatisch."
+          }
         ]
       }
     },
@@ -55,9 +64,18 @@
       "typ": "zuordnen",
       "frage": "Was bedeuten die Schlüsselwörter bei `target_link_libraries` und `target_include_directories`?",
       "paare": [
-        { "links": "`PRIVATE`", "rechts": "Gilt nur für das Target selbst" },
-        { "links": "`PUBLIC`", "rechts": "Gilt für das Target und für alle, die es verwenden" },
-        { "links": "`INTERFACE`", "rechts": "Gilt nur für die Nutzer, nicht für das Target selbst" }
+        {
+          "links": "`PRIVATE`",
+          "rechts": "Gilt nur für das Target selbst"
+        },
+        {
+          "links": "`PUBLIC`",
+          "rechts": "Gilt für das Target und für alle, die es verwenden"
+        },
+        {
+          "links": "`INTERFACE`",
+          "rechts": "Gilt nur für die Nutzer, nicht für das Target selbst"
+        }
       ],
       "erklaerung": "Die Frage lautet immer: Taucht die Abhängigkeit in **meinen öffentlichen Headern** auf? Wenn ja, `PUBLIC`. Wenn nur in meinen `.cpp`-Dateien, `PRIVATE`. `INTERFACE` braucht man für Header-only-Bibliotheken, die selbst nichts kompilieren."
     },
@@ -93,7 +111,7 @@
         ]
       },
       "fehlerZeile": 3,
-      "erklaerung": "Weil ein öffentlicher Header von `mathe` Eigen einbindet, braucht jeder Nutzer von `mathe` die Eigen-Include-Pfade. Mit `PRIVATE` bekommt sie nur `mathe` selbst. Richtig wäre `PUBLIC`. Noch besser wäre oft, Eigen ganz aus dem öffentlichen Header herauszuhalten, z. B. mit PIMPL (Phase 7)."
+      "erklaerung": "Weil ein öffentlicher Header von `mathe` Eigen einbindet, braucht jeder Nutzer von `mathe` die Eigen-Include-Pfade. Mit `PRIVATE` bekommt sie nur `mathe` selbst. Richtig wäre `PUBLIC`. Noch besser wäre oft, Eigen ganz aus dem öffentlichen Header herauszuhalten, z. B. mit PIMPL (Phase 10)."
     },
     {
       "typ": "lueckentext",
@@ -105,8 +123,24 @@
           "cmake --build {{?}}"
         ]
       },
-      "luecken": [{ "loesungen": ["Ninja"] }, { "loesungen": ["build"] }],
-      "auswahl": ["Ninja", "build", "src", "CMakeLists.txt"],
+      "luecken": [
+        {
+          "loesungen": [
+            "Ninja"
+          ]
+        },
+        {
+          "loesungen": [
+            "build"
+          ]
+        }
+      ],
+      "auswahl": [
+        "Ninja",
+        "build",
+        "src",
+        "CMakeLists.txt"
+      ],
       "erklaerung": "`-S` ist das Quellverzeichnis, `-B` das Build-Verzeichnis. Gebaut wird **out of source**: Alle erzeugten Dateien landen in `build/`, der Quellbaum bleibt sauber. `cmake --build` ruft das passende Build-Werkzeug auf, egal welcher Generator gewählt wurde."
     },
     {
@@ -123,7 +157,11 @@
         "`file(GLOB SOURCES src/*.cpp)`",
         "`target_link_libraries(app PRIVATE mathe)`"
       ],
-      "korrekt": [0, 1, 2],
+      "korrekt": [
+        0,
+        1,
+        2
+      ],
       "erklaerung": "Die ersten beiden wirken global auf alle Targets und verstecken, wer was braucht. Besser sind `target_include_directories` und `target_compile_options`. `file(GLOB)` für Quelldateien rät die CMake-Dokumentation ab: Neue Dateien werden erst bemerkt, wenn jemand CMake neu ausführt. Die letzte Zeile ist genau richtig.",
       "begruendungen": [
         "Global statt pro Target, gehört beanstandet.",
@@ -146,12 +184,30 @@
     "beobachtung": "Mit `--verbose` siehst du die echten `g++`-Aufrufe inklusive `-I` für `include/`. `compile_commands.json` brauchen Werkzeuge wie clang-tidy und die Code-Vervollständigung deiner IDE."
   },
   "begriffe": [
-    { "begriff": "Build-System-Generator", "englisch": "build system generator", "erklaerung": "Werkzeug wie CMake, das Dateien für ein anderes Build-System (Ninja, Make, Visual Studio) erzeugt." },
-    { "begriff": "Target", "englisch": "target", "erklaerung": "In CMake eine Bibliothek oder ein Programm, an dem Einstellungen und Abhängigkeiten hängen." },
-    { "begriff": "Out-of-Source-Build", "englisch": "out-of-source build", "erklaerung": "Alle erzeugten Dateien landen in einem eigenen Verzeichnis, getrennt vom Quellcode." }
+    {
+      "begriff": "Build-System-Generator",
+      "englisch": "build system generator",
+      "erklaerung": "Werkzeug wie CMake, das Dateien für ein anderes Build-System (Ninja, Make, Visual Studio) erzeugt."
+    },
+    {
+      "begriff": "Target",
+      "englisch": "target",
+      "erklaerung": "In CMake eine Bibliothek oder ein Programm, an dem Einstellungen und Abhängigkeiten hängen."
+    },
+    {
+      "begriff": "Out-of-Source-Build",
+      "englisch": "out-of-source build",
+      "erklaerung": "Alle erzeugten Dateien landen in einem eigenen Verzeichnis, getrennt vom Quellcode."
+    }
   ],
   "weiterlesen": [
-    { "titel": "CMake: cmake-buildsystem(7)", "url": "https://cmake.org/cmake/help/latest/manual/cmake-buildsystem.7.html" },
-    { "titel": "CMake: target_link_libraries", "url": "https://cmake.org/cmake/help/latest/command/target_link_libraries.html" }
+    {
+      "titel": "CMake: cmake-buildsystem(7)",
+      "url": "https://cmake.org/cmake/help/latest/manual/cmake-buildsystem.7.html"
+    },
+    {
+      "titel": "CMake: target_link_libraries",
+      "url": "https://cmake.org/cmake/help/latest/command/target_link_libraries.html"
+    }
   ]
 }

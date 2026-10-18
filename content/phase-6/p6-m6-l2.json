@@ -1,0 +1,125 @@
+{
+  "id": "p6-m6-l2",
+  "phase": 6,
+  "modul": "6.6 Analoge Werte und DMA",
+  "titel": "DMA",
+  "lernziele": [
+    "Erklären, wann sich DMA lohnt und wie eine Übertragung konfiguriert wird",
+    "Ringpuffer mit Halb- und Voll-Interrupt verarbeiten",
+    "Cache- und Lebensdauerfehler bei DMA erkennen"
+  ],
+  "dauerMinuten": 7,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Ein ADC liefert 100 000 Werte pro Sekunde. Jeder Wert in einer ISR abgeholt kostet etwa 50 Takte. Was ist die bessere Lösung?",
+      "optionen": [
+        "Ein **DMA**-Controller kopiert die Werte selbstständig in einen Puffer, die CPU wird nur alle paar hundert Werte benachrichtigt",
+        "Eine schnellere ISR schreiben",
+        "Die Hauptschleife fragt den ADC ständig ab"
+      ],
+      "korrekt": 0,
+      "erklaerung": "**Direct Memory Access** bedeutet: Ein eigener Baustein überträgt Daten zwischen Peripherie und Speicher, ohne dass die CPU jedes Wort anfassen muss. Bei 100 kHz würden 5 Mio. Takte pro Sekunde allein in ISRs verschwinden, mit DMA fast nichts.",
+      "begruendungen": [
+        "Richtig.",
+        "Auch eine schnelle ISR hat den Aufwand für Ein- und Austritt bei jedem Wert.",
+        "Polling bindet die CPU vollständig."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Eine DMA-Übertragung einrichten",
+      "text": "Ein DMA-Kanal wird mit wenigen Angaben konfiguriert:\n\n- **Quelle** und **Ziel** (z. B. ADC-Datenregister und Puffer im RAM)\n- **Anzahl** der Elemente und ihre **Breite** (8, 16 oder 32 Bit)\n- **Inkrement**: Das Peripherieregister bleibt gleich, die Speicheradresse wird weitergezählt\n- **Auslöser** (*request*): Welche Peripherie sagt, dass ein neuer Wert bereit ist\n- **Modus**: einmalig oder **zirkulär**, dann beginnt der Kanal am Ende wieder von vorn\n\nAm Ende (und optional bei der Hälfte) löst der DMA einen Interrupt aus."
+    },
+    {
+      "typ": "reihenfolge",
+      "frage": "So verarbeitet man einen kontinuierlichen Datenstrom ohne Lücken. Bringe die Schritte in die richtige Reihenfolge.",
+      "elemente": [
+        "DMA im zirkulären Modus auf einen Puffer mit 2·N Werten starten",
+        "Halb-Interrupt: Die erste Hälfte ist voll, der DMA schreibt jetzt in die zweite",
+        "Die CPU verarbeitet die erste Hälfte",
+        "Voll-Interrupt: Die zweite Hälfte ist voll, der DMA beginnt wieder vorn",
+        "Die CPU verarbeitet die zweite Hälfte"
+      ],
+      "erklaerung": "Das ist **Doppelpufferung** (*ping-pong*). Die Verarbeitung einer Hälfte muss fertig sein, bevor der DMA sie wieder überschreibt. Das gibt eine harte Zeitschranke vor: N Abtastungen lang."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Abtastrate 48 kHz, Puffer mit 2 · 480 Werten. Wie viel Zeit bleibt für die Verarbeitung einer Hälfte?",
+      "optionen": ["10 ms", "20 ms", "1 ms", "480 ms"],
+      "korrekt": 0,
+      "fest": true,
+      "erklaerung": "480 Werte bei 48 000 Werten pro Sekunde füllen sich in 10 ms. In dieser Zeit muss die Verarbeitung der anderen Hälfte fertig sein, inklusive aller Interrupts, die dazwischenkommen.",
+      "begruendungen": [
+        "Richtig.",
+        "Das wäre die Zeit für den ganzen Puffer.",
+        "Um eine Zehnerpotenz verrechnet.",
+        "Das wäre bei 1 kHz."
+      ]
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Auf einem Cortex-M7 mit Daten-Cache (z. B. STM32H7) liest die CPU nach dem DMA-Interrupt immer wieder die alten Werte. Welche Zeile fehlt bzw. ist falsch?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "alignas(32) uint16_t puffer[512];",
+          "",
+          "extern \"C\" void DMA1_Stream0_IRQHandler() {",
+          "    DMA1->LIFCR = DMA_LIFCR_CTCIF0;",
+          "    // Cache wird hier nicht beachtet",
+          "    verarbeite(puffer, 512);",
+          "}"
+        ]
+      },
+      "fehlerZeile": 5,
+      "erklaerung": "Der DMA schreibt direkt ins RAM, die CPU liest aber aus ihrem Cache, wo noch die alten Daten liegen. Vor dem Lesen muss der Bereich ungültig gemacht werden: `SCB_InvalidateDCache_by_Addr(puffer, sizeof(puffer));`. Umgekehrt muss man vor einem Sende-DMA mit `SCB_CleanDCache_by_Addr` den Cache zurückschreiben. Alternativ legt man DMA-Puffer per MPU in einen nicht cachebaren Bereich. Das `alignas(32)` ist richtig: Cache-Operationen arbeiten auf ganzen 32-Byte-Zeilen."
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Diese Funktion sendet gelegentlich Datenmüll über die UART. Welche Zeile verursacht das?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "void sendeStatus(uint8_t temperatur) {",
+          "    char text[32];",
+          "    const int n = std::snprintf(text, sizeof text, \"T=%u\\r\\n\", temperatur);",
+          "    uart_dma_senden(text, n);   // kehrt sofort zurück",
+          "}"
+        ]
+      },
+      "fehlerZeile": 2,
+      "erklaerung": "`text` liegt auf dem Stack und ist ungültig, sobald die Funktion zurückkehrt. Der DMA liest aber noch Millisekunden später daraus, während andere Funktionen den Stack schon wieder überschreiben. DMA-Puffer müssen so lange leben wie die Übertragung: statisch, in einem Objekt mit passender Lebensdauer oder mit einem Sendepuffer, der erst nach dem Fertig-Interrupt freigegeben wird."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Ordne jedem DMA-Problem die Abhilfe zu.",
+      "paare": [
+        { "links": "CPU liest alte Daten (Cortex-M7)", "rechts": "Cache invalidieren oder Puffer nicht cachebar machen" },
+        { "links": "Puffer wird während der Übertragung ungültig", "rechts": "Statische Lebensdauer oder Freigabe erst im Fertig-Interrupt" },
+        { "links": "Verarbeitung kommt nicht nach", "rechts": "Grössere Puffer oder schnellere Verarbeitung, Zeitbudget messen" },
+        { "links": "DMA erreicht den Speicher nicht", "rechts": "Puffer in einen RAM-Bereich legen, an dem der DMA-Bus hängt" }
+      ],
+      "erklaerung": "Der letzte Punkt überrascht viele: Auf manchen Chips (z. B. STM32H7) kann nicht jeder DMA-Controller jeden RAM-Bereich erreichen, etwa nicht das DTCM. Die Bus-Matrix im Referenzhandbuch zeigt das."
+    }
+  ],
+  "praxis": "DMA steckt hinter fast jeder schnellen Schnittstelle: Audio, Displays, UART mit hoher Datenrate, Messwerterfassung. Die meisten DMA-Fehler sind keine Logikfehler, sondern Fehler beim Speicher: Cache, Lebensdauer, Ausrichtung, Erreichbarkeit. In der Treiber-API hilft es, Puffer als `std::span` mit klar dokumentierter Lebensdauer zu übergeben.",
+  "labor": {
+    "titel": "Doppelpuffer simulieren",
+    "anleitung": "Simuliere auf dem PC einen DMA mit einem Thread, der im Takt Werte in einen Ringpuffer schreibt und bei Hälfte und Ende einen Callback aufruft. Lass die Verarbeitung bewusst zu lange dauern und erkenne den Überlauf mit einem Zähler.",
+    "befehle": [
+      "g++ -std=c++20 -pthread -fsanitize=thread dma_sim.cpp -o dma_sim",
+      "./dma_sim"
+    ],
+    "beobachtung": "Der ThreadSanitizer meldet einen Data Race, sobald Verarbeitung und Schreiben gleichzeitig dieselbe Hälfte betreffen. Genau das passiert auf der echten Hardware still und ohne Meldung."
+  },
+  "begriffe": [
+    { "begriff": "DMA", "englisch": "direct memory access", "erklaerung": "Datenübertragung zwischen Peripherie und Speicher ohne Beteiligung der CPU." },
+    { "begriff": "Zirkulärer Modus", "englisch": "circular mode", "erklaerung": "DMA-Modus, in dem der Kanal am Pufferende automatisch wieder von vorn beginnt." },
+    { "begriff": "Doppelpufferung", "englisch": "double buffering / ping-pong", "erklaerung": "Eine Hälfte wird gefüllt, während die andere verarbeitet wird." },
+    { "begriff": "Cache-Kohärenz", "englisch": "cache coherency", "erklaerung": "Übereinstimmung zwischen Cache und Speicher, bei DMA manuell sicherzustellen." }
+  ],
+  "weiterlesen": [
+    { "titel": "ST: AN4839 Level 1 cache on STM32F7 and STM32H7", "url": "https://www.st.com/resource/en/application_note/an4839-level-1-cache-on-stm32f7-series-and-stm32h7-series-stmicroelectronics.pdf" }
+  ]
+}

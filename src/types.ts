@@ -164,6 +164,10 @@ export interface Phase {
   titel: string;
   beschreibung: string;
   module: Modul[];
+  /** Symbol für die Darstellung, z. B. ein Emoji. */
+  icon?: string;
+  /** Farbton (0–360) für die Farbgebung der Phase. */
+  farbe?: number;
 }
 
 export interface Curriculum {

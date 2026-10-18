@@ -1,0 +1,118 @@
+{
+  "id": "p6-m7-l2",
+  "phase": 6,
+  "modul": "6.7 Start, Updates und Zuverlässigkeit",
+  "titel": "Bootloader und Firmware-Updates",
+  "lernziele": [
+    "Aufgaben und Aufbau eines Bootloaders erklären",
+    "Update-Strategien mit Rückfallmöglichkeit vergleichen",
+    "Typische Fehler beim Sprung in die Anwendung erkennen"
+  ],
+  "dauerMinuten": 7,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Geräte im Feld sollen neue Firmware bekommen. Was darf dabei auf keinen Fall passieren?",
+      "optionen": [
+        "Ein Stromausfall mitten im Update macht das Gerät unbrauchbar (*brick*)",
+        "Das Update dauert ein paar Sekunden länger",
+        "Die neue Firmware ist grösser als die alte"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Ein Update muss **atomar** wirken: Entweder läuft danach die neue Version, oder die alte läuft weiter. Dafür sorgt ein kleiner **Bootloader**, der selbst nie aktualisiert wird (oder nur sehr vorsichtig) und entscheidet, welches Image gestartet wird.",
+      "begruendungen": [
+        "Richtig.",
+        "Dauer ist meist unkritisch.",
+        "Grösse ist eine Planungsfrage, kein grundsätzliches Risiko."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Typischer Aufbau",
+      "text": "Der Flash wird aufgeteilt, zum Beispiel:\n\n- `0x0800 0000`: **Bootloader** (16 bis 64 KB)\n- `0x0801 0000`: **Slot A** mit der Anwendung\n- danach **Slot B** für das neue Image\n- ein kleiner Bereich für Metadaten (aktiver Slot, Versuchszähler)\n\nDer Bootloader prüft beim Start Integrität (CRC) und **Signatur** des Images, wählt den Slot und springt hinein. Bekannte Open-Source-Lösung: **MCUboot**, verwendet etwa von Zephyr."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Ordne die Update-Strategien zu.",
+      "paare": [
+        { "links": "A/B-Slots", "rechts": "Neues Image in den freien Slot, umschalten, bei Problemen zurück" },
+        { "links": "Swap mit Scratch", "rechts": "Images werden sektorweise getauscht, nur ein ausführbarer Slot nötig" },
+        { "links": "Einzelslot mit Wiederherstellung", "rechts": "Anwendung wird überschrieben, nur der Bootloader kann neu laden" },
+        { "links": "Delta-Update", "rechts": "Nur die Unterschiede übertragen, spart Bandbreite" }
+      ],
+      "erklaerung": "A/B ist am robustesten, braucht aber doppelten Platz. Der Einzelslot spart Flash, das Gerät ist während des Updates aber ohne Anwendung. Delta-Updates sind bei Funkverbindungen mit wenig Bandbreite beliebt."
+    },
+    {
+      "typ": "reihenfolge",
+      "frage": "Ein robustes A/B-Update mit Testlauf. Bringe die Schritte in die richtige Reihenfolge.",
+      "elemente": [
+        "Neues Image in Slot B schreiben und Prüfsumme kontrollieren",
+        "Slot B als „zu testen“ markieren und neu starten",
+        "Bootloader prüft die Signatur und startet Slot B",
+        "Die Anwendung prüft sich selbst und bestätigt das Update",
+        "Ohne Bestätigung startet der Bootloader beim nächsten Reset wieder Slot A"
+      ],
+      "erklaerung": "Der letzte Schritt ist das Sicherheitsnetz: Hängt die neue Firmware, löst der Watchdog einen Reset aus, und ohne Bestätigung fällt der Bootloader zurück (*rollback*)."
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Der Sprung in die Anwendung",
+      "text": "Der Bootloader muss vor dem Sprung aufräumen: Interrupts sperren, benutzte Peripherie zurücksetzen, SysTick stoppen. Dann:\n\n1. **VTOR** (Vector Table Offset Register) auf die Vektortabelle der Anwendung setzen\n2. Den Stackpointer aus dem ersten Wort dieser Tabelle laden\n3. Zur Adresse aus dem zweiten Wort springen\n\nDie Anwendung muss für ihre Startadresse gelinkt sein. Ihr Linkerskript muss also mit `ORIGIN = 0x08010000` beginnen und nicht mit dem Flash-Anfang."
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Der Bootloader springt korrekt nach `0x08010000`, aber die Anwendung stürzt sofort ab. Welche Zeile im Linkerskript der Anwendung ist falsch?",
+      "code": {
+        "sprache": "text",
+        "datei": "app.ld",
+        "zeilen": [
+          "MEMORY",
+          "{",
+          "  FLASH (rx)  : ORIGIN = 0x08000000, LENGTH = 448K",
+          "  RAM   (rwx) : ORIGIN = 0x20000000, LENGTH = 128K",
+          "}"
+        ]
+      },
+      "fehlerZeile": 3,
+      "erklaerung": "Die Anwendung wurde für den Flash-Anfang gelinkt. Alle absoluten Adressen, Sprünge und die Vektortabelle zeigen damit in den Bootloader. Richtig wäre `ORIGIN = 0x08010000` (Bootloader mit 64 KB davor). Ebenso muss die Anwendung `SCB->VTOR` auf ihre eigene Tabelle setzen, falls der Bootloader das nicht tut."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Warum reicht eine CRC-Prüfsumme allein nicht, wenn Updates über das Internet kommen?",
+      "optionen": [
+        "Eine CRC erkennt Übertragungsfehler, aber kein Angreifer-Image. Dazu braucht es eine kryptografische Signatur, die der Bootloader mit einem öffentlichen Schlüssel prüft",
+        "Weil CRC zu langsam ist",
+        "Eine CRC reicht völlig aus"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Wer ein manipuliertes Image einspielt, berechnet einfach die passende CRC dazu. Eine Signatur (z. B. ECDSA oder Ed25519) kann nur erstellen, wer den privaten Schlüssel hat. Das ist die Grundlage von **Secure Boot**, mehr dazu in Modul 12.3. Dazu gehört auch ein Schutz gegen **Downgrade** auf alte, verwundbare Versionen.",
+      "begruendungen": [
+        "Richtig.",
+        "CRC ist sehr schnell, das ist nicht das Problem.",
+        "Gegen absichtliche Manipulation schützt CRC nicht."
+      ]
+    }
+  ],
+  "praxis": "Die Update-Fähigkeit ist eine Architekturentscheidung, die ganz am Anfang fallen muss: Flash-Aufteilung, Bootloader, Signaturschlüssel, Versionierung, Rückfall. Nachträglich ist das kaum noch einzubauen. Seit dem EU Cyber Resilience Act sind sichere Updates für vernetzte Produkte zudem Pflicht. In Reviews fragst du: Was passiert bei Stromausfall in jeder Phase des Updates?",
+  "labor": {
+    "titel": "MCUboot kennenlernen",
+    "anleitung": "Signiere ein Beispiel-Image mit dem MCUboot-Werkzeug `imgtool` und sieh dir den Header an, den der Bootloader prüft.",
+    "befehle": [
+      "pip install imgtool",
+      "imgtool keygen -k schluessel.pem -t ecdsa-p256",
+      "imgtool sign -k schluessel.pem --align 4 -v 1.2.0 -H 0x200 -S 0x60000 app.bin app_signiert.bin",
+      "imgtool dumpinfo app_signiert.bin"
+    ],
+    "beobachtung": "Vor dem eigentlichen Code steht ein Header mit Magic, Version und Grösse, am Ende ein Trailer mit Hash und Signatur. Die Option `-H 0x200` ist der Platz für den Header: Auch dafür muss das Linkerskript der Anwendung passen."
+  },
+  "begriffe": [
+    { "begriff": "Bootloader", "englisch": "bootloader", "erklaerung": "Kleines Programm, das beim Start das Anwendungs-Image prüft, auswählt und startet." },
+    { "begriff": "A/B-Update", "englisch": "A/B update", "erklaerung": "Update-Verfahren mit zwei Slots, bei dem die alte Version als Rückfall erhalten bleibt." },
+    { "begriff": "VTOR", "englisch": "vector table offset register", "erklaerung": "Register eines Cortex-M, das festlegt, wo die aktive Vektortabelle liegt." },
+    { "begriff": "Rollback", "englisch": "rollback", "erklaerung": "Automatische Rückkehr zur vorherigen Firmware, wenn die neue nicht bestätigt wird." }
+  ],
+  "weiterlesen": [
+    { "titel": "MCUboot: Design", "url": "https://docs.mcuboot.com/design.html" },
+    { "titel": "Interrupt (Memfault): How to write a bootloader from scratch", "url": "https://interrupt.memfault.com/blog/how-to-write-a-bootloader-from-scratch" }
+  ]
+}

@@ -1,0 +1,107 @@
+{
+  "id": "p11-m7-l2",
+  "phase": 11,
+  "modul": "11.7 Architektur dokumentieren und bewerten",
+  "titel": "Qualitätsszenarien und Architekturbewertung",
+  "lernziele": [
+    "Qualitätsanforderungen als überprüfbare Szenarien formulieren",
+    "Eine Architektur mit einer leichtgewichtigen ATAM-Bewertung prüfen",
+    "Risiken, Kompromisse und Sensitivitätspunkte benennen"
+  ],
+  "dauerMinuten": 7,
+  "schritte": [
+    {
+      "typ": "zuordnen",
+      "frage": "Ein **Qualitätsszenario** hat sechs Teile. Ordne sie am Beispiel zu.",
+      "paare": [
+        { "links": "Quelle", "rechts": "Der Bediener" },
+        { "links": "Stimulus", "rechts": "drückt den Not-Halt" },
+        { "links": "Umgebung", "rechts": "während des Normalbetriebs unter Volllast" },
+        { "links": "Artefakt", "rechts": "die Motorsteuerung" },
+        { "links": "Reaktion", "rechts": "schaltet das Drehmoment ab" },
+        { "links": "Mass", "rechts": "innerhalb von 10 ms, in 100 % der Fälle" }
+      ],
+      "erklaerung": "Aus „das System soll sicher und schnell sein“ wird so eine überprüfbare Anforderung. Das Mass macht das Szenario testbar. Szenarien gibt es für alle Qualitäten: Wartbarkeit („ein neuer Sensortyp ist in zwei Tagen integriert“), Verfügbarkeit, Security, Portierbarkeit."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Welches ist ein gutes Szenario für **Änderbarkeit**?",
+      "optionen": [
+        "Ein Entwickler ersetzt den Temperatursensor durch ein anderes Modell. Nur der Treiber wird geändert, die Änderung ist in einem Tag erledigt und getestet",
+        "Die Software soll leicht änderbar sein",
+        "Der Code hat eine zyklomatische Komplexität unter 10"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Das Szenario nennt eine konkrete, wahrscheinliche Änderung und wie gross ihr Aufwand sein darf. Daraus folgt eine Architekturentscheidung: ein Sensor-Interface mit HAL. Codemetriken wie Komplexität sind nützlich, sagen aber nichts darüber, ob die Struktur zu den erwarteten Änderungen passt.",
+      "begruendungen": [
+        "Richtig.",
+        "Das ist ein Wunsch, kein überprüfbares Szenario.",
+        "Das ist eine Codemetrik, keine Qualitätsanforderung an die Architektur."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "ATAM in leicht",
+      "text": "Die **Architecture Tradeoff Analysis Method** (ATAM) des SEI bewertet eine Architektur systematisch gegen Qualitätsszenarien. Eine leichtgewichtige Variante passt in einen halben Tag:\n\n1. Geschäftsziele und Architektur kurz vorstellen\n2. Einen **Qualitätsbaum** aufstellen: Qualitäten, darunter Szenarien, priorisiert nach Wichtigkeit und Schwierigkeit\n3. Für die wichtigsten Szenarien durchspielen, wie die Architektur sie erfüllt\n4. Ergebnisse festhalten:\n\n- **Risiken**: Entscheidungen, die ein Szenario gefährden\n- **Sensitivitätspunkte**: Stellen, an denen eine Qualität stark von einem Parameter abhängt\n- **Kompromisse** (*trade-offs*): Stellen, an denen zwei Qualitäten gegeneinander wirken"
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Ein Event-Bus macht das System leicht erweiterbar, erhöht aber die Latenz und erschwert den Nachweis der Reaktionszeit für den Not-Halt. Wie nennt man das in ATAM?",
+      "optionen": ["Einen Kompromiss (*trade-off*)", "Einen Sensitivitätspunkt", "Ein Nicht-Risiko"],
+      "korrekt": 0,
+      "erklaerung": "Eine Entscheidung verbessert eine Qualität (Erweiterbarkeit) und verschlechtert eine andere (Leistung, Nachweisbarkeit). Eine typische Lösung: Der Not-Halt wird nicht über den Bus geführt, sondern über einen direkten, hochpriorisierten Pfad oder sogar in Hardware. Der Bus bleibt für alles andere.",
+      "begruendungen": [
+        "Richtig.",
+        "Ein Sensitivitätspunkt betrifft eine einzelne Qualität, hier sind es zwei gegenläufige.",
+        "Hier besteht gerade ein Spannungsfeld."
+      ]
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "In dieser Bewertung eines Firmware-Entwurfs ist ein Eintrag falsch eingeordnet. Welcher?",
+      "code": {
+        "sprache": "text",
+        "datei": "bewertung.md",
+        "zeilen": [
+          "Risiko: Firmware-Update ohne A/B-Slots, ein Stromausfall macht das Gerät unbrauchbar.",
+          "Sensitivitätspunkt: Die Reaktionszeit hängt stark von der Queue-Länge der Motor-Task ab.",
+          "Kompromiss: Verschlüsselung der Telemetrie erhöht Sicherheit, kostet aber 15 % CPU.",
+          "Nicht-Risiko: Der Watchdog wird im SysTick-Interrupt gefüttert."
+        ]
+      },
+      "fehlerZeile": 4,
+      "erklaerung": "Ein Watchdog im Timer-Interrupt erkennt keine hängende Hauptschleife (Modul 6.7). Das ist ein Risiko, kein Nicht-Risiko. Genau solche Funde sind der Wert einer Bewertung: Sie entstehen, wenn Erfahrene den Entwurf gegen konkrete Szenarien wie „die Regelungs-Task hängt“ durchspielen."
+    },
+    {
+      "typ": "reihenfolge",
+      "frage": "Bringe eine leichtgewichtige Architekturbewertung in die richtige Reihenfolge.",
+      "elemente": [
+        "Ziele und Randbedingungen vorstellen",
+        "Architektur mit C4-Diagrammen vorstellen",
+        "Qualitätsbaum mit priorisierten Szenarien aufstellen",
+        "Die wichtigsten Szenarien gegen die Architektur durchspielen",
+        "Risiken, Kompromisse und Massnahmen festhalten und verfolgen"
+      ],
+      "erklaerung": "Der Nutzen liegt nicht im Dokument, sondern im gemeinsamen Verständnis und in den Massnahmen. Plane die Bewertung früh, wenn Änderungen noch günstig sind, und wiederhole sie bei grossen Änderungen."
+    }
+  ],
+  "praxis": "Als Senior-Entwickler moderierst du solche Bewertungen oder bringst die richtigen Fragen ein: Was passiert, wenn …? Wie lange darf …? Was kostet es, wenn …? Qualitätsszenarien sind auch ein hervorragendes Werkzeug in Gesprächen mit Produktverantwortlichen: Sie machen sichtbar, dass jede Qualität ihren Preis hat und priorisiert werden muss.",
+  "labor": {
+    "titel": "Einen Qualitätsbaum erstellen",
+    "anleitung": "Erstelle für ein System aus deinem Umfeld einen Qualitätsbaum mit mindestens drei Qualitäten und je zwei Szenarien. Bewerte jedes Szenario mit Wichtigkeit (H/M/N) und Schwierigkeit (H/M/N) und spiele die zwei mit H/H gegen die aktuelle Architektur durch.",
+    "befehle": [
+      "mkdir -p doc/architektur && touch doc/architektur/qualitaetsszenarien.md"
+    ],
+    "beobachtung": "Fast immer stellt sich heraus, dass das Team unterschiedliche Vorstellungen von den wichtigsten Qualitäten hatte. Allein das ist den Aufwand wert."
+  },
+  "begriffe": [
+    { "begriff": "Qualitätsszenario", "englisch": "quality attribute scenario", "erklaerung": "Konkrete, messbare Beschreibung einer Qualitätsanforderung mit Stimulus, Reaktion und Mass." },
+    { "begriff": "ATAM", "englisch": "architecture tradeoff analysis method", "erklaerung": "Methode des SEI zur Bewertung von Architekturen gegen Qualitätsszenarien." },
+    { "begriff": "Sensitivitätspunkt", "englisch": "sensitivity point", "erklaerung": "Entwurfsstelle, an der eine Qualität stark von einem Parameter abhängt." },
+    { "begriff": "Kompromiss", "englisch": "trade-off", "erklaerung": "Entscheidung, die eine Qualität verbessert und eine andere verschlechtert." }
+  ],
+  "weiterlesen": [
+    { "titel": "SEI: Architecture Tradeoff Analysis Method Collection", "url": "https://insights.sei.cmu.edu/library/architecture-tradeoff-analysis-method-collection/" },
+    { "titel": "arc42 Quality Model (Q42)", "url": "https://quality.arc42.org/" }
+  ]
+}

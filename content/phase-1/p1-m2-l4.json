@@ -31,12 +31,32 @@
       "titel": "Sektionen",
       "text": "Ein Object-File ist in **Sektionen** (sections) gegliedert. Jede Sektion fasst Inhalte mit gleichen Eigenschaften zusammen. Der Linker legt später gleichnamige Sektionen aller Object-Files hintereinander.",
       "tabelle": {
-        "kopf": ["Sektion", "Inhalt", "Eigenschaft"],
+        "kopf": [
+          "Sektion",
+          "Inhalt",
+          "Eigenschaft"
+        ],
         "zeilen": [
-          ["`.text`", "Maschinencode der Funktionen", "lesen und ausführen"],
-          ["`.rodata`", "Konstanten, String-Literale", "nur lesen"],
-          ["`.data`", "globale/statische Variablen mit Startwert ≠ 0", "lesen und schreiben, Werte stehen in der Datei"],
-          ["`.bss`", "globale/statische Variablen ohne Startwert oder = 0", "lesen und schreiben, belegt **keinen** Platz in der Datei"]
+          [
+            "`.text`",
+            "Maschinencode der Funktionen",
+            "lesen und ausführen"
+          ],
+          [
+            "`.rodata`",
+            "Konstanten, String-Literale",
+            "nur lesen"
+          ],
+          [
+            "`.data`",
+            "globale/statische Variablen mit Startwert ≠ 0",
+            "lesen und schreiben, Werte stehen in der Datei"
+          ],
+          [
+            "`.bss`",
+            "globale/statische Variablen ohne Startwert oder = 0",
+            "lesen und schreiben, belegt **keinen** Platz in der Datei"
+          ]
         ]
       }
     },
@@ -44,10 +64,22 @@
       "typ": "zuordnen",
       "frage": "In welcher Sektion landet was? Alle Variablen sind global.",
       "paare": [
-        { "links": "`int addiere(int a, int b) { return a + b; }`", "rechts": "`.text`" },
-        { "links": "`int zaehler = 42;`", "rechts": "`.data`" },
-        { "links": "`int puffer[1024];`", "rechts": "`.bss`" },
-        { "links": "das Literal `\"Hallo\"` in `const char* s = \"Hallo\";`", "rechts": "`.rodata`" }
+        {
+          "links": "`int addiere(int a, int b) { return a + b; }`",
+          "rechts": "`.text`"
+        },
+        {
+          "links": "`int zaehler = 42;`",
+          "rechts": "`.data`"
+        },
+        {
+          "links": "`int puffer[1024];`",
+          "rechts": "`.bss`"
+        },
+        {
+          "links": "das Literal `\"Hallo\"` in `const char* s = \"Hallo\";`",
+          "rechts": "`.rodata`"
+        }
       ],
       "erklaerung": "`puffer` hat keinen Startwert und wird deshalb beim Programmstart mit Nullen gefüllt. Dafür muss in der Datei nichts gespeichert werden, nur die Grösse. Der Zeiger `s` selbst ist eine Variable mit Startwert und liegt in `.data`, der Text \"Hallo\" in `.rodata`."
     },
@@ -64,7 +96,11 @@
           "int tabelle[100000] = {1};"
         ]
       },
-      "optionen": ["Variante A", "Variante B", "Beide gleich viel"],
+      "optionen": [
+        "Variante A",
+        "Variante B",
+        "Beide gleich viel"
+      ],
       "korrekt": 1,
       "fest": true,
       "erklaerung": "In Variante B ist ein Element ungleich null. Das ganze Array kommt deshalb in `.data`, und alle 400 000 Byte stehen in der Datei, auch die Nullen. Variante A liegt in `.bss`, dort wird nur die Grösse vermerkt. Den RAM belegen beide gleich.",
@@ -136,7 +172,12 @@
           "   1517     600  400032  402149   622e5 app"
         ]
       },
-      "optionen": ["1517 Byte", "600 Byte", "400032 Byte", "402149 Byte"],
+      "optionen": [
+        "1517 Byte",
+        "600 Byte",
+        "400032 Byte",
+        "402149 Byte"
+      ],
       "korrekt": 2,
       "fest": true,
       "erklaerung": "Die Spalte `bss` zählt die mit Null initialisierten Variablen. Sie belegen zur Laufzeit 400 KB RAM, stehen aber nicht in der Datei. `dec` und `hex` sind nur die Summe der drei Spalten. Auf Mikrocontrollern ist `size` ein schneller Check, ob Flash (`text` + `data`) und RAM (`data` + `bss`) noch reichen.",
@@ -161,12 +202,30 @@
     "beobachtung": "Im Object-File stehen nach `e8` vier Nullbytes. Im fertigen Programm stehen dort echte Werte, und `objdump` zeigt `call ... <_Z7addiereii>` mit Zieladresse."
   },
   "begriffe": [
-    { "begriff": "Sektion", "englisch": "section", "erklaerung": "Benannter Bereich in einem Object-File, z. B. `.text` für Code oder `.data` für initialisierte Variablen." },
-    { "begriff": ".bss", "englisch": "block started by symbol", "erklaerung": "Sektion für Variablen, die mit Null starten. Belegt RAM, aber keinen Platz in der Datei." },
-    { "begriff": "Relocation", "englisch": "relocation", "erklaerung": "Vermerk im Object-File: An dieser Stelle muss der Linker die Adresse eines Symbols eintragen." }
+    {
+      "begriff": "Sektion",
+      "englisch": "section",
+      "erklaerung": "Benannter Bereich in einem Object-File, z. B. `.text` für Code oder `.data` für initialisierte Variablen."
+    },
+    {
+      "begriff": ".bss",
+      "englisch": "block started by symbol",
+      "erklaerung": "Sektion für Variablen, die mit Null starten. Belegt RAM, aber keinen Platz in der Datei."
+    },
+    {
+      "begriff": "Relocation",
+      "englisch": "relocation",
+      "erklaerung": "Vermerk im Object-File: An dieser Stelle muss der Linker die Adresse eines Symbols eintragen."
+    }
   ],
   "weiterlesen": [
-    { "titel": "GNU Binutils: objdump", "url": "https://sourceware.org/binutils/docs/binutils/objdump.html" },
-    { "titel": "GNU Binutils: size", "url": "https://sourceware.org/binutils/docs/binutils/size.html" }
+    {
+      "titel": "GNU Binutils: objdump",
+      "url": "https://sourceware.org/binutils/docs/binutils/objdump.html"
+    },
+    {
+      "titel": "GNU Binutils: size",
+      "url": "https://sourceware.org/binutils/docs/binutils/size.html"
+    }
   ]
 }

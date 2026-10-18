@@ -1,0 +1,178 @@
+{
+  "id": "p13-m3-l1",
+  "phase": 13,
+  "modul": "13.3 Schätzen und Planen",
+  "titel": "Aufwände schätzen",
+  "lernziele": [
+    "Gründe für zu niedrige Schätzungen kennen",
+    "Mit Bandbreiten und Drei-Punkt-Schätzungen arbeiten",
+    "Schätzungen und Zusagen ehrlich kommunizieren"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Warum liegen Software-Schätzungen meistens zu **niedrig**?",
+      "optionen": [
+        "Man denkt an den Normalfall und vergisst Unbekanntes, Tests, Reviews, Integration und Unterbrechungen",
+        "Entwickler übertreiben gerne, um Puffer zu haben",
+        "Weil Computer immer langsamer werden"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Beim Schätzen stellt man sich vor, wie die Arbeit läuft, wenn alles klappt. Die Wirklichkeit enthält Überraschungen: ein Treiber, der anders funktioniert als dokumentiert, ein flaky Test, eine Rückfrage, die zwei Tage dauert. Dazu kommt **Optimismus**: Man erinnert sich an die Aufgaben, die gut liefen.",
+      "begruendungen": [
+        "Richtig.",
+        "Die Erfahrung zeigt das Gegenteil, die meisten Schätzungen sind zu knapp.",
+        "Mit der Hardware hat das nichts zu tun."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Besser schätzen",
+      "text": "- **Zerlegen**: Grosse Aufgaben in Teile von höchstens ein bis zwei Tagen. Kleine Teile schätzt man genauer.\n- **Alles einrechnen**: Tests, Review und Nacharbeit, Dokumentation, Integration auf der Zielhardware, Auslieferung.\n- **Bandbreiten statt Punkte**: „3 bis 6 Tage“ ist ehrlicher als „4 Tage“.\n- **Drei-Punkt-Schätzung**: optimistisch (a), wahrscheinlich (m), pessimistisch (b). Nach PERT ergibt sich der Erwartungswert (a + 4m + b) / 6.\n- **Vergleichen**: Wie lange hat eine ähnliche Aufgabe wirklich gedauert? Das heisst *Referenzklasse*."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Für die Anbindung eines neuen Sensors schätzt du optimistisch 2 Tage, wahrscheinlich 4 Tage, pessimistisch 12 Tage. Was ergibt die PERT-Formel?",
+      "code": {
+        "sprache": "text",
+        "zeilen": [
+          "Erwartungswert = (a + 4·m + b) / 6"
+        ]
+      },
+      "optionen": [
+        "5 Tage",
+        "4 Tage",
+        "6 Tage",
+        "12 Tage"
+      ],
+      "korrekt": 0,
+      "fest": true,
+      "erklaerung": "(2 + 4·4 + 12) / 6 = 30 / 6 = 5 Tage. Der Erwartungswert liegt über dem wahrscheinlichsten Wert, weil die pessimistische Seite viel weiter reicht. Genau dieser lange Schwanz nach oben fehlt bei Punktschätzungen.",
+      "begruendungen": [
+        "Richtig.",
+        "4 Tage ist der wahrscheinlichste Wert, nicht der Erwartungswert.",
+        "Nachrechnen: (2 + 16 + 12) / 6.",
+        "Das ist der pessimistische Wert."
+      ]
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Ordne die Begriffe zu.",
+      "paare": [
+        {
+          "links": "Schätzung",
+          "rechts": "Annahme über den Aufwand, mit Unsicherheit"
+        },
+        {
+          "links": "Zusage",
+          "rechts": "Versprechen eines Termins, das Puffer einschliesst"
+        },
+        {
+          "links": "Unsicherheitskegel",
+          "rechts": "Am Anfang eines Vorhabens ist die Unsicherheit am grössten und nimmt dann ab"
+        },
+        {
+          "links": "Referenzklasse",
+          "rechts": "Vergleich mit ähnlichen, bereits abgeschlossenen Aufgaben"
+        }
+      ],
+      "erklaerung": "Der häufigste Fehler im Alltag ist, Schätzung und Zusage zu verwechseln. „Ich schätze vier Tage“ wird zu „Er hat Donnerstag versprochen“. Wer beides ausdrücklich trennt, vermeidet viel Ärger."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Was wird beim Schätzen am häufigsten vergessen?",
+      "optionen": [
+        "Tests schreiben und anpassen",
+        "Code-Review und die Nacharbeit danach",
+        "Integration und Fehlersuche auf der Zielhardware",
+        "Das Schreiben des eigentlichen Codes"
+      ],
+      "korrekt": [
+        0,
+        1,
+        2
+      ],
+      "erklaerung": "Den eigentlichen Code hat man beim Schätzen vor Augen, alles drumherum nicht. In Embedded-Projekten ist die Integration auf echter Hardware oft der grösste und am wenigsten vorhersehbare Posten. Eine Checkliste aller Schritte hilft gegen das Vergessen.",
+      "begruendungen": [
+        "Richtig.",
+        "Richtig.",
+        "Richtig.",
+        "Den schätzt man meist, er ist nur selten der grösste Teil."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Unsicherheit verkleinern",
+      "text": "Ist eine Aufgabe zu unklar, um sie zu schätzen, schätzt man nicht ins Blaue, sondern verkleinert zuerst die Unsicherheit: mit einem **Spike**, einer kurzen, zeitlich begrenzten Untersuchung. Zum Beispiel einen halben Tag, um zu prüfen, ob der neue Sensor sich mit dem vorhandenen I²C-Treiber ansprechen lässt.\n\nKommuniziert wird ehrlich: „Wahrscheinlich 3 bis 6 Tage. Die grösste Unsicherheit ist die Sensor-Anbindung. Nach einem halben Tag Spike kann ich genauer schätzen.“"
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Die Projektleitung fragt: „Wie lange dauert das?“ Die Aufgabe ist noch unklar. Was antwortest du?",
+      "optionen": [
+        "Eine Bandbreite, die grösste Unsicherheit und das Angebot, sie mit einem kurzen Spike zu klären",
+        "Eine genaue Zahl, damit die Planung einfacher wird",
+        "„Das kann man nicht schätzen.“"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Die Projektleitung braucht eine Grundlage für ihre Planung, und eine ehrliche Bandbreite mit Weg zu mehr Genauigkeit ist genau das. Eine falsche Genauigkeit fällt später auf dich zurück. Eine Weigerung hilft niemandem.",
+      "begruendungen": [
+        "Richtig.",
+        "Eine genaue Zahl täuscht eine Sicherheit vor, die es nicht gibt.",
+        "Fast alles lässt sich grob schätzen, nur nicht genau."
+      ]
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze den Fachbegriff.",
+      "text": "Eine kurze, zeitlich begrenzte Untersuchung, die vor einer Schätzung Unsicherheit verringert, heisst {{?}}.",
+      "luecken": [
+        {
+          "loesungen": [
+            "Spike"
+          ]
+        }
+      ],
+      "auswahl": [
+        "Spike",
+        "Sprint",
+        "Epic",
+        "Release"
+      ],
+      "erklaerung": "Das Ergebnis eines Spikes ist Wissen, nicht Produktcode. Der Code aus einem Spike wird oft weggeworfen, und das ist in Ordnung."
+    }
+  ],
+  "praxis": "Gute Schätzungen sind weniger eine Frage der Methode als der Ehrlichkeit: Bandbreiten statt Punkte, Unsicherheit benennen, früh melden, wenn sich etwas ändert. Eine einfache Gewohnheit verbessert Schätzungen über die Zeit enorm: nach jeder Aufgabe kurz notieren, was geschätzt war und was es tatsächlich wurde. Nach ein paar Monaten kennst du deinen persönlichen Korrekturfaktor.",
+  "labor": {
+    "titel": "Den eigenen Korrekturfaktor finden",
+    "anleitung": "Schätze für die nächsten fünf Aufgaben jeweils optimistisch, wahrscheinlich und pessimistisch. Notiere danach die tatsächliche Dauer.",
+    "befehle": [
+      "echo 'Aufgabe;a;m;b;tatsaechlich' > schaetzungen.csv",
+      "echo 'Sensor anbinden;2;4;12;7' >> schaetzungen.csv"
+    ],
+    "beobachtung": "Liegt die tatsächliche Dauer regelmässig über dem wahrscheinlichen Wert, ist das normal. Das Verhältnis zwischen tatsächlich und geschätzt ist dein persönlicher Korrekturfaktor."
+  },
+  "begriffe": [
+    {
+      "begriff": "Drei-Punkt-Schätzung",
+      "englisch": "three-point estimate",
+      "erklaerung": "Schätzung mit optimistischem, wahrscheinlichem und pessimistischem Wert."
+    },
+    {
+      "begriff": "Spike",
+      "englisch": "spike",
+      "erklaerung": "Kurze, zeitlich begrenzte Untersuchung, um eine unsichere Frage zu klären."
+    },
+    {
+      "begriff": "Unsicherheitskegel",
+      "englisch": "cone of uncertainty",
+      "erklaerung": "Die Unsicherheit einer Schätzung ist zu Beginn am grössten und nimmt mit dem Fortschritt ab."
+    }
+  ],
+  "weiterlesen": [
+    {
+      "titel": "Wikipedia: Three-point estimation",
+      "url": "https://en.wikipedia.org/wiki/Three-point_estimation"
+    }
+  ]
+}

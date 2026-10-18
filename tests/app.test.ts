@@ -52,6 +52,7 @@ function beantworten(s: Schritt, richtig: boolean) {
 
 beforeAll(async () => {
   Element.prototype.scrollIntoView = vi.fn();
+  HTMLCanvasElement.prototype.getContext = vi.fn(() => null) as unknown as typeof HTMLCanvasElement.prototype.getContext;
   window.scrollTo = vi.fn() as unknown as typeof window.scrollTo;
   document.body.innerHTML = '<div id="app"></div>';
   localStorage.clear();

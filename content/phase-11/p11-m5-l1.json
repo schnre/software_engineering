@@ -1,0 +1,123 @@
+{
+  "id": "p11-m5-l1",
+  "phase": 11,
+  "modul": "11.5 Automotive und Robotik",
+  "titel": "AUTOSAR Classic",
+  "lernziele": [
+    "Die Schichten der AUTOSAR-Classic-Architektur beschreiben",
+    "Software-Komponenten, Ports und RTE verstehen",
+    "Den Entwicklungsablauf mit Konfiguration und Codegenerierung einordnen"
+  ],
+  "dauerMinuten": 7,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Wozu dient **AUTOSAR**?",
+      "optionen": [
+        "Ein Standard der Automobilindustrie für die Software-Architektur von Steuergeräten, damit Software zwischen Herstellern, Zulieferern und Hardware wiederverwendbar ist",
+        "Eine Programmiersprache für Autos",
+        "Ein Betriebssystem eines einzelnen Herstellers"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Ein modernes Auto hat über 100 Steuergeräte von vielen Zulieferern. AUTOSAR (*AUTomotive Open System ARchitecture*) legt eine gemeinsame Schichtenarchitektur, Schnittstellen und eine Methodik fest. **Classic** ist für tief eingebettete Steuergeräte auf Mikrocontrollern mit harter Echtzeit gedacht, **Adaptive** für leistungsfähige Rechner (nächste Lektion).",
+      "begruendungen": [
+        "Richtig.",
+        "Implementiert wird meist in C, zunehmend auch in C++.",
+        "AUTOSAR ist ein offener Standard mit Implementierungen verschiedener Anbieter."
+      ]
+    },
+    {
+      "typ": "reihenfolge",
+      "frage": "Bringe die Schichten von AUTOSAR Classic von oben nach unten in die richtige Reihenfolge.",
+      "elemente": [
+        "Application Layer: Software-Komponenten (SWCs) mit der Funktionslogik",
+        "RTE (Runtime Environment): generierte Verbindungsschicht",
+        "Basic Software: Services (Kommunikation, Speicher, Diagnose, OS)",
+        "ECU Abstraction und Microcontroller Abstraction Layer (MCAL)",
+        "Mikrocontroller-Hardware"
+      ],
+      "erklaerung": "Das ist eine konsequente Schichtenarchitektur mit HAL (Modul 10.2). Die SWCs kennen weder Hardware noch Bus. Sie lesen und schreiben Signale über Ports. Ob ein Signal lokal, über CAN oder Ethernet ankommt, entscheidet die Konfiguration."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Ordne die Begriffe zu.",
+      "paare": [
+        { "links": "SWC", "rechts": "Software-Komponente mit Ports, enthält Runnables" },
+        { "links": "Runnable", "rechts": "Funktion einer SWC, die von der RTE zyklisch oder bei Ereignissen aufgerufen wird" },
+        { "links": "Sender-Receiver-Port", "rechts": "Überträgt Daten, z. B. die Fahrzeuggeschwindigkeit" },
+        { "links": "Client-Server-Port", "rechts": "Ruft eine Operation auf, z. B. „lies Fehlerspeicher“" }
+      ],
+      "erklaerung": "Runnables werden auf Tasks des AUTOSAR OS verteilt, das auf dem OSEK-Standard beruht: statisch konfigurierte Tasks mit festen Prioritäten und Priority Ceiling für Ressourcen (Modul 7.2)."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Was macht dieses Runnable?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "void Tempomat_Run10ms(void) {",
+          "    float32 ist;",
+          "    float32 soll;",
+          "    Rte_Read_PP_Geschwindigkeit_Wert(&ist);",
+          "    Rte_Read_PP_Sollgeschwindigkeit_Wert(&soll);",
+          "    const float32 moment = regler_schritt(soll, ist);",
+          "    Rte_Write_PP_Antriebsmoment_Wert(moment);",
+          "}"
+        ]
+      },
+      "optionen": [
+        "Es liest alle 10 ms zwei Signale über die RTE, rechnet einen Reglerschritt und schreibt das Ergebnis, ohne zu wissen, woher die Signale kommen",
+        "Es sendet direkt eine CAN-Nachricht",
+        "Es konfiguriert die Hardware des Mikrocontrollers"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Die `Rte_Read_…`- und `Rte_Write_…`-Funktionen erzeugt ein Generator aus der Konfiguration. Hinter `Rte_Read_PP_Geschwindigkeit_Wert` kann eine lokale Variable, eine CAN-Nachricht von einem anderen Steuergerät oder ein Wert aus einem anderen Kern stecken. So lässt sich die SWC auf ein anderes Steuergerät verschieben, ohne dass ihr Code sich ändert.",
+      "begruendungen": [
+        "Richtig.",
+        "Den Bus kennt die SWC nicht, das erledigt die Basic Software.",
+        "Hardware gehört in die unteren Schichten."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Konfiguration statt Programmierung",
+      "text": "Ein grosser Teil einer AUTOSAR-Classic-Software wird nicht programmiert, sondern **konfiguriert**: Komponenten, Ports, Signale, Busse, Tasks, Speicherbereiche, Diagnose. Die Beschreibung liegt in **ARXML**-Dateien. Werkzeuge (Vector DaVinci, EB tresos, ETAS ISOLAR) erzeugen daraus RTE und Basic Software.\n\nDas hat Vorteile (Wiederverwendung, Werkzeugunterstützung, normgerechte Abläufe) und Nachteile (komplexe Werkzeugketten, lange Generierzeiten, wenig Flexibilität). Der Applikationscode in den SWCs folgt meist MISRA C oder AUTOSAR C++14 bzw. MISRA C++:2023."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Warum ist das Betriebssystem in AUTOSAR Classic statisch konfiguriert, ohne dynamisches Anlegen von Tasks?",
+      "optionen": [
+        "Vorhersagbarkeit: Alle Tasks, Prioritäten und Ressourcen sind zur Übersetzungszeit bekannt, das Zeitverhalten lässt sich analysieren und für die funktionale Sicherheit nachweisen",
+        "Weil Mikrocontroller keine dynamischen Tasks unterstützen",
+        "Aus Lizenzgründen"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Das passt zu allem, was du in Phase 7 gelernt hast: kein Heap, statische Allokation, bekannte Auslastung, Analyse der Antwortzeiten. Für ISO 26262 (Modul 12.1) ist dieser Nachweis Pflicht.",
+      "begruendungen": [
+        "Richtig.",
+        "Technisch wäre es möglich, wie FreeRTOS zeigt.",
+        "Es ist eine technische Entscheidung."
+      ]
+    }
+  ],
+  "praxis": "Wer im Automotive-Umfeld arbeitet, begegnet AUTOSAR Classic fast überall in Steuergeräten. Als Entwickler schreibst du meist SWCs oder Komplexe Treiber (*Complex Device Drivers*), die ausserhalb der Standardschichten auf Hardware zugreifen. Die Architekturprinzipien sind übertragbar: Funktionslogik ohne Hardwarewissen, Kommunikation über definierte Ports, Verteilung durch Konfiguration.",
+  "labor": {
+    "titel": "Signale in einer DBC-Datei",
+    "anleitung": "Sieh dir eine öffentliche DBC-Datei an (z. B. aus dem opendbc-Projekt) und dekodiere damit aufgezeichnete CAN-Daten mit Python. Die DBC-Datei entspricht den Signalen, die in AUTOSAR an die Ports gebunden werden.",
+    "befehle": [
+      "pip install cantools",
+      "git clone --depth 1 https://github.com/commaai/opendbc.git",
+      "python -m cantools dump opendbc/opendbc/dbc/toyota_new_mc_pt_generated.dbc | head -60"
+    ],
+    "beobachtung": "Für jede Nachricht zeigt `cantools` ID, Länge und Signale mit Startbit, Länge, Byte-Reihenfolge, Faktor, Offset und Einheit. Genau diese Angaben braucht die Basic Software, um aus Bytes Signalwerte zu machen."
+  },
+  "begriffe": [
+    { "begriff": "AUTOSAR Classic", "englisch": "AUTOSAR Classic Platform", "erklaerung": "Standardisierte Software-Architektur für Steuergeräte auf Mikrocontrollern." },
+    { "begriff": "RTE", "englisch": "runtime environment", "erklaerung": "Generierte Schicht, die Software-Komponenten untereinander und mit der Basic Software verbindet." },
+    { "begriff": "SWC", "englisch": "software component", "erklaerung": "AUTOSAR-Komponente mit Ports und Runnables für Funktionslogik." },
+    { "begriff": "MCAL", "englisch": "microcontroller abstraction layer", "erklaerung": "Unterste AUTOSAR-Schicht mit Treibern für die Peripherie des Mikrocontrollers." }
+  ],
+  "weiterlesen": [
+    { "titel": "AUTOSAR: Classic Platform", "url": "https://www.autosar.org/standards/classic-platform" }
+  ]
+}

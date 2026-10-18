@@ -1,141 +1,155 @@
 {
   "id": "p6-m2-l1",
   "phase": 6,
-  "modul": "6.2 Interfaces und Header als Verträge",
-  "titel": "Header als Schnittstelle",
+  "modul": "6.2 Register und Bits",
+  "titel": "Bitmanipulation",
   "lernziele": [
-    "Einen öffentlichen Header als Vertrag gestalten und dokumentieren",
-    "Unnötige Abhängigkeiten im Header mit Vorwärtsdeklarationen vermeiden",
-    "Typische Fehler in öffentlichen Headern erkennen"
+    "Bits setzen, löschen, umschalten und prüfen",
+    "Felder aus Registern lesen und hineinschreiben",
+    "Undefined Behavior bei Shifts vermeiden"
   ],
   "dauerMinuten": 6,
   "schritte": [
     {
-      "typ": "multiple-choice",
-      "frage": "Was gehört in einen öffentlichen Header eines Moduls?",
-      "optionen": [
-        "Genau das, was Nutzer zum Aufrufen brauchen: Deklarationen, Typen, dokumentierte Zusagen, und möglichst wenige Includes",
-        "Alles, was das Modul intern verwendet, damit Nutzer nichts selbst einbinden müssen",
-        "Nur Makros und Konstanten"
-      ],
-      "korrekt": 0,
-      "erklaerung": "Jede Zeile im öffentlichen Header wird Teil des Vertrags mit allen Nutzern, und jedes Include darin wird zu einer Abhängigkeit aller Nutzer. Ein schlanker Header hält Kopplung und Kompilierzeit klein.",
-      "begruendungen": [
-        "Richtig.",
-        "Dann hängen alle Nutzer von allen Interna ab, und jede interne Änderung kostet einen Neubau bei allen.",
-        "Funktionen und Klassen sind der eigentliche Inhalt einer Schnittstelle."
-      ]
-    },
-    {
-      "typ": "erklaerung",
-      "titel": "Ein Header ist ein Vertrag",
-      "text": "Die Signatur sagt nur, *wie* man etwas aufruft. Ein vollständiger Vertrag sagt auch:\n\n- **Vorbedingungen**: Was muss der Aufrufer sicherstellen?\n- **Nachbedingungen**: Was gilt nach dem Aufruf?\n- **Ownership**: Wem gehören übergebene und zurückgegebene Objekte?\n- **Thread-Sicherheit**: Darf man das gleichzeitig aus mehreren Threads aufrufen?\n- **Fehlerverhalten**: Exception, Rückgabewert oder Abbruch?\n\nViel davon lässt sich im Typ ausdrücken (`const&`, `std::unique_ptr`, `std::optional`, `[[nodiscard]]`, `noexcept`). Den Rest dokumentiert man direkt im Header, dort, wo Nutzer hinschauen."
-    },
-    {
-      "typ": "fehler-finden",
-      "frage": "Dieser öffentliche Header wird von 300 Dateien eingebunden. Welche Zeile richtet dort den grössten Schaden an?",
-      "code": {
-        "sprache": "cpp",
-        "datei": "protokoll/protokoll.h",
-        "zeilen": [
-          "#pragma once",
-          "#include <string>",
-          "#include <vector>",
-          "using namespace std;",
-          "",
-          "class Protokoll {",
-          "public:",
-          "    void schreibe(const string& zeile);",
-          "private:",
-          "    vector<string> zeilen_;",
-          "};"
-        ]
-      },
-      "fehlerZeile": 4,
-      "erklaerung": "`using namespace std;` im Header wirkt in **jeder** Datei, die ihn einbindet. Dort können plötzlich eigene Namen mit `std::` kollidieren, z. B. `count`, `distance` oder `data`, oft mit rätselhaften Fehlermeldungen. In Headern immer voll qualifizieren (`std::string`). In `.cpp`-Dateien ist eine gezielte `using`-Deklaration in Ordnung."
-    },
-    {
-      "typ": "zuordnen",
-      "frage": "Welcher Teil des Vertrags ist das?",
-      "paare": [
-        { "links": "„`daten` darf nicht leer sein.“", "rechts": "Vorbedingung" },
-        { "links": "„Nach dem Aufruf ist die Datei geschlossen.“", "rechts": "Nachbedingung" },
-        { "links": "„Der Aufrufer behält den Besitz von `puffer`.“", "rechts": "Ownership" },
-        { "links": "„Darf von mehreren Threads gleichzeitig aufgerufen werden.“", "rechts": "Thread-Sicherheit" },
-        { "links": "„Wirft `std::invalid_argument` bei negativer Grösse.“", "rechts": "Fehlerverhalten" }
-      ],
-      "erklaerung": "Was im Vertrag fehlt, wird geraten, und dann von verschiedenen Nutzern verschieden. Gerade Thread-Sicherheit und Ownership lassen sich aus der Signatur oft nicht ablesen und gehören deshalb in einen Kommentar."
-    },
-    {
       "typ": "code-lesen",
-      "frage": "Braucht `anzeige.h` ein `#include \"sensor.h\"`?",
+      "frage": "Welchen Wert hat `reg` am Ende?",
       "code": {
         "sprache": "cpp",
-        "datei": "anzeige.h",
         "zeilen": [
-          "#pragma once",
-          "class Sensor;   // Vorwärtsdeklaration",
-          "",
-          "class Anzeige {",
-          "public:",
-          "    void zeige(const Sensor& s);",
-          "private:",
-          "    const Sensor* aktiv_ = nullptr;",
-          "};"
+          "std::uint32_t reg = 0b1010;",
+          "reg |= (1u << 0);",
+          "reg &= ~(1u << 3);"
         ]
       },
-      "optionen": [
-        "Nein. Für Referenzen und Zeiger genügt die Vorwärtsdeklaration. `anzeige.cpp` bindet `sensor.h` ein",
-        "Ja, sonst kennt der Compiler `Sensor` nicht",
-        "Ja, weil `Sensor` als Parameter vorkommt"
-      ],
+      "optionen": ["3", "11", "10", "2"],
       "korrekt": 0,
-      "erklaerung": "Der Compiler muss die Grösse von `Sensor` nur kennen, wenn er ein `Sensor`-Objekt anlegen, kopieren oder auf Member zugreifen muss. Für `Sensor&` und `Sensor*` reicht der Name. So hängen Nutzer von `anzeige.h` nicht von `sensor.h` ab. Ändert sich `sensor.h`, wird nur neu gebaut, was `Sensor` wirklich benutzt. Wäre `Sensor` ein Member als Wert, bräuchte es das Include.",
+      "fest": true,
+      "erklaerung": "`0b1010 | 0b0001 = 0b1011` (11). Dann wird Bit 3 gelöscht: `0b1011 & ~0b1000 = 0b0011` (3). Diese beiden Muster, `|= (1u << n)` und `&= ~(1u << n)`, schreibst du in Embedded-Code täglich.",
       "begruendungen": [
         "Richtig.",
-        "Die Vorwärtsdeklaration macht den Namen bekannt.",
-        "Als Referenzparameter reicht die Deklaration, auch in der Funktionsdeklaration."
+        "11 ist der Wert nach Zeile 2, vor dem Löschen.",
+        "10 ist der Startwert.",
+        "Bit 1 bleibt gesetzt, Bit 0 kommt dazu."
       ]
     },
     {
       "typ": "erklaerung",
-      "titel": "Include what you use",
-      "text": "Jede Datei bindet genau die Header ein, deren Inhalte sie selbst verwendet, nicht mehr und nicht weniger. Sich darauf zu verlassen, dass ein anderer Header „zufällig“ `<vector>` mitbringt, ist zerbrechlich: Entfernt dort jemand das Include, bricht dein Code. Umgekehrt kosten überflüssige Includes in Headern Kompilierzeit bei allen Nutzern. Das Werkzeug *include-what-you-use* und die Warnungen von clangd helfen beim Aufräumen."
+      "titel": "Die Grundoperationen",
+      "tabelle": {
+        "kopf": ["Ziel", "Ausdruck"],
+        "zeilen": [
+          ["Bit n setzen", "`reg |= (1u << n);`"],
+          ["Bit n löschen", "`reg &= ~(1u << n);`"],
+          ["Bit n umschalten", "`reg ^= (1u << n);`"],
+          ["Bit n prüfen", "`(reg & (1u << n)) != 0`"],
+          ["Feld lesen (Position p, Maske m)", "`(reg >> p) & m`"],
+          ["Feld schreiben", "`reg = (reg & ~(m << p)) | ((wert & m) << p);`"]
+        ]
+      },
+      "text": "Für Bitoperationen nimmt man immer **vorzeichenlose** Typen. Das `u` in `1u` sorgt dafür, dass schon die Konstante vorzeichenlos ist."
     },
     {
       "typ": "lueckentext",
-      "frage": "Ergänze die Attribute, die Teile des Vertrags im Typ ausdrücken.",
+      "frage": "Ergänze die Operatoren.",
       "code": {
         "sprache": "cpp",
         "zeilen": [
-          "// Gibt false zurück, wenn der Speicher voll ist. Ergebnis muss geprüft werden.",
-          "[[{{?}}]] bool speichere(const Messwert& m);",
+          "constexpr std::uint32_t bit(unsigned n) { return 1u << n; }",
           "",
-          "// Wirft nie.",
-          "void setzeGrenze(int grenze) {{?}};"
+          "reg {{?}} bit(5);    // Bit 5 setzen",
+          "reg {{?}} ~bit(2);   // Bit 2 löschen",
+          "reg {{?}} bit(0);    // Bit 0 umschalten"
         ]
       },
-      "luecken": [{ "loesungen": ["nodiscard"] }, { "loesungen": ["noexcept"] }],
-      "auswahl": ["nodiscard", "noexcept", "deprecated", "inline"],
-      "erklaerung": "Was im Typ steht, prüft der Compiler. `[[nodiscard]]` warnt bei ignoriertem Ergebnis, `noexcept` ist eine Zusage, die auch Container für Optimierungen nutzen. Ein Kommentar kann veralten, ein Attribut nicht unbemerkt."
+      "luecken": [{ "loesungen": ["|="] }, { "loesungen": ["&="] }, { "loesungen": ["^="] }],
+      "auswahl": ["|=", "&=", "^=", "="],
+      "erklaerung": "Eine kleine `constexpr`-Hilfsfunktion wie `bit(n)` macht Code lesbarer und vermeidet Tippfehler bei Klammern. Ein einfaches `=` würde alle anderen Bits des Registers löschen."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Ein Register enthält `0x3A40`. Das Feld `MODE` belegt die Bits 6 bis 9. Was liefert der Ausdruck?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "std::uint32_t reg = 0x3A40;",
+          "std::uint32_t mode = (reg >> 6) & 0xF;"
+        ]
+      },
+      "optionen": ["9", "0xE9", "4", "10"],
+      "korrekt": 0,
+      "fest": true,
+      "erklaerung": "`0x3A40` ist binär `0011 1010 0100 0000`. Um 6 Stellen nach rechts geschoben ergibt das `0xE9` (`1110 1001`). Die Maske `0xF` behält die unteren 4 Bits: `1001` = 9. Ein Feld von 4 Bit braucht die Maske `0xF`, eines von 2 Bit die Maske `0x3`.",
+      "begruendungen": [
+        "Richtig.",
+        "Das ist der Wert nach dem Schieben, vor dem Maskieren.",
+        "Nachrechnen: Die unteren 4 Bits von `0xE9` sind `1001`.",
+        "Das wäre `0b1010`."
+      ]
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "`kanal` kann 0 bis 63 sein. Ab Kanal 31 passieren merkwürdige Dinge. Welche Zeile ist schuld?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "std::uint64_t erlaubt = 0;",
+          "",
+          "void erlaube(unsigned kanal) {",
+          "    erlaubt |= (1 << kanal);",
+          "}"
+        ]
+      },
+      "fehlerZeile": 4,
+      "erklaerung": "`1` ist ein `int` mit 32 Bit. `1 << 31` ergibt einen negativen Wert, der beim Umwandeln in `uint64_t` auf alle oberen Bits erweitert wird. `1 << 32` und mehr sind **Undefined Behavior**, weil die Schiebeweite die Breite des Typs erreicht. Richtig: `erlaubt |= (std::uint64_t{1} << kanal);`. Dass der Zieltyp 64 Bit hat, hilft nicht: Gerechnet wird im Typ der Operanden."
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Hilfen aus der Standardbibliothek",
+      "text": "Seit C++20 bietet `<bit>` sichere, effiziente Funktionen, die der Compiler oft auf einen einzigen Maschinenbefehl abbildet: `std::popcount`, `std::countr_zero`, `std::countl_zero`, `std::has_single_bit`, `std::bit_width`, `std::rotl`/`std::rotr`, dazu `std::byteswap` (C++23) und `std::bit_cast`.\n\n**Bitfelder** (`unsigned mode : 4;`) wirken bequem, ihre Anordnung im Speicher ist aber implementierungsabhängig. Für Register und Protokolle, deren Layout genau feststeht, sind Masken und Shifts die portable Wahl."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Was liefern diese Funktionen?",
+      "paare": [
+        { "links": "`std::popcount(0b1011u)`", "rechts": "3 gesetzte Bits" },
+        { "links": "`std::countr_zero(0b10000u)`", "rechts": "4 Nullen von rechts" },
+        { "links": "`std::has_single_bit(64u)`", "rechts": "`true`, eine Zweierpotenz" },
+        { "links": "`std::bit_width(5u)`", "rechts": "3 benötigte Binärstellen" },
+        { "links": "`std::byteswap(0x12345678u)`", "rechts": "`0x78563412`" }
+      ],
+      "erklaerung": "`std::countr_zero` findet z. B. schnell das niedrigste gesetzte Flag in einem Interrupt-Statusregister. `std::byteswap` braucht man beim Umrechnen zwischen Byte-Reihenfolgen in Protokollen (Modul 11.4)."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Warum nimmt man für Bitoperationen vorzeichenlose Typen wie `std::uint32_t`?",
+      "optionen": [
+        "Schieben und Negieren sind dafür vollständig definiert, und `>>` füllt immer mit Nullen auf",
+        "Vorzeichenlose Typen sind auf Mikrocontrollern schneller",
+        "Bei vorzeichenbehafteten Typen kompilieren Bitoperatoren nicht"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Bei vorzeichenbehafteten Werten kann `>>` das Vorzeichenbit nachschieben, und Überläufe beim Schieben nach links waren lange Undefined Behavior. Mit `std::uint32_t` ist alles einfach und vorhersagbar, und die feste Breite passt zu 32-Bit-Registern.",
+      "begruendungen": [
+        "Richtig.",
+        "Die Geschwindigkeit ist gleich.",
+        "Die Operatoren funktionieren, nur mit Fallstricken."
+      ]
     }
   ],
-  "praxis": "Öffentliche Header sind die teuersten Zeilen in einem grossen Projekt: Jede Änderung wirkt auf alle Nutzer, beim Kompilieren wie im Verhalten. Im Review prüfst du bei jedem neuen oder geänderten öffentlichen Header: Ist der Vertrag vollständig? Gibt es Includes, die nur die Implementierung braucht? Steht ein `using namespace` im Header?",
+  "praxis": "Bitmanipulation ist das Alphabet der Treiberentwicklung. Im Review lohnt sich ein genauer Blick auf Masken und Shifts: Stimmt die Feldbreite mit dem Referenzhandbuch überein? Ist die Konstante vorzeichenlos und breit genug? Wird beim Schreiben eines Felds der alte Inhalt gelöscht? Fehler hier zeigen sich oft erst bei bestimmten Werten.",
   "labor": {
-    "titel": "Includes aufräumen",
-    "anleitung": "Lass include-what-you-use über ein eigenes Projekt laufen und schau dir die Vorschläge für einen öffentlichen Header an.",
+    "titel": "Bitoperationen testen",
+    "anleitung": "Schreibe `constexpr`-Funktionen `setzeFeld` und `leseFeld` und prüfe sie vollständig mit `static_assert`, ohne Hardware.",
     "befehle": [
-      "cmake -S . -B build -DCMAKE_CXX_INCLUDE_WHAT_YOU_USE=include-what-you-use && cmake --build build 2>&1 | head -40"
+      "g++ -std=c++20 -Wall -Wextra -fsyntax-only bits.cpp"
     ],
-    "beobachtung": "IWYU schlägt pro Datei vor, welche Includes fehlen, welche entfernt werden können und wo eine Vorwärtsdeklaration genügt. Nicht jeder Vorschlag ist richtig, aber die Liste zeigt schnell, wo die grössten Abhängigkeiten liegen."
+    "beobachtung": "Mit `static_assert(leseFeld(0x3A40, 6, 4) == 9);` ist jede Änderung an den Funktionen sofort abgesichert. Ein Schiebefehler mit zu grosser Weite ist im konstanten Ausdruck ein Compilerfehler."
   },
   "begriffe": [
-    { "begriff": "Vertrag", "englisch": "contract", "erklaerung": "Zusagen einer Schnittstelle: Vor- und Nachbedingungen, Ownership, Thread-Sicherheit, Fehlerverhalten." },
-    { "begriff": "Vorbedingung", "englisch": "precondition", "erklaerung": "Was der Aufrufer vor dem Aufruf sicherstellen muss." },
-    { "begriff": "Include what you use", "englisch": "include what you use, IWYU", "erklaerung": "Jede Datei bindet genau die Header ein, die sie selbst verwendet." }
+    { "begriff": "Bitmaske", "englisch": "bit mask", "erklaerung": "Wert, dessen gesetzte Bits angeben, welche Bits einer Operation betroffen sind." },
+    { "begriff": "Registerfeld", "englisch": "register field", "erklaerung": "Gruppe benachbarter Bits in einem Register mit gemeinsamer Bedeutung." }
   ],
   "weiterlesen": [
-    { "titel": "C++ Core Guidelines: SF – Source files", "url": "https://isocpp.github.io/CppCoreGuidelines/CppCoreGuidelines#S-source" },
-    { "titel": "include-what-you-use", "url": "https://include-what-you-use.org/" }
+    { "titel": "cppreference: Bit manipulation (<bit>)", "url": "https://en.cppreference.com/w/cpp/header/bit" }
   ]
 }

@@ -1,133 +1,147 @@
 {
   "id": "p7-m3-l1",
   "phase": 7,
-  "modul": "7.3 Ports & Adapters",
-  "titel": "Hexagonale Architektur",
+  "modul": "7.3 Speicher ohne Heap",
+  "titel": "Statische Allokation und Speicherpools",
   "lernziele": [
-    "Ports und Adapter unterscheiden",
-    "Die Abhängigkeitsrichtung zum fachlichen Kern einhalten",
-    "Einen Ablauf durch Adapter, Kern und Ports nachvollziehen"
+    "Begründen, warum viele Embedded-Projekte den Heap verbieten",
+    "Objekte statisch oder in Pools mit fester Blockgrösse anlegen",
+    "Den Speicherbedarf zur Übersetzungszeit festlegen"
   ],
-  "dauerMinuten": 6,
+  "dauerMinuten": 7,
   "schritte": [
     {
       "typ": "multiple-choice",
-      "frage": "Wovon sollte der fachliche Kern einer Anwendung abhängen?",
+      "frage": "Ein Gerät soll jahrelang ohne Neustart laufen. Warum ist `new`/`malloc` im laufenden Betrieb dort problematisch?",
       "optionen": [
-        "Von nichts Technischem. Datenbank, Netzwerk, Oberfläche und Hardware hängen vom Kern ab, nicht umgekehrt",
-        "Von der Datenbank, weil dort die Daten liegen",
-        "Von der Oberfläche, weil sie den Ablauf steuert"
+        "Fragmentierung kann irgendwann eine Anforderung scheitern lassen, obwohl genug Speicher frei ist, und die Laufzeit ist nicht vorhersagbar",
+        "Weil `new` auf Mikrocontrollern nicht existiert",
+        "Weil der Heap immer langsamer ist als der Stack"
       ],
       "korrekt": 0,
-      "erklaerung": "Die Fachlogik ist der wertvollste und langlebigste Teil eines Systems. Datenbanken, Protokolle und Oberflächen wechseln öfter. Hängt der Kern von ihnen ab, zieht jeder Technikwechsel Änderungen an der Fachlogik nach sich.",
+      "erklaerung": "Nach vielen Anforderungen und Freigaben unterschiedlicher Grösse ist der freie Speicher in kleine Lücken zerstückelt (**Fragmentierung**). Eine grössere Anforderung scheitert dann, vielleicht erst nach Wochen im Feld. Dazu kommt die schwankende Laufzeit. Darum verbieten MISRA C++, AUTOSAR C++14 und viele Firmenregeln dynamischen Speicher nach der Initialisierung.",
       "begruendungen": [
         "Richtig.",
-        "Dann ist die Fachlogik an eine Datenbank gekoppelt und ohne sie nicht testbar.",
-        "Auch die Oberfläche ist austauschbar und sollte den Kern nur benutzen."
+        "`new` funktioniert, wenn ein Heap eingerichtet ist.",
+        "Die Geschwindigkeit ist nicht das Hauptproblem, sondern die Vorhersagbarkeit."
       ]
     },
     {
       "typ": "erklaerung",
-      "titel": "Ports und Adapter",
-      "text": "Die **hexagonale Architektur** (Alistair Cockburn, auch *Ports & Adapters*) stellt den fachlichen **Kern** in die Mitte:\n\n- Ein **Port** ist eine Schnittstelle, die der Kern **selbst definiert**: „Ich muss Messwerte speichern können“ (`IMesswertSpeicher`).\n- Ein **Adapter** setzt einen Port mit einer konkreten Technik um: `SqliteSpeicher`, `CanAusgang`, `RestHandler`, `FakeSpeicher` im Test.\n\n**Treibende** Adapter rufen den Kern auf (Kommandozeile, Netzwerk-Handler, Tests). **Getriebene** Adapter werden vom Kern aufgerufen (Datenbank, Hardware, E-Mail). Alle Abhängigkeiten zeigen nach innen."
+      "titel": "Strategien ohne Heap",
+      "text": "1. **Alles statisch**: Objekte als globale oder `static`-Variablen. Der Linker meldet zur Übersetzungszeit, wenn das RAM nicht reicht.\n2. **Nur beim Start allozieren**: `new` ist während der Initialisierung erlaubt, danach nicht mehr. Dann gibt es keine Fragmentierung.\n3. **Speicherpools**: feste Anzahl Blöcke gleicher Grösse. Anfordern und Freigeben ist in O(1) möglich und fragmentiert nicht.\n4. **Container mit fester Kapazität** (nächste Lektion).\n\nIn FreeRTOS gibt es dafür `xTaskCreateStatic` und `xQueueCreateStatic`, in Zephyr die `K_..._DEFINE`-Makros."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Was macht dieser Pool?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "template <typename T, std::size_t N>",
+          "class Pool {",
+          "public:",
+          "    Pool() { for (std::size_t i = 0; i < N; ++i) frei_[i] = i; anzahlFrei_ = N; }",
+          "    template <typename... A>",
+          "    T* erzeuge(A&&... a) {",
+          "        if (anzahlFrei_ == 0) return nullptr;",
+          "        void* p = &speicher_[frei_[--anzahlFrei_]];",
+          "        return new (p) T(std::forward<A>(a)...);",
+          "    }",
+          "    void freigeben(T* t) {",
+          "        const auto i = static_cast<std::size_t>(reinterpret_cast<Block*>(t) - speicher_);",
+          "        t->~T();",
+          "        frei_[anzahlFrei_++] = i;",
+          "    }",
+          "private:",
+          "    struct alignas(T) Block { std::byte b[sizeof(T)]; };",
+          "    Block speicher_[N];",
+          "    std::size_t frei_[N];",
+          "    std::size_t anzahlFrei_;",
+          "};"
+        ]
+      },
+      "optionen": [
+        "Er reserviert Platz für N Objekte und konstruiert sie bei Bedarf mit Placement-new in freien Blöcken. Ist der Pool leer, kommt `nullptr` zurück",
+        "Er ruft intern `new` für jedes Objekt auf",
+        "Er konstruiert sofort N Objekte vom Typ T"
+      ],
+      "korrekt": 0,
+      "erklaerung": "**Placement-new** (`new (p) T(...)`) konstruiert ein Objekt an einer vorgegebenen Adresse, ohne Speicher anzufordern. Gegenstück ist der explizite Destruktoraufruf. Der Speicher ist roh (`std::byte`), deshalb muss `T` keinen Standardkonstruktor haben. In echtem Code kommen Thread-Sicherheit und ein Smart Pointer mit eigenem Deleter hinzu.",
+      "begruendungen": [
+        "Richtig.",
+        "Es gibt kein gewöhnliches `new`, nur Placement-new in vorhandenen Speicher.",
+        "Konstruiert wird erst in `erzeuge`."
+      ]
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Ein Pool für Nachrichten wird aus zwei Tasks benutzt. Gelegentlich bekommen beide denselben Block. Welche Zeile muss geschützt werden?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "Nachricht* erzeuge() {",
+          "    if (anzahlFrei_ == 0) return nullptr;",
+          "    const auto idx = frei_[--anzahlFrei_];",
+          "    return new (&speicher_[idx]) Nachricht{};",
+          "}"
+        ]
+      },
+      "fehlerZeile": 3,
+      "erklaerung": "Wird eine Task nach dem Lesen von `anzahlFrei_` und vor dem Herunterzählen unterbrochen, lesen beide denselben Index. Prüfung und Entnahme (Zeilen 2 und 3) müssen zusammen atomar sein: mit einem Mutex, einem kurzen kritischen Abschnitt (`taskENTER_CRITICAL`) oder einer lockfreien Freiliste."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Wie stellt man sicher, dass ein Objekt nicht versehentlich auf dem Heap landet?",
+      "optionen": [
+        "`operator new` der Klasse löschen: `static void* operator new(std::size_t) = delete;`",
+        "Den Konstruktor privat machen",
+        "Das Objekt `const` deklarieren"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Mit gelöschtem `operator new` scheitert `new Klasse` beim Übersetzen. Zusätzlich kann man im ganzen Projekt die globalen `operator new` so definieren, dass sie nach der Initialisierung einen Fehler auslösen, oder `malloc` beim Linken gar nicht mitliefern. Dann fällt jede versteckte Allokation sofort auf, auch in Bibliotheken.",
+      "begruendungen": [
+        "Richtig.",
+        "Dann kann man es auch nicht statisch anlegen.",
+        "`const` sagt nichts über den Speicherort."
+      ]
     },
     {
       "typ": "zuordnen",
-      "frage": "Ordne die Begriffe zu.",
+      "frage": "Welche Standardbibliotheks-Teile fordern Heap-Speicher an?",
       "paare": [
-        { "links": "Port", "rechts": "Schnittstelle, die der Kern selbst definiert" },
-        { "links": "Adapter", "rechts": "Umsetzung eines Ports für eine konkrete Technik" },
-        { "links": "Kern", "rechts": "Fachlogik ohne Abhängigkeit von Technik" },
-        { "links": "Treibender Adapter", "rechts": "Ruft den Kern auf, z. B. ein Netzwerk-Handler" },
-        { "links": "Getriebener Adapter", "rechts": "Wird vom Kern aufgerufen, z. B. die Datenbank" }
+        { "links": "`std::vector`, `std::string`, `std::map`", "rechts": "Ja, beim Wachsen" },
+        { "links": "`std::array`, `std::span`, `std::string_view`", "rechts": "Nein, nie" },
+        { "links": "`std::function`", "rechts": "Oft, wenn das gespeicherte Objekt zu gross für den internen Puffer ist" },
+        { "links": "Exceptions", "rechts": "Meist, das Ausnahmeobjekt wird typischerweise dynamisch angelegt" }
       ],
-      "erklaerung": "Der Unterschied zur Schichtenarchitektur ist vor allem die Sicht: Statt oben und unten gibt es innen und aussen. Datenbank und Oberfläche sind beide aussen und beide austauschbar. Die Idee ist dieselbe wie Dependency Inversion aus Modul 6.3, angewendet auf das ganze System."
+      "erklaerung": "Viele Embedded-Projekte übersetzen darum mit `-fno-exceptions` und verwenden für Callbacks Varianten mit fester Grösse, etwa `etl::delegate` oder `inplace_function`. Mehr zu den Kosten von Sprachmitteln in Modul 7.4."
     },
     {
-      "typ": "multiple-choice",
-      "frage": "Welches Include in einer Datei des Kerns verletzt die hexagonale Architektur?",
-      "optionen": [
-        "`#include <sqlite3.h>`",
-        "`#include <vector>`",
-        "`#include \"kern/messwert.h\"`"
-      ],
-      "korrekt": 0,
-      "erklaerung": "SQLite ist eine konkrete Technik und gehört in einen Adapter. Die Standardbibliothek ist dagegen Teil der Sprache und überall erlaubt. Ein Header des Kerns selbst sowieso.",
-      "begruendungen": [
-        "Richtig.",
-        "Die Standardbibliothek darf der Kern benutzen.",
-        "Das ist ein Teil des Kerns selbst."
-      ]
-    },
-    {
-      "typ": "erklaerung",
-      "titel": "Ein Port im Code",
-      "code": {
-        "sprache": "cpp",
-        "datei": "kern/include/kern/ports.h",
-        "zeilen": [
-          "#pragma once",
-          "#include <vector>",
-          "#include \"kern/messwert.h\"",
-          "",
-          "class IMesswertSpeicher {",
-          "public:",
-          "    virtual ~IMesswertSpeicher() = default;",
-          "    virtual void speichere(const Messwert& m) = 0;",
-          "    virtual std::vector<Messwert> lade(Zeitraum z) const = 0;",
-          "};"
-        ],
-        "anmerkungen": [
-          { "zeile": 5, "text": "Der Name beschreibt die fachliche Aufgabe, nicht die Technik: nicht `IDatenbank`, sondern `IMesswertSpeicher`." },
-          { "zeile": 9, "text": "Die Typen gehören dem Kern. Kein SQL, keine Zeilen-Objekte einer Datenbankbibliothek." }
-        ]
-      },
-      "text": "Der Adapter `SqliteMesswertSpeicher` liegt in einem eigenen Modul `adapter/sqlite`, das vom Kern und von SQLite abhängt. Der Kern kennt ihn nicht."
-    },
-    {
-      "typ": "reihenfolge",
-      "frage": "Ein Messwert kommt über das Netz und wird gespeichert. In welcher Reihenfolge laufen die Teile?",
-      "elemente": [
-        "Der Netzwerk-Adapter empfängt die Anfrage und übersetzt sie in einen Kern-Typ",
-        "Der Adapter ruft einen Anwendungsfall im Kern auf",
-        "Der Kern prüft den Wert und ruft den Port `IMesswertSpeicher` auf",
-        "Der SQLite-Adapter schreibt den Messwert in die Datenbank"
-      ],
-      "erklaerung": "Der Aufruf geht von aussen über den Kern wieder nach aussen. Die **Abhängigkeiten** zeigen aber beide nach innen: Der Netzwerk-Adapter kennt den Kern, der SQLite-Adapter kennt den Port des Kerns. Der Kern kennt keinen der beiden."
-    },
-    {
-      "typ": "multiple-choice",
-      "frage": "Was ist der grösste Gewinn dieser Architektur für Tests?",
-      "optionen": [
-        "Der gesamte Kern lässt sich mit einfachen Fakes für die Ports schnell und deterministisch testen. Adapter testet man separat mit wenigen Integrationstests",
-        "Man braucht keine Tests mehr, weil die Architektur Fehler verhindert",
-        "Tests können direkt gegen die Produktionsdatenbank laufen"
-      ],
-      "korrekt": 0,
-      "erklaerung": "Die Fachlogik, wo die meisten und wichtigsten Fehler entstehen, ist vollständig ohne Datenbank, Netzwerk oder Hardware testbar, in Millisekunden. Die Adapter sind dünn und brauchen nur wenige, langsamere Integrationstests. Das ist genau die Testpyramide aus Modul 3.2.",
-      "begruendungen": [
-        "Richtig.",
-        "Architektur ersetzt keine Tests, sie macht sie möglich.",
-        "Genau das wird damit überflüssig."
-      ]
+      "typ": "lueckentext",
+      "frage": "Ergänze.",
+      "text": "Ein Pool mit Blöcken gleicher Grösse verhindert {{?}}. Objekte werden darin mit {{?}} konstruiert.",
+      "luecken": [{ "loesungen": ["Fragmentierung"] }, { "loesungen": ["Placement-new"] }],
+      "auswahl": ["Fragmentierung", "Placement-new", "Speicherlecks", "malloc"],
+      "erklaerung": "Lecks verhindert ein Pool nicht von selbst. Wer vergisst freizugeben, hat irgendwann einen leeren Pool. Immerhin ist das deterministisch und leicht zu diagnostizieren: Man zählt die belegten Blöcke."
     }
   ],
-  "praxis": "Ports & Adapters lohnt sich besonders für Systeme mit langlebiger Fachlogik und wechselnder Technik: Steuerungen, Medizingeräte, Fahrzeugfunktionen, Server-Backends. Für ein kleines Werkzeug ist es oft zu viel. Im Review prüfst du die Includes im Kern: Taucht dort eine Datenbank-, Netzwerk- oder Hardware-Bibliothek auf, ist die Grenze verletzt.",
+  "praxis": "In sicherheitskritischen Projekten ist der Speicherbedarf Teil der Architektur: Eine Tabelle legt fest, wie viele Nachrichten, Verbindungen oder Messwerte maximal gleichzeitig existieren, und daraus folgen die Pool- und Containergrössen. Was passiert, wenn ein Pool leer ist, muss entschieden sein: verwerfen, ältestes überschreiben oder in einen sicheren Zustand gehen.",
   "labor": {
-    "titel": "Den Kern freilegen",
-    "anleitung": "Prüfe in einem Projekt, ob der fachliche Teil von Technik-Bibliotheken abhängt.",
+    "titel": "Versteckte Allokationen finden",
+    "anleitung": "Definiere in einem Testprogramm einen globalen `operator new`, der jeden Aufruf mit Grösse zählt und ausgibt. Rufe dann typische Bibliotheksfunktionen auf.",
     "befehle": [
-      "rg -n '#include <(sqlite3|curl|boost/asio|QtWidgets|grpc)' src/kern/ src/domain/ 2>/dev/null | head",
-      "cmake -S . -B build --graphviz=build/deps.dot && grep kern build/deps.dot"
+      "g++ -std=c++20 -O2 allokationen.cpp -o allokationen",
+      "./allokationen"
     ],
-    "beobachtung": "Idealerweise zeigt der Graph nur Pfeile **zum** Kern, keine vom Kern zu Technik-Bibliotheken. Jeder Pfeil nach aussen ist ein Kandidat für einen neuen Port."
+    "beobachtung": "`std::function` mit einem grossen Lambda, `std::to_string`, `throw` und ein wachsender `std::vector` allozieren. `std::array`, `std::span` und kurze `std::string` mit Small String Optimization allozieren nicht."
   },
   "begriffe": [
-    { "begriff": "Hexagonale Architektur", "englisch": "hexagonal architecture, ports and adapters", "erklaerung": "Der fachliche Kern ist unabhängig von Technik. Er definiert Ports, die Adapter umsetzen." },
-    { "begriff": "Port", "englisch": "port", "erklaerung": "Vom Kern definierte Schnittstelle für eine Fähigkeit, die er von aussen braucht oder anbietet." },
-    { "begriff": "Adapter", "englisch": "adapter", "erklaerung": "Umsetzung eines Ports mit einer konkreten Technik, z. B. Datenbank oder Netzwerk." }
+    { "begriff": "Fragmentierung", "englisch": "fragmentation", "erklaerung": "Freier Speicher ist in viele kleine Lücken zerstückelt." },
+    { "begriff": "Speicherpool", "englisch": "memory pool", "erklaerung": "Vorab reservierter Speicher mit Blöcken fester Grösse." },
+    { "begriff": "Placement-new", "englisch": "placement new", "erklaerung": "Konstruiert ein Objekt an einer vorgegebenen Adresse, ohne Speicher anzufordern." }
   ],
   "weiterlesen": [
-    { "titel": "Alistair Cockburn: Hexagonal Architecture", "url": "https://alistair.cockburn.us/hexagonal-architecture/" }
+    { "titel": "cppreference: new expression (placement new)", "url": "https://en.cppreference.com/w/cpp/language/new" },
+    { "titel": "FreeRTOS: Static vs Dynamic Memory Allocation", "url": "https://www.freertos.org/Documentation/02-Kernel/02-Kernel-features/09-Memory-management/03-Static-vs-Dynamic-memory-allocation" }
   ]
 }

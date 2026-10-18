@@ -1,0 +1,164 @@
+{
+  "id": "p9-m1-l2",
+  "phase": 9,
+  "modul": "9.1 Modularisierung und Separation of Concerns",
+  "titel": "Module schneiden",
+  "lernziele": [
+    "Kriterien für sinnvolle Modulgrenzen anwenden",
+    "Information Hiding erklären und umsetzen",
+    "Ein Modul in CMake mit öffentlicher und interner Seite aufbauen"
+  ],
+  "dauerMinuten": 6,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Nach welchem Kriterium schneidet man ein grosses System am besten in Module?",
+      "optionen": [
+        "Nach fachlichen Aufgaben mit klarer Verantwortung, z. B. Telemetrie, Fahrprofil, Diagnose, die ihre Details hinter einer Schnittstelle verbergen",
+        "Nach Dateityp: alle Header in ein Modul, alle `.cpp` in ein anderes",
+        "So, dass jedes Modul ungefähr gleich viele Zeilen hat"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Ein gutes Modul hat eine Aufgabe, die man in einem Satz erklären kann, und eine Schnittstelle, die viel kleiner ist als seine Implementierung. Technische Schichten (Treiber, Dienste, Oberfläche) sind eine zweite, ergänzende Achse. Mehr dazu in Phase 10.",
+      "begruendungen": [
+        "Richtig.",
+        "Header und Implementierung gehören zusammen zu einem Modul.",
+        "Gleich grosse Module ohne fachliche Grenze haben keine klare Verantwortung."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Information Hiding",
+      "text": "David Parnas hat 1972 beschrieben, was ein gutes Modul ausmacht: Es verbirgt eine **Entscheidung, die sich wahrscheinlich ändern wird**, hinter einer Schnittstelle. Das kann ein Datenformat, ein Algorithmus, eine Hardware oder ein Protokoll sein.\n\nÄndert sich diese Entscheidung, ist nur ein Modul betroffen. Gute Modulgrenzen entstehen deshalb aus der Frage: Was wird sich hier vermutlich ändern? Und wie halte ich den Rest des Systems davon fern?"
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Ein Modul in CMake",
+      "code": {
+        "sprache": "text",
+        "zeilen": [
+          "telemetrie/",
+          "├── CMakeLists.txt",
+          "├── include/telemetrie/",
+          "│   └── telemetrie.h        // öffentliche Schnittstelle",
+          "└── src/",
+          "    ├── telemetrie.cpp",
+          "    ├── kodierung.h         // intern",
+          "    └── kodierung.cpp"
+        ]
+      },
+      "text": "Das Modul ist ein CMake-Target. Nur `include/` ist `PUBLIC`, `src/` bleibt privat. Nutzer schreiben `#include <telemetrie/telemetrie.h>` und können `kodierung.h` gar nicht einbinden. Der Präfix-Ordner `telemetrie/` verhindert Namenskollisionen zwischen Modulen."
+    },
+    {
+      "typ": "zuordnen",
+      "frage": "Ordne zu.",
+      "paare": [
+        {
+          "links": "Information Hiding",
+          "rechts": "Entscheidungen, die sich ändern könnten, hinter einer Schnittstelle verbergen"
+        },
+        {
+          "links": "Öffentlicher Header unter `include/`",
+          "rechts": "Vertrag des Moduls mit seinen Nutzern"
+        },
+        {
+          "links": "Interner Header unter `src/`",
+          "rechts": "Implementierungsdetail, für andere Module unsichtbar"
+        },
+        {
+          "links": "`target_link_libraries`",
+          "rechts": "Macht Abhängigkeiten zwischen Modulen ausdrücklich"
+        }
+      ],
+      "erklaerung": "Wenn die Build-Konfiguration die Modulgrenzen abbildet, kann man sie nicht versehentlich umgehen. Ein Modul, das ein anderes benutzt, muss das ausdrücklich in `target_link_libraries` schreiben. Das sieht jeder im Review."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Ein Modul speichert Messwerte. Welche Entscheidung sollte es im Sinne von Information Hiding **verbergen**?",
+      "optionen": [
+        "Das Speicherformat: JSON-Dateien, Binärformat oder Datenbank",
+        "Dass es Messwerte speichern und wieder laden kann",
+        "Welche Daten ein Messwert enthält (Zeit, Wert, Einheit)"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Was gespeichert wird und dass es geht, ist der Zweck des Moduls und gehört in die Schnittstelle. **Wie** gespeichert wird, ist eine Entscheidung, die sich wahrscheinlich ändert: erst JSON, dann aus Leistungsgründen binär, später eine Datenbank. Nutzer sollten davon nichts merken.",
+      "begruendungen": [
+        "Richtig.",
+        "Das ist der Zweck des Moduls, also Teil der Schnittstelle.",
+        "Der Messwert ist der Datentyp, den Nutzer brauchen. Er gehört zur Schnittstelle."
+      ]
+    },
+    {
+      "typ": "terminal-deuten",
+      "frage": "Du suchst nach relativen Includes. Was zeigt das Ergebnis?",
+      "terminal": {
+        "befehl": "rg -n '#include \"(\\.\\./)+' src/",
+        "ausgabe": [
+          "src/ui/anzeige.cpp:4:#include \"../../drivers/can/src/register.h\"",
+          "src/app/start.cpp:9:#include \"../core/src/intern.h\""
+        ]
+      },
+      "optionen": [
+        "Zwei Module greifen über relative Pfade auf interne Header anderer Module zu und umgehen deren Schnittstelle",
+        "Relative Includes sind schneller, das ist eine Optimierung",
+        "Nichts Auffälliges"
+      ],
+      "korrekt": 0,
+      "erklaerung": "`../../drivers/can/src/register.h` ist ein interner Header des CAN-Treibers, und ausgerechnet die Oberfläche benutzt ihn. Damit hängt die UI von Registerdetails ab. Mit sauberen CMake-Targets und nur `include/` als `PUBLIC` wäre das nicht kompiliert. Solche Funde sind ein guter Ausgangspunkt für ein Aufräum-Ticket.",
+      "begruendungen": [
+        "Richtig.",
+        "Es gibt keinen Geschwindigkeitsvorteil.",
+        "Das ist ein klarer Verstoss gegen die Modulgrenzen."
+      ]
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Wann ist ein Modul zu klein geschnitten?",
+      "optionen": [
+        "Wenn es fast immer zusammen mit einem bestimmten anderen Modul geändert werden muss",
+        "Wenn es weniger als 1000 Zeilen hat",
+        "Wenn es nur von einem Team bearbeitet wird"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Module, die sich immer gemeinsam ändern, sind in Wahrheit eines. Die Grenze zwischen ihnen kostet nur Aufwand (Schnittstellen pflegen, zwei Targets), ohne etwas zu verbergen. Kleine Module mit klarer Aufgabe sind dagegen kein Problem.",
+      "begruendungen": [
+        "Richtig.",
+        "Die Zeilenzahl sagt wenig. Ein CRC-Modul mit 80 Zeilen ist ein sinnvolles Modul.",
+        "Das ist eher normal und sogar wünschenswert."
+      ]
+    }
+  ],
+  "praxis": "Gute Modulgrenzen merkt man im Alltag daran, dass Änderungen klein bleiben, Tests pro Modul laufen und neue Teammitglieder ein Modul verstehen können, ohne das ganze System zu kennen. Wenn du neue Module anlegst, beginne mit der Frage, welche Entscheidung sie verbergen. Und richte das CMake-Target so ein, dass nur die öffentliche Schnittstelle sichtbar ist.",
+  "labor": {
+    "titel": "Modulgrenzen prüfen",
+    "anleitung": "Suche in einem Projekt nach Includes, die in die `src/`-Ordner anderer Module zeigen, und erzeuge den Abhängigkeitsgraphen der Targets.",
+    "befehle": [
+      "rg -n '#include \"\\.\\./' src/ | head",
+      "cmake -S . -B build --graphviz=build/deps.dot && dot -Tsvg build/deps.dot -o deps.svg"
+    ],
+    "beobachtung": "Vergleiche die Includes mit dem Graphen. Gibt es Includes zwischen Modulen, die im Graphen nicht als Abhängigkeit auftauchen, umgeht jemand die Modulgrenzen."
+  },
+  "begriffe": [
+    {
+      "begriff": "Information Hiding",
+      "englisch": "information hiding",
+      "erklaerung": "Ein Modul verbirgt eine Entscheidung, die sich ändern könnte, hinter einer stabilen Schnittstelle."
+    },
+    {
+      "begriff": "Schnittstelle",
+      "englisch": "interface",
+      "erklaerung": "Der Teil eines Moduls, den andere sehen und benutzen dürfen."
+    },
+    {
+      "begriff": "Shotgun Surgery",
+      "englisch": "shotgun surgery",
+      "erklaerung": "Eine einzige fachliche Änderung erfordert Anpassungen an vielen Stellen im Code."
+    }
+  ],
+  "weiterlesen": [
+    {
+      "titel": "D. L. Parnas: On the Criteria To Be Used in Decomposing Systems into Modules (1972)",
+      "url": "https://dl.acm.org/doi/10.1145/361598.361623"
+    }
+  ]
+}

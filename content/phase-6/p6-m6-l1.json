@@ -1,0 +1,148 @@
+{
+  "id": "p6-m6-l1",
+  "phase": 6,
+  "modul": "6.6 Analoge Werte und DMA",
+  "titel": "Analog-Digital-Wandler",
+  "lernziele": [
+    "Auflösung, Referenzspannung und Rohwert eines ADC in Beziehung setzen",
+    "Rohwerte ohne Gleitkomma und ohne Überlauf umrechnen",
+    "Abtastrate und einfache Filter sinnvoll wählen"
+  ],
+  "dauerMinuten": 7,
+  "schritte": [
+    {
+      "typ": "multiple-choice",
+      "frage": "Ein 12-Bit-ADC mit einer Referenzspannung von 3,3 V liefert den Rohwert `2048`. Welche Spannung liegt etwa am Eingang?",
+      "optionen": ["etwa 1,65 V", "etwa 2,05 V", "etwa 3,3 V", "etwa 0,8 V"],
+      "korrekt": 0,
+      "fest": true,
+      "erklaerung": "Ein 12-Bit-ADC teilt den Bereich von 0 bis Vref in 4096 Stufen. Spannung = Rohwert · Vref / 4096 = 2048 · 3,3 V / 4096 = 1,65 V. Eine Stufe (*LSB*) entspricht hier etwa 0,8 mV.",
+      "begruendungen": [
+        "Richtig.",
+        "Der Rohwert ist keine Millivolt-Angabe.",
+        "Das wäre der Vollausschlag bei 4095.",
+        "Das ist etwa ein Viertel des Bereichs."
+      ]
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Wie ein ADC arbeitet",
+      "text": "Die meisten Mikrocontroller haben einen **SAR-ADC** (sukzessive Approximation): Eine **Sample-and-Hold**-Stufe lädt einen kleinen Kondensator auf die Eingangsspannung, danach wird Bit für Bit verglichen. Wichtige Kenngrössen:\n\n- **Auflösung**: 10, 12 oder 16 Bit\n- **Referenzspannung** Vref: Jeder Fehler in Vref ist direkt ein Messfehler\n- **Abtastzeit**: Bei hochohmigen Quellen braucht der Kondensator länger. Ist sie zu kurz, misst man zu wenig\n- **Rauschen**: Die letzten ein bis zwei Bit schwanken praktisch immer\n\nWer genau messen muss, liest im Datenblatt die effektive Auflösung (ENOB) und nicht nur die Bitzahl."
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Diese Funktion rechnet ohne Gleitkomma in Millivolt um. Was liefert sie für `roh = 4095`?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "constexpr uint32_t VREF_MV = 3300;",
+          "uint32_t inMillivolt(uint16_t roh) {",
+          "    return uint32_t{roh} * VREF_MV / 4096;",
+          "}"
+        ]
+      },
+      "optionen": ["`3299`", "`3300`", "`0`", "`4095`"],
+      "korrekt": 0,
+      "fest": true,
+      "erklaerung": "4095 · 3300 = 13 513 500, geteilt durch 4096 ergibt 3299,2, ganzzahlig also 3299. Wichtig ist die Reihenfolge: zuerst multiplizieren, dann teilen. Umgekehrt (`roh / 4096 * 3300`) ergäbe der Ausdruck für jeden Rohwert 0.",
+      "begruendungen": [
+        "Richtig.",
+        "Der Vollausschlag ist 4095 von 4096 Stufen, also knapp darunter.",
+        "Das passiert nur, wenn man zuerst teilt.",
+        "Das ist der Rohwert selbst."
+      ]
+    },
+    {
+      "typ": "fehler-finden",
+      "frage": "Auf einem 8-Bit-AVR (dort ist `int` 16 Bit breit) liefert diese Umrechnung für grössere Rohwerte Unsinn. Welche Zeile ist schuld?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "uint16_t inMillivolt(uint16_t roh) {   // 10-Bit-ADC, Vref 5 V",
+          "    const uint16_t mv_pro_1024 = 5000;",
+          "    uint32_t ergebnis = roh * mv_pro_1024 / 1024;",
+          "    return static_cast<uint16_t>(ergebnis);",
+          "}"
+        ]
+      },
+      "fehlerZeile": 3,
+      "erklaerung": "`roh * mv_pro_1024` wird in `unsigned int` gerechnet, also in 16 Bit. Schon bei `roh = 14` übersteigt das Produkt 65 535 und läuft über. Dass das Ergebnis danach einem `uint32_t` zugewiesen wird, hilft nicht mehr. Richtig: `uint32_t{roh} * mv_pro_1024 / 1024`. Auf einem 32-Bit-Cortex-M tritt der Fehler nicht auf. Gerade deshalb fällt er bei einer Portierung auf."
+    },
+    {
+      "typ": "erklaerung",
+      "titel": "Abtastrate und Filter",
+      "text": "Das **Abtasttheorem** (Nyquist-Shannon) sagt: Man muss mehr als doppelt so schnell abtasten wie die höchste Frequenz im Signal. Sonst entsteht **Aliasing**, und hohe Frequenzen erscheinen als falsche tiefe. Darum gehört vor den ADC oft ein analoger Tiefpass.\n\nGegen Rauschen hilft ein digitales Filter. Sehr beliebt ist der **exponentielle gleitende Mittelwert**, ein IIR-Filter erster Ordnung, das nur einen Zustand braucht:\n\n`y += (x - y) >> k;`\n\nJe grösser `k`, desto glatter, aber auch träger reagiert der Wert."
+    },
+    {
+      "typ": "multiple-choice",
+      "frage": "Ein Vibrationssensor liefert Anteile bis 800 Hz. Welche Abtastrate ist mindestens nötig, um diese Anteile korrekt zu erfassen?",
+      "optionen": [
+        "Mehr als 1600 Hz, in der Praxis eher 4 bis 10 kHz",
+        "800 Hz",
+        "400 Hz, wegen des Mittelwerts"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Nach Nyquist braucht es mehr als die doppelte Signalfrequenz. Weil reale Filter nicht perfekt sind, wählt man deutlich mehr. Mit 800 Hz würde ein 800-Hz-Anteil als Gleichspannung erscheinen.",
+      "begruendungen": [
+        "Richtig.",
+        "Damit würde man jede Schwingung nur einmal treffen, und das Signal erschiene konstant.",
+        "Zu tiefe Abtastung erzeugt Aliasing, ein Mittelwert macht das nicht rückgängig."
+      ]
+    },
+    {
+      "typ": "code-lesen",
+      "frage": "Was macht diese Funktion mit einem Rauschen auf dem Messwert?",
+      "code": {
+        "sprache": "cpp",
+        "zeilen": [
+          "int32_t gefiltert = 0;   // Wert mal 16",
+          "",
+          "void neuerMesswert(uint16_t roh) {",
+          "    gefiltert += (int32_t{roh} * 16 - gefiltert) / 16;",
+          "}",
+          "",
+          "uint16_t wert() { return static_cast<uint16_t>(gefiltert / 16); }"
+        ]
+      },
+      "optionen": [
+        "Sie glättet es: Jeder neue Wert fliesst nur zu 1/16 ein, der interne Zustand wird mit 4 zusätzlichen Nachkommabits geführt",
+        "Sie bildet den Mittelwert der letzten 16 Werte exakt",
+        "Sie verstärkt das Signal um den Faktor 16"
+      ],
+      "korrekt": 0,
+      "erklaerung": "Das ist der exponentielle Mittelwert in Festkomma. Die Skalierung mit 16 verhindert, dass kleine Änderungen durch die Ganzzahldivision verloren gehen. Ein echter gleitender Mittelwert über 16 Werte bräuchte einen Puffer mit 16 Einträgen.",
+      "begruendungen": [
+        "Richtig.",
+        "Ältere Werte wirken hier immer schwächer nach, verschwinden aber nie ganz. Das ist kein Fenster über 16 Werte.",
+        "Die Skalierung wird beim Auslesen wieder herausgerechnet."
+      ]
+    },
+    {
+      "typ": "lueckentext",
+      "frage": "Ergänze.",
+      "text": "Ein 12-Bit-ADC unterscheidet {{?}} Stufen. Wer zu langsam abtastet, erhält {{?}}.",
+      "luecken": [{ "loesungen": ["4096"] }, { "loesungen": ["Aliasing"] }],
+      "auswahl": ["4096", "Aliasing", "1024", "Jitter"],
+      "erklaerung": "2¹² = 4096. Aliasing lässt sich nach der Abtastung nicht mehr korrigieren, nur davor verhindern."
+    }
+  ],
+  "praxis": "Messwerte sind in fast jedem Embedded-Produkt zentral: Batteriespannung, Temperatur, Strom im Motor. Typische Review-Punkte: Wird die Referenzspannung kalibriert (viele STM32 haben dafür einen Werkskalibrierwert im Flash)? Reicht die Abtastzeit für die Quellimpedanz? Gibt es einen Überlauf in der Umrechnung? Ist das Filter so träge, dass Schutzabschaltungen zu spät kommen?",
+  "labor": {
+    "titel": "Festkomma-Umrechnung testen",
+    "anleitung": "Schreibe die Umrechnung in Millivolt und das Filter als reine Funktionen und teste sie auf dem PC. Simuliere 16-Bit-`int`, indem du alle Zwischenwerte als `uint16_t` rechnest.",
+    "befehle": [
+      "g++ -std=c++20 -Wall -Wconversion adc_test.cpp -o adc_test",
+      "./adc_test"
+    ],
+    "beobachtung": "Mit `-Wconversion` warnt der Compiler bei vielen gefährlichen Umwandlungen. Ein Test mit allen 4096 Rohwerten ist schnell geschrieben und findet Überläufe sofort."
+  },
+  "begriffe": [
+    { "begriff": "ADC", "englisch": "analog-to-digital converter", "erklaerung": "Wandelt eine Spannung in einen Zahlenwert um." },
+    { "begriff": "Referenzspannung", "englisch": "reference voltage", "erklaerung": "Spannung, die dem Vollausschlag des ADC entspricht." },
+    { "begriff": "Aliasing", "englisch": "aliasing", "erklaerung": "Verfälschung, wenn ein Signal mit weniger als der doppelten Frequenz seiner Anteile abgetastet wird." },
+    { "begriff": "Festkomma", "englisch": "fixed point", "erklaerung": "Darstellung von Bruchzahlen als skalierte Ganzzahlen, ohne Gleitkommaeinheit." }
+  ],
+  "weiterlesen": [
+    { "titel": "ST: AN2834 How to get the best ADC accuracy in STM32 microcontrollers", "url": "https://www.st.com/resource/en/application_note/cd00211314.pdf" }
+  ]
+}
